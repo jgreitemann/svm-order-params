@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(svm-order-params CXX)
 
+enable_testing()
+
+add_subdirectory(svm)
+
 include_directories(ising)
 
 add_executable(svm-mc-learn main.cpp ising/ising.cpp)
