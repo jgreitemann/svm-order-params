@@ -4,41 +4,45 @@
  * For use in publications, see ACKNOWLEDGE.TXT
  */
 
-#ifndef ALPS_TUTORIALS_MC_ISING2_STORAGE_TYPE_HPP_228662e62e9247d5903f52f9644b6455
-#define ALPS_TUTORIALS_MC_ISING2_STORAGE_TYPE_HPP_228662e62e9247d5903f52f9644b6455
+#pragma once
 
 #include <vector>
 #include <alps/hdf5.hpp>
 
 // Storage class for 2D spin array.
-// Implemented as vector of vectors for simplicity.
 class storage_type {
-  private:
-    std::vector< std::vector<int> > data_;
-  public:
+private:
+    std::vector<int> data_;
+    size_t ncols;
+public:
     // Constructor
-    storage_type(int nrows, int ncols):
-      data_(nrows, std::vector<int>(ncols))
+    storage_type(size_t nrows, size_t ncols)
+        : data_(nrows * ncols), ncols(ncols)
     {}
 
     // Read access
-    int operator()(int i, int j) const {
-        return data_[i][j];
+    int operator()(size_t i, size_t j) const {
+        return data_[i * ncols + j];
     }
+
     // Read/Write access
-    int& operator()(int i, int j) {
-        return data_[i][j];
+    int& operator()(size_t i, size_t j) {
+        return data_[i * ncols + j];
     }
+
+    auto begin () { return data_.begin(); }
+    auto begin () const { return data_.begin(); }
+    auto end () { return data_.end(); }
+    auto end () const { return data_.end(); }
 
     // Custom save
     void save(alps::hdf5::archive& ar) const {
-        ar["2Darray"] << data_;
+        ar["data"] << data_;
+        ar["ncols"] << ncols;
     }
     // Custom load
     void load(alps::hdf5::archive& ar) {
-        ar["2Darray"] >> data_;
+        ar["data"] >> data_;
+        ar["ncols"] >> ncols;
     }
 };
-
-
-#endif /* ALPS_TUTORIALS_MC_ISING2_STORAGE_TYPE_HPP_228662e62e9247d5903f52f9644b6455 */
