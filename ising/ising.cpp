@@ -72,6 +72,23 @@ ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
         ;
 }
 
+void ising_sim::reset_sweeps(bool skip_therm) {
+    if (skip_therm)
+        sweeps = thermalization_sweeps;
+    else
+        sweeps = 0;
+}
+
+void ising_sim::temperature(double new_temp) {
+    parameters["temperature"] = new_temp;
+    beta = 1. / new_temp;
+    iexp_ = exp_beta(-beta);
+}
+
+bool ising_sim::is_thermalized() const {
+    return sweeps > thermalization_sweeps;
+}
+
 // Performs the calculation at each MC step;
 // decides if the step is accepted.
 void ising_sim::update() {
@@ -106,7 +123,8 @@ void ising_sim::update() {
 // Collects the measurements at each MC step.
 void ising_sim::measure() {
     ++sweeps;
-    if (sweeps<thermalization_sweeps) return;
+    if (!is_thermalized()) return;
+    std::cout << "measuring at temp: " << 1./beta << std::endl;
     
     const double n=length*length; // number of sites
     double tmag = current_magnetization / n; // magnetization
@@ -122,7 +140,7 @@ void ising_sim::measure() {
 // Returns a number between 0.0 and 1.0 with the completion percentage
 double ising_sim::fraction_completed() const {
     double f=0;
-    if (total_sweeps>0 && sweeps >= thermalization_sweeps) {
+    if (total_sweeps > 0 && is_thermalized()) {
         f=(sweeps-thermalization_sweeps)/double(total_sweeps);
     }
     return f;

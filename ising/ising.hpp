@@ -34,6 +34,10 @@ class ising_sim : public alps::mcbase {
 
     static void define_parameters(parameters_type & parameters);
 
+    void reset_sweeps(bool skip_therm = false);
+    void temperature(double new_temp);
+    bool is_thermalized() const;
+
     virtual void update();
     virtual void measure();
     virtual double fraction_completed() const;

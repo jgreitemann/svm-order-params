@@ -5,16 +5,20 @@
  */
 
 #include "ising.hpp"
+#include "training_adapter.hpp"
+
 #include <iostream>
+
 #include <alps/accumulators.hpp>
 #include <alps/mc/api.hpp>
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
 
+
 int main(int argc, char** argv)
 {
     // Define the type for the simulation
-    typedef ising_sim my_sim_type;
+    typedef training_adapter<ising_sim> sim_type;
 
     try {
     
@@ -23,7 +27,7 @@ int main(int argc, char** argv)
         std::cout << "Initializing parameters..." << std::endl;
 
         alps::params parameters(argc, argv);
-        my_sim_type::define_parameters(parameters);
+        sim_type::define_parameters(parameters);
 
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
@@ -31,7 +35,7 @@ int main(int argc, char** argv)
         }
     
         std::cout << "Creating simulation" << std::endl;
-        my_sim_type sim(parameters); 
+        sim_type sim(parameters); 
 
         // If needed, restore the last checkpoint
         std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
@@ -51,7 +55,7 @@ int main(int argc, char** argv)
                   << std::endl;
         sim.save(checkpoint_file);
 
-        alps::results_type<my_sim_type>::type results = alps::collect_results(sim);
+        alps::results_type<sim_type>::type results = alps::collect_results(sim);
 
         // Print results
         {
