@@ -124,7 +124,6 @@ void ising_sim::update() {
 void ising_sim::measure() {
     ++sweeps;
     if (!is_thermalized()) return;
-    std::cout << "measuring at temp: " << 1./beta << std::endl;
     
     const double n=length*length; // number of sites
     double tmag = current_magnetization / n; // magnetization

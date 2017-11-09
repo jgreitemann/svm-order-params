@@ -60,6 +60,30 @@ public:
         Simulation::update();
     }
 
+    using alps::mcbase::save;
+    virtual void save (alps::hdf5::archive & ar) const override {
+        Simulation::save(ar);
+
+        // non-overridable parameters
+        ar["training/temp_crit"] << temp_crit;
+
+        // state
+        ar["training/temp"] << temp;
+        ar["training/n_temp"] << n_temp;
+    }
+
+    using alps::mcbase::load;
+    virtual void load (alps::hdf5::archive & ar) override {
+        Simulation::load(ar);
+
+        // non-overridable parameters
+        ar["training/temp_crit"] >> temp_crit;
+
+        // state
+        ar["training/temp"] >> temp;
+        ar["training/n_temp"] >> n_temp;
+    }
+
 private:
     bool update_temperature () {
         double delta_temp = (2. * random() - 1.) * temp_step;
@@ -83,7 +107,8 @@ private:
     double temp_sigma_sq;
     double temp_min;
     double temp_max;
-    size_t N_temp, n_temp;
+    size_t N_temp;
 
+    size_t n_temp;
     double temp;
 };
