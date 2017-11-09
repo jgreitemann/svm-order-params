@@ -42,20 +42,22 @@ public:
         , temp_max(double(parameters["temp_max"]))
         , N_temp(size_t(parameters["N_temp"]))
         , temp(temp_crit)
+        , n_temp(0)
     {
         update_temperature();
     }
 
+    virtual double fraction_completed() const {
+        return (n_temp + Simulation::fraction_completed()) / N_temp;
+    }
 
-    bool run(std::function<bool ()> const & stop_callback) {
-        for (size_t n = 0; n < N_temp; ++n) {
-            bool complete = Simulation::run(stop_callback);
-            if (!complete)
-                throw std::runtime_error("timeout");
+    virtual void update () override {
+        if (Simulation::fraction_completed() >= 1.) {
             bool changed = update_temperature();
             Simulation::reset_sweeps(!changed);
+            ++n_temp;
         }
-        return true;
+        Simulation::update();
     }
 
 private:
@@ -81,7 +83,7 @@ private:
     double temp_sigma_sq;
     double temp_min;
     double temp_max;
-    size_t N_temp;
+    size_t N_temp, n_temp;
 
     double temp;
 };
