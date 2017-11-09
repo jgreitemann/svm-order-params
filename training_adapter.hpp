@@ -30,6 +30,8 @@ public:
             .define<double>("temp_max", std::numeric_limits<double>::max(),
                             "maximum value of temperature")
             .define<size_t>("N_temp", 1000, "number of attempted temperature updates")
+            .define<size_t>("N_sample", 1000, "number of configuration samples taken"
+                            " at each temperature")
             ;
     }
 
@@ -41,6 +43,7 @@ public:
         , temp_min(double(parameters["temp_min"]))
         , temp_max(double(parameters["temp_max"]))
         , N_temp(size_t(parameters["N_temp"]))
+        , N_sample(size_t(parameters["N_sample"]))
         , temp(temp_crit)
         , n_temp(0)
     {
@@ -55,9 +58,21 @@ public:
         if (Simulation::fraction_completed() >= 1.) {
             bool changed = update_temperature();
             Simulation::reset_sweeps(!changed);
+            i_temp = 0;
             ++n_temp;
         }
         Simulation::update();
+    }
+
+    virtual void measure () override {
+        double frac = Simulation::fraction_completed();
+        Simulation::measure();
+        if (frac == 0.) return;
+        if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
+            std::cout << "take sample at temp T = " << temp
+                      << " (" << n_temp << ", frac = " << frac << ')' << std::endl;
+            ++i_temp;
+        }
     }
 
     using alps::mcbase::save;
@@ -66,10 +81,12 @@ public:
 
         // non-overridable parameters
         ar["training/temp_crit"] << temp_crit;
+        ar["training/N_sample"] << N_sample;
 
         // state
         ar["training/temp"] << temp;
         ar["training/n_temp"] << n_temp;
+        ar["training/i_temp"] << i_temp;
     }
 
     using alps::mcbase::load;
@@ -78,10 +95,12 @@ public:
 
         // non-overridable parameters
         ar["training/temp_crit"] >> temp_crit;
+        ar["training/N_sample"] >> N_sample;
 
         // state
         ar["training/temp"] >> temp;
         ar["training/n_temp"] >> n_temp;
+        ar["training/i_temp"] >> i_temp;
     }
 
 private:
@@ -108,7 +127,9 @@ private:
     double temp_min;
     double temp_max;
     size_t N_temp;
+    size_t N_sample;
 
     size_t n_temp;
+    size_t i_temp;
     double temp;
 };
