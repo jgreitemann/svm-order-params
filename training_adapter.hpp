@@ -122,6 +122,12 @@ public:
             throw std::runtime_error("invalid problem dimension");
     }
 
+    problem_t surrender_problem () {
+        problem_t other_problem (Simulation::configuration_size());
+        std::swap(other_problem, problem);
+        return other_problem;
+    }
+
 private:
     bool update_temperature () {
         double delta_temp = (2. * random() - 1.) * temp_step;

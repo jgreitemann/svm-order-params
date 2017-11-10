@@ -5,6 +5,7 @@
  */
 
 #include "ising.hpp"
+#include "svm-wrapper.hpp"
 #include "training_adapter.hpp"
 
 #include <iostream>
@@ -78,12 +79,23 @@ int main(int argc, char** argv)
                       << fabs(binder_cumulant.error<double>()/
                               binder_cumulant.mean<double>())
                       << std::endl;
+
+            // create the model
+            using kernel_t = typename sim_type::kernel_t;
+            using model_t = svm::model<kernel_t>;
+            svm::parameters<kernel_t> kernel_params(1., 0.);
+            std::cout << "Creating SVM model..." << std::endl;
+            model_t model(sim.surrender_problem(), kernel_params);
+
+            // set up serializer
+            svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
             
             // Saving to the output file
             std::string output_file = parameters["outputfile"];
             alps::hdf5::archive ar(output_file, "w");
             ar["/parameters"] << parameters;
             ar["/simulation/results"] << results;
+            ar["/model"] << serial;
         }
         return 0;
     } catch (const std::runtime_error& exc) {
