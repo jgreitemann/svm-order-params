@@ -89,6 +89,14 @@ bool ising_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
 }
 
+size_t ising_sim::configuration_size() const {
+    return length * length;
+}
+
+std::vector<int> const& ising_sim::configuration() const {
+    return spins.data();
+}
+
 // Performs the calculation at each MC step;
 // decides if the step is accepted.
 void ising_sim::update() {

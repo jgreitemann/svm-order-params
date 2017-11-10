@@ -25,6 +25,10 @@ public:
         return data_[i * ncols + j];
     }
 
+    std::vector<int> const& data () const {
+        return data_;
+    }
+
     // Read/Write access
     int& operator()(size_t i, size_t j) {
         return data_[i * ncols + j];

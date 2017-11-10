@@ -37,6 +37,8 @@ class ising_sim : public alps::mcbase {
     void reset_sweeps(bool skip_therm = false);
     void temperature(double new_temp);
     bool is_thermalized() const;
+    size_t configuration_size() const;
+    std::vector<int> const& configuration() const;
 
     virtual void update();
     virtual void measure();

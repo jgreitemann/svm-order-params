@@ -1,5 +1,8 @@
 #pragma once
 
+#include "svm-wrapper.hpp"
+#include "hdf5_serialization.hpp"
+
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -13,6 +16,9 @@ template <class Simulation>
 class training_adapter : public Simulation {
 public:
     typedef alps::mcbase::parameters_type parameters_type;
+
+    using kernel_t = svm::kernel::polynomial<2>;
+    using problem_t = svm::problem<kernel_t>;
 
     static void define_parameters(parameters_type & parameters) {
         // If the parameters are restored, they are already defined
@@ -46,6 +52,8 @@ public:
         , N_sample(size_t(parameters["N_sample"]))
         , temp(temp_crit)
         , n_temp(0)
+        , problem(Simulation::configuration_size())
+        , prob_serializer(problem)
     {
         update_temperature();
     }
@@ -71,8 +79,13 @@ public:
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
             std::cout << "take sample at temp T = " << temp
                       << " (" << n_temp << ", frac = " << frac << ')' << std::endl;
+            problem.add_sample(Simulation::configuration(), order_label());
             ++i_temp;
         }
+    }
+
+    double order_label () const {
+        return (temp < temp_crit) ? -1. : 1.;
     }
 
     using alps::mcbase::save;
@@ -87,6 +100,8 @@ public:
         ar["training/temp"] << temp;
         ar["training/n_temp"] << n_temp;
         ar["training/i_temp"] << i_temp;
+
+        ar["training/problem"] << prob_serializer;
     }
 
     using alps::mcbase::load;
@@ -101,6 +116,10 @@ public:
         ar["training/temp"] >> temp;
         ar["training/n_temp"] >> n_temp;
         ar["training/i_temp"] >> i_temp;
+
+        ar["training/problem"] >> prob_serializer;
+        if (problem.dim() != Simulation::configuration_size())
+            throw std::runtime_error("invalid problem dimension");
     }
 
 private:
@@ -132,4 +151,7 @@ private:
     size_t n_temp;
     size_t i_temp;
     double temp;
+
+    problem_t problem;
+    svm::problem_serializer<svm::hdf5_tag, problem_t> prob_serializer;
 };
