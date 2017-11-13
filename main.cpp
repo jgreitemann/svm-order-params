@@ -30,6 +30,10 @@ int main(int argc, char** argv)
         alps::params parameters(argc, argv);
         sim_type::define_parameters(parameters);
 
+        if (!parameters.is_restored()) {
+            parameters.define<double>("C", 1., "C_SVC regularization parameter");
+        }
+
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
             return 1;
@@ -83,8 +87,12 @@ int main(int argc, char** argv)
             // create the model
             using kernel_t = typename sim_type::kernel_t;
             using model_t = svm::model<kernel_t>;
-            svm::parameters<kernel_t> kernel_params(1., 0.);
-            std::cout << "Creating SVM model..." << std::endl;
+            svm::parameters<kernel_t> kernel_params(1., 0.,
+                                                    parameters["C"].as<double>(),
+                                                    svm::machine_type::C_SVC);
+            std::cout << "Creating SVM model..."
+                      << " (C = " << parameters["C"].as<double>() << ')'
+                      << std::endl;
             model_t model(sim.surrender_problem(), kernel_params);
 
             // set up serializer
