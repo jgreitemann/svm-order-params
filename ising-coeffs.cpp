@@ -38,13 +38,14 @@ int main(int argc, char** argv) {
         svm::tensor_introspector<kernel_t, 2> coeff(model);
 
         boost::multi_array<double,2> C(boost::extents[length * length][1]);
-        for (size_t i = 0; i < length * length; ++i) {
-            C[i][0] = 0;
-            for (size_t j = 0; j < length * length; ++j) {
+        for (size_t x = 0; x < length * length; ++x) {
+            C[x][0] = 0;
+            for (size_t i = 0; i < length * length; ++i) {
+                size_t j = (i + x) % (length * length);
                 std::cout << '(' << i << ", " << j << ')' << std::endl;
-                C[i][0] += coeff.tensor({i, j});
+                C[x][0] += coeff.tensor({i, j});
             }
-            C[i][0] /= length * length;
+            C[x][0] /= length * length;
         }
         C.reshape(std::array<size_t,2>{length, length});
 
