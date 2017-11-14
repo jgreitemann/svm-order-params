@@ -38,11 +38,11 @@ int main(int argc, char** argv) {
         svm::tensor_introspector<kernel_t, 2> coeff(model);
 
         boost::multi_array<double,2> C(boost::extents[length * length][1]);
+        // C[0][0] = -model.rho();
         for (size_t x = 0; x < length * length; ++x) {
-            C[x][0] = 0;
+            std::cout << x << std::endl;
             for (size_t i = 0; i < length * length; ++i) {
                 size_t j = (i + x) % (length * length);
-                std::cout << '(' << i << ", " << j << ')' << std::endl;
                 C[x][0] += coeff.tensor({i, j});
             }
             C[x][0] /= length * length;
