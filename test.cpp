@@ -7,8 +7,11 @@
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
 
+#include <omp.h>
+
 #include <cmath>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <utility>
 
@@ -64,18 +67,26 @@ int main(int argc, char** argv)
         ar["parameters"] << parameters;
         ar["temperatures"] << temps;
 
+#pragma omp parallel for
         for (size_t i = 0; i < temps.size(); ++i) {
             alps::params local_params(parameters);
             local_params["temperature"] = temps[i];
 
-            sim_type sim(local_params); 
+            sim_type sim = [&] {
+                std::unique_ptr<sim_type> sim;
+#pragma omp critical
+                sim = std::make_unique<sim_type>(local_params);
+                return std::move(*sim);
+            } ();
             sim.run(alps::stop_callback(size_t(parameters["timelimit"])));
 
-            // attention: accumulator_set not threadsafe!
             alps::results_type<sim_type>::type results = alps::collect_results(sim);
             std::stringstream ss;
-            ss << "results/" << i;
-            ar[ss.str()] << results;
+#pragma omp critical
+            {
+                ss << "results/" << i;
+                ar[ss.str()] << results;
+            }
 
             mag[i] = {results["Magnetization^2"].mean<double>(),
                       results["Magnetization^2"].error<double>()};
