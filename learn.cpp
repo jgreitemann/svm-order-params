@@ -6,6 +6,7 @@
 
 #include "svm-wrapper.hpp"
 #include "training_adapter.hpp"
+#include "test_adapter.hpp"
 
 #include <iostream>
 
@@ -39,6 +40,7 @@ int main(int argc, char** argv)
 
         alps::params parameters(argc, argv);
         sim_type::define_parameters(parameters);
+        define_test_parameters(parameters);
 
         if (!parameters.is_restored()) {
             parameters.define<double>("C", 1., "C_SVC regularization parameter");

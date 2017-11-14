@@ -18,6 +18,12 @@ add_executable(ising-learn
     svm/data_view.cpp)
 target_compile_definitions(ising-learn PUBLIC -DISING)
 
+add_executable(ising-test
+    test.cpp
+    ising/ising.cpp
+    svm/data_view.cpp)
+target_compile_definitions(ising-test PUBLIC -DISING)
+
 add_executable(ising-coeffs
     ising-coeffs.cpp
     ising/ising.cpp
@@ -34,5 +40,7 @@ target_compile_definitions(gauge-learn PUBLIC -DGAUGE)
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
 target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm)
+target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm)
 target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm)
+
+target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm)
