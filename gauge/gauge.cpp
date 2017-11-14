@@ -140,8 +140,7 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         Uz[i] = Eigen::MatrixXd::Identity(3,3);
     }
 
-    std::cout << "Energy(normalized) at perfect order: \n "
-              << total_energy()/Eg << std::endl;
+    Eg = total_energy();
 
     std::cout << "Nematicity(normalized) at perfect order: \n "
               << sqrt(nematicity()) << std::endl;
@@ -348,7 +347,7 @@ double gauge_sim::total_energy() {
         yn = (i + L) % L2 < L ? i + L - L2 : i + L;
         zn = i + L2 >= L3 ? i + L2 - L3 : i + L2;
 
-        A = R[i].transpose() * (Ux[i] * R[xn] + Uy[i] * R[yn] + Uz[i] * R[zn]);
+        A = R[i].transpose() * J * (Ux[i] * R[xn] + Uy[i] * R[yn] + Uz[i] * R[zn]);
         E += A;
     }
 
