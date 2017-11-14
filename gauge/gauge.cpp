@@ -128,9 +128,9 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 
     /* define J */
     J = Eigen::MatrixXd::Identity(3,3);
+    J(0,0) = J1;
     J(1,1) = J1;
-    J(2,2) = J1;
-    J(3,3) = J3;
+    J(2,2) = J3;
 
     /* Set to uniform */
     for(int i = 0; i < L3; i++)
