@@ -85,7 +85,7 @@ public:
     }
 
     double order_label () const {
-        return (temp < temp_crit) ? -1. : 1.;
+        return (temp < temp_crit) ? 1. : -1.;
     }
 
     using alps::mcbase::save;
