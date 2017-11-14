@@ -7,8 +7,10 @@
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
 
+#include <cmath>
 #include <iostream>
 #include <sstream>
+#include <utility>
 
 #include <alps/accumulators.hpp>
 #include <alps/mc/api.hpp>
@@ -48,6 +50,10 @@ int main(int argc, char** argv)
         }
 
         std::vector<double> temps(parameters["test.N_temp"].as<size_t>());
+        using pair_t = std::pair<double,double>;
+        std::vector<pair_t> mag(temps.size());
+        std::vector<pair_t> svm(temps.size());
+        std::vector<pair_t> ordered(temps.size());
         for (size_t i = 0; i < temps.size(); ++i) {
             double x = 1. * i / (temps.size() - 1);
             temps[i] = (x * parameters["test.temp_max"].as<double>()
@@ -71,12 +77,31 @@ int main(int argc, char** argv)
             ss << "results/" << i;
             ar[ss.str()] << results;
 
-            std::cout << temps[i] << '\t'
-                      << results["Magnetization^2"].mean<double>() << ' '
-                      << results["Magnetization^2"].error<double>() << '\t'
-                      << results["SVM"].mean<double>() << ' '
-                      << results["SVM"].error<double>() << std::endl;
+            mag[i] = {results["Magnetization^2"].mean<double>(),
+                      results["Magnetization^2"].error<double>()};
+            svm[i] = {results["SVM"].mean<double>(),
+                      results["SVM"].error<double>()};
+            ordered[i] = {results["ordered"].mean<double>(),
+                          results["ordered"].error<double>()};
         }
+
+        // rescale the SVM order parameter to match magnetization at end points
+        double fac = ((mag.front().first - mag.back().first)
+                      / (svm.front().first - svm.back().first));
+        double offset = mag.front().first - fac * svm.front().first;
+        std::ofstream os(parameters["test.txtname"].as<std::string>());
+        for (size_t i = 0; i < temps.size(); ++i) {
+            svm[i].first = fac * svm[i].first + offset;
+            svm[i].second = std::abs(fac) * svm[i].second;
+            os << temps[i] << '\t'
+               << mag[i].first << '\t'
+               << mag[i].second << '\t'
+               << svm[i].first << '\t'
+               << svm[i].second << '\t'
+               << ordered[i].first << '\t'
+               << ordered[i].second << '\n';
+        }
+
 
         return 0;
     } catch (const std::runtime_error& exc) {

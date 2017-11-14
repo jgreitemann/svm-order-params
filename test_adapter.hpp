@@ -15,11 +15,15 @@ void define_test_parameters(alps::params & parameters) {
         std::string default_file =
             alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
             + ".test.h5";
+        std::string default_txt =
+            alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
+            + ".test.txt";
         parameters
             .define<double>("test.temp_min", 0., "minimum temperature in test")
             .define<double>("test.temp_max", 10., "maximum temperature in test")
             .define<size_t>("test.N_temp", 10, "number of temperatures to test at")
             .define<std::string>("test.filename", default_file, "test output file name")
+            .define<std::string>("test.txtname", default_txt, "test output txt name")
             ;
     }
 }
@@ -42,15 +46,17 @@ public:
         svm::model_serializer<svm::hdf5_tag, svm::model<kernel_t>> serial(model);
         ar["model"] >> serial;
 
-        measurements << alps::accumulators::FullBinningAccumulator<double>("SVM");
+        measurements << alps::accumulators::FullBinningAccumulator<double>("SVM")
+                     << alps::accumulators::FullBinningAccumulator<double>("ordered");
     }
 
     virtual void measure () override {
         Simulation::measure();
         if (Simulation::is_thermalized()) {
-            double dec;
-            std::tie(std::ignore, dec) = model(svm::dataset(Simulation::configuration()));
+            double phase, dec;
+            std::tie(phase, dec) = model(svm::dataset(Simulation::configuration()));
             measurements["SVM"] << dec;
+            measurements["ordered"] << (phase > 0);
         }
     }
 
