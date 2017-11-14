@@ -4,7 +4,6 @@
  * For use in publications, see ACKNOWLEDGE.TXT
  */
 
-#include "ising.hpp"
 #include "svm-wrapper.hpp"
 #include "training_adapter.hpp"
 
@@ -15,11 +14,22 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
 
+#ifdef ISING
+    #include "ising.hpp"
+    using sim_base = ising_sim;
+#else
+#ifdef GAUGE
+    #include "gauge.hpp"
+    using sim_base = gauge_sim;
+#else
+    #error Unknown model
+#endif
+#endif
+
 
 int main(int argc, char** argv)
 {
-    // Define the type for the simulation
-    typedef training_adapter<ising_sim> sim_type;
+    typedef training_adapter<sim_base> sim_type;
 
     try {
     
@@ -71,18 +81,6 @@ int main(int argc, char** argv)
             std::cout << "Simulation ran for "
                       << results["Energy"].count()
                       << " steps." << std::endl;
-
-            // Assign individual results to variables.
-            const result_wrapper& mag4=results["Magnetization^4"];
-            const result_wrapper& mag2=results["Magnetization^2"];
-
-            // Derived result:
-            const result_wrapper& binder_cumulant=1-mag4/(3*mag2*mag2);
-            std::cout << "Binder cumulant: " << binder_cumulant
-                      << " Relative error: "
-                      << fabs(binder_cumulant.error<double>()/
-                              binder_cumulant.mean<double>())
-                      << std::endl;
 
             // create the model
             using kernel_t = typename sim_type::kernel_t;
