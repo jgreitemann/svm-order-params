@@ -44,6 +44,14 @@ add_executable(gauge-learn
     svm/data_view.cpp)
 target_compile_definitions(gauge-learn PUBLIC -DGAUGE)
 
+add_executable(gauge-test
+    test.cpp
+    gauge/gauge.cpp
+    gauge/nematicities.cpp
+    gauge/point_groups.cpp
+    svm/data_view.cpp)
+target_compile_definitions(gauge-test PUBLIC -DGAUGE)
+
 add_executable(heisenberg-coeffs
     heisenberg-coeffs.cpp
     gauge/gauge.cpp
@@ -57,4 +65,5 @@ target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm)
 target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm)
 
 target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm)
+target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm)
 target_link_libraries(heisenberg-coeffs ${ALPSCore_LIBRARIES} svm)
