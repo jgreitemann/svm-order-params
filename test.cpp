@@ -72,15 +72,12 @@ int main(int argc, char** argv)
             alps::params local_params(parameters);
             local_params["temperature"] = temps[i];
 
-            sim_type sim = [&] {
-                std::unique_ptr<sim_type> sim;
+            std::unique_ptr<sim_type> sim;
 #pragma omp critical
-                sim = std::make_unique<sim_type>(local_params);
-                return std::move(*sim);
-            } ();
-            sim.run(alps::stop_callback(size_t(parameters["timelimit"])));
+            sim = std::unique_ptr<sim_type>(new sim_type(local_params));
+            sim->run(alps::stop_callback(size_t(parameters["timelimit"])));
 
-            alps::results_type<sim_type>::type results = alps::collect_results(sim);
+            alps::results_type<sim_type>::type results = alps::collect_results(*sim);
             std::stringstream ss;
 #pragma omp critical
             {
