@@ -52,6 +52,7 @@ public:
         , N_sample(size_t(parameters["N_sample"]))
         , temp(temp_crit)
         , n_temp(0)
+        , i_temp(0)
         , problem(Simulation::configuration_size())
         , prob_serializer(problem)
     {
