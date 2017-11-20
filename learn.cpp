@@ -59,21 +59,30 @@ int main(int argc, char** argv)
 
         svm::problem<kernel_t> prob(0);
         std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
+
+        // determine number of temps remaining
+        size_t remaining_temps = parameters["N_temp"].as<size_t>();
+        size_t temps_done = 0;
+        if (parameters.is_restored()) {
+            alps::hdf5::archive cp(checkpoint_file, "r");
+            cp["simulation/temps_done"] >> temps_done;
+            remaining_temps -= temps_done;
+        }
     
 #pragma omp parallel
         {
             int nthread = omp_get_num_threads();
             int tid = omp_get_thread_num();
 
-            // reduce number of temps to be sampled
-            alps::params local_params(parameters);
-            if (!local_params.is_restored()) {
-                local_params["N_temp"] = local_params["N_temp"].as<size_t>() / nthread;
-            }
+            size_t N_temp_thread = remaining_temps / nthread;
+            if (tid == nthread - 1)
+                N_temp_thread += remaining_temps % nthread;
+#pragma omp critical
+            std::cout << "tid = " << tid << ", N_temp_thread = " << N_temp_thread << std::endl;
 
             std::unique_ptr<sim_type> sim;
 #pragma omp critical
-            sim = std::unique_ptr<sim_type>(new sim_type(local_params, tid));
+            sim = std::unique_ptr<sim_type>(new sim_type(parameters, N_temp_thread, tid));
 
             std::string checkpoint_path = [&] {
                 std::stringstream ss;
@@ -83,7 +92,7 @@ int main(int argc, char** argv)
 
             // If needed, restore the last checkpoint
 #pragma omp critical
-            if (local_params.is_restored()) {
+            if (parameters.is_restored()) {
                 std::cout << "Restoring checkpoint from " << checkpoint_file
                           << " (thread " << tid << ")"
                           << std::endl;
@@ -91,7 +100,7 @@ int main(int argc, char** argv)
                 cp[checkpoint_path] >> *sim;
             }
 
-            sim->run(alps::stop_callback(size_t(local_params["timelimit"])));
+            sim->run(alps::stop_callback(size_t(parameters["timelimit"])));
 
             // Checkpoint the simulation
 #pragma omp critical
@@ -101,6 +110,7 @@ int main(int argc, char** argv)
                           << std::endl;
                 alps::hdf5::archive cp(checkpoint_file, "w");
                 cp[checkpoint_path] << *sim;
+                temps_done += sim->temps_done();
             }
 
             if (tid == 0) {
@@ -111,6 +121,11 @@ int main(int argc, char** argv)
 #pragma omp critical
                 prob.append_problem(sim->surrender_problem());
             }
+        }
+
+        {
+            alps::hdf5::archive cp(checkpoint_file, "w");
+            cp["simulation/temps_done"] << temps_done;
         }
 
         {
