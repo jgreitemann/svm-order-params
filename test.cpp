@@ -47,6 +47,15 @@ int main(int argc, char** argv)
         sim_type::define_parameters(parameters);
         define_test_parameters(parameters);
 
+        if (parameters["test.filename"].as<std::string>().empty())
+            parameters["test.filename"] =
+                alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
+                + ".test.h5";
+        if (parameters["test.txtname"].as<std::string>().empty())
+            parameters["test.txtname"] =
+                alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
+                + ".test.txt";
+
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
             return 1;
