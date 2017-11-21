@@ -41,17 +41,20 @@ public:
             ;
     }
 
-    training_adapter (parameters_type & parms, std::size_t seed_offset = 0)
+    training_adapter (parameters_type & parms,
+                      size_t N_temp,
+                      std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
         , temp_step(double(parameters["temp_step"]))
         , temp_crit(double(parameters["temp_crit"]))
         , temp_sigma_sq(pow(double(parameters["temp_sigma"]), 2))
         , temp_min(double(parameters["temp_min"]))
         , temp_max(double(parameters["temp_max"]))
-        , N_temp(size_t(parameters["N_temp"]))
+        , N_temp(N_temp)
         , N_sample(size_t(parameters["N_sample"]))
         , temp(temp_crit)
         , n_temp(0)
+        , i_temp(0)
         , problem(Simulation::configuration_size())
         , prob_serializer(problem)
     {
@@ -98,7 +101,6 @@ public:
 
         // state
         ar["training/temp"] << temp;
-        ar["training/n_temp"] << n_temp;
         ar["training/i_temp"] << i_temp;
 
         ar["training/problem"] << prob_serializer;
@@ -114,18 +116,28 @@ public:
 
         // state
         ar["training/temp"] >> temp;
-        ar["training/n_temp"] >> n_temp;
         ar["training/i_temp"] >> i_temp;
 
         ar["training/problem"] >> prob_serializer;
         if (problem.dim() != Simulation::configuration_size())
             throw std::runtime_error("invalid problem dimension");
+
+        // flatten
+        if (i_temp == N_sample) {
+            bool changed = update_temperature();
+            Simulation::reset_sweeps(!changed);
+            i_temp = 0;
+        }
     }
 
     problem_t surrender_problem () {
         problem_t other_problem (Simulation::configuration_size());
         std::swap(other_problem, problem);
         return other_problem;
+    }
+
+    size_t temps_done () const {
+        return n_temp + (i_temp == N_sample);
     }
 
 private:
