@@ -34,6 +34,8 @@ class ising_sim : public alps::mcbase {
 
     static void define_parameters(parameters_type & parameters);
 
+    // SVM interface functions
+    static constexpr const char * order_param_name = "Magnetization^2";
     void reset_sweeps(bool skip_therm = false);
     void temperature(double new_temp);
     bool is_thermalized() const;

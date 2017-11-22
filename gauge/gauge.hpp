@@ -122,6 +122,7 @@ public:
     virtual void load(alps::hdf5::archive & ar);
 
     // SVM interface functions
+    static constexpr const char * order_param_name = "Nematicity";
     void reset_sweeps(bool skip_therm);
     void temperature(double new_temp);
     bool is_thermalized() const;

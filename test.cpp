@@ -47,6 +47,15 @@ int main(int argc, char** argv)
         sim_type::define_parameters(parameters);
         define_test_parameters(parameters);
 
+        if (parameters["test.filename"].as<std::string>().empty())
+            parameters["test.filename"] =
+                alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
+                + ".test.h5";
+        if (parameters["test.txtname"].as<std::string>().empty())
+            parameters["test.txtname"] =
+                alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
+                + ".test.txt";
+
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
             return 1;
@@ -62,6 +71,9 @@ int main(int argc, char** argv)
             temps[i] = (x * parameters["test.temp_max"].as<double>()
                         + (1-x) * parameters["test.temp_min"].as<double>());
         }
+
+        std::string order_param_name = sim_type::order_param_name;
+        bool cmp_true = !order_param_name.empty();
 
         alps::hdf5::archive ar(parameters["test.filename"].as<std::string>(), "w");
         ar["parameters"] << parameters;
@@ -85,8 +97,10 @@ int main(int argc, char** argv)
                 ar[ss.str()] << results;
             }
 
-            mag[i] = {results["Magnetization^2"].mean<double>(),
-                      results["Magnetization^2"].error<double>()};
+            if (cmp_true) {
+                mag[i] = {results[order_param_name].mean<double>(),
+                          results[order_param_name].error<double>()};
+            }
             svm[i] = {results["SVM"].mean<double>(),
                       results["SVM"].error<double>()};
             ordered[i] = {results["ordered"].mean<double>(),
@@ -94,22 +108,27 @@ int main(int argc, char** argv)
         }
 
         // rescale the SVM order parameter to match magnetization at end points
-        double fac = ((mag.front().first - mag.back().first)
-                      / (svm.front().first - svm.back().first));
-        double offset = mag.front().first - fac * svm.front().first;
-        std::ofstream os(parameters["test.txtname"].as<std::string>());
-        for (size_t i = 0; i < temps.size(); ++i) {
-            svm[i].first = fac * svm[i].first + offset;
-            svm[i].second = std::abs(fac) * svm[i].second;
-            os << temps[i] << '\t'
-               << mag[i].first << '\t'
-               << mag[i].second << '\t'
-               << svm[i].first << '\t'
-               << svm[i].second << '\t'
-               << ordered[i].first << '\t'
-               << ordered[i].second << '\n';
+        if (cmp_true) {
+            double fac = ((mag.front().first - mag.back().first)
+                          / (svm.front().first - svm.back().first));
+            double offset = mag.front().first - fac * svm.front().first;
+            for (size_t i = 0; i < temps.size(); ++i) {
+                svm[i].first = fac * svm[i].first + offset;
+                svm[i].second = std::abs(fac) * svm[i].second;
+            }
         }
 
+        // output
+        std::ofstream os(parameters["test.txtname"].as<std::string>());
+        for (size_t i = 0; i < temps.size(); ++i) {
+            os << temps[i] << '\t'
+               << ordered[i].first << '\t'
+               << ordered[i].second << '\t'
+               << svm[i].first << '\t'
+               << svm[i].second << '\t'
+               << mag[i].first << '\t'
+               << mag[i].second << '\n';
+        }
 
         return 0;
     } catch (const std::runtime_error& exc) {
