@@ -4,6 +4,7 @@
  * For use in publications, see ACKNOWLEDGE.TXT
  */
 
+#include "checkpointing_stop_callback.hpp"
 #include "svm-wrapper.hpp"
 #include "training_adapter.hpp"
 #include "test_adapter.hpp"
@@ -50,6 +51,8 @@ int main(int argc, char** argv)
 
         if (!parameters.is_restored()) {
             parameters.define<double>("C", 1., "C_SVC regularization parameter");
+            parameters.define<size_t>("progress_interval", 10,
+                                      "time in sec between progress reports");
         }
 
         if (parameters.help_requested(std::cout) ||
@@ -72,11 +75,14 @@ int main(int argc, char** argv)
             cp["simulation/n_clones"] >> n_clones;
         }
     
+        std::vector<double> progress;
 #pragma omp parallel
         {
             if (!parameters.is_restored()) {
                 n_clones = omp_get_num_threads();
             }
+#pragma omp master
+            progress.resize(n_clones);
 
 #pragma omp for schedule(dynamic)
             for (int tid = 0; tid < n_clones; ++tid) {
@@ -104,7 +110,24 @@ int main(int argc, char** argv)
                     cp[checkpoint_path] >> *sim;
                 }
 
-                sim->run(alps::stop_callback(size_t(parameters["timelimit"])));
+                auto progress_report = [&] () {
+                    double local_frac = sim->fraction_completed();
+#pragma omp atomic write
+                    progress[tid] = local_frac;
+#pragma omp master
+                    {
+                        double total = std::accumulate(progress.begin(),
+                                                       progress.end(), 0.);
+                        std::cout << 100.*total/n_clones << " %" << std::endl;
+                    }
+
+                };
+                sim->run(checkpointing_stop_callback(size_t(parameters["timelimit"]),
+                                                     size_t(parameters["progress_interval"]),
+                                                     progress_report));
+#pragma omp atomic write
+                progress[tid] = 1.;
+
 
                 // Checkpoint the simulation
 #pragma omp critical

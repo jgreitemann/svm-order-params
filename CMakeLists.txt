@@ -20,6 +20,7 @@ include_directories(svm/libsvm)
 include_directories(ising)
 add_executable(ising-learn
     learn.cpp
+    checkpointing_stop_callback.cpp
     ising/ising.cpp
     svm/data_view.cpp)
 target_compile_definitions(ising-learn PUBLIC -DISING)
@@ -38,6 +39,7 @@ add_executable(ising-coeffs
 include_directories(gauge)
 add_executable(gauge-learn
     learn.cpp
+    checkpointing_stop_callback.cpp
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp

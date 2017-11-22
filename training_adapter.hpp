@@ -80,8 +80,6 @@ public:
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            std::cout << "take sample at temp T = " << temp
-                      << " (" << n_temp << ", frac = " << frac << ')' << std::endl;
             problem.add_sample(Simulation::configuration(), order_label());
             ++i_temp;
         }
