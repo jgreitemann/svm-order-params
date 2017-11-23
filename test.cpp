@@ -10,6 +10,7 @@
 #include <omp.h>
 
 #include <cmath>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <sstream>
@@ -79,33 +80,66 @@ int main(int argc, char** argv)
         ar["parameters"] << parameters;
         ar["temperatures"] << temps;
 
-#pragma omp parallel for
-        for (size_t i = 0; i < temps.size(); ++i) {
-            alps::params local_params(parameters);
-            local_params["temperature"] = temps[i];
-
-            std::unique_ptr<sim_type> sim;
+        size_t done = 0;
+        std::vector<double> current_temps;
+#pragma omp parallel
+        {
+#pragma omp single
+            current_temps.resize(omp_get_num_threads(), -1.);
+            size_t tid = omp_get_thread_num();
+            auto progress_report = [&] {
+                size_t now_done;
+#pragma omp atomic read
+                now_done = done;
+                std::cout << '[' << now_done << '/' << temps.size() << "] T = ";
+                for (size_t j = 0; j < current_temps.size(); ++j) {
+                    double now_temp;
+#pragma omp atomic read
+                    now_temp = current_temps[j];
+                    std::cout << std::setw(8) << std::setprecision(4)
+                              << now_temp << ',';
+                }
+                std::cout << "           \r" << std::flush;
+            };
+#pragma omp for schedule(dynamic)
+            for (size_t i = 0; i < temps.size(); ++i) {
+#pragma omp atomic write
+                current_temps[tid] = temps[i];
 #pragma omp critical
-            sim = std::unique_ptr<sim_type>(new sim_type(local_params));
-            sim->run(alps::stop_callback(size_t(parameters["timelimit"])));
+                progress_report();
 
-            alps::results_type<sim_type>::type results = alps::collect_results(*sim);
-            std::stringstream ss;
+                alps::params local_params(parameters);
+                local_params["temperature"] = temps[i];
+
+                std::unique_ptr<sim_type> sim;
 #pragma omp critical
-            {
-                ss << "results/" << i;
-                ar[ss.str()] << results;
-            }
+                sim = std::unique_ptr<sim_type>(new sim_type(local_params));
+                sim->run(alps::stop_callback(size_t(parameters["timelimit"])));
 
-            if (cmp_true) {
-                mag[i] = {results[order_param_name].mean<double>(),
-                          results[order_param_name].error<double>()};
+                alps::results_type<sim_type>::type results = alps::collect_results(*sim);
+                std::stringstream ss;
+#pragma omp critical
+                {
+                    ss << "results/" << i;
+                    ar[ss.str()] << results;
+                }
+
+                if (cmp_true) {
+                    mag[i] = {results[order_param_name].mean<double>(),
+                            results[order_param_name].error<double>()};
+                }
+                svm[i] = {results["SVM"].mean<double>(),
+                        results["SVM"].error<double>()};
+                ordered[i] = {results["ordered"].mean<double>(),
+                            results["ordered"].error<double>()};
+
+#pragma omp atomic
+                ++done;
             }
-            svm[i] = {results["SVM"].mean<double>(),
-                      results["SVM"].error<double>()};
-            ordered[i] = {results["ordered"].mean<double>(),
-                          results["ordered"].error<double>()};
+#pragma omp critical
+            progress_report();
         }
+        std::cout << std::endl;
 
         // rescale the SVM order parameter to match magnetization at end points
         if (cmp_true) {
