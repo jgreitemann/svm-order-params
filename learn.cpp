@@ -50,8 +50,8 @@ int main(int argc, char** argv)
         define_test_parameters(parameters);
 
         if (!parameters.is_restored()) {
-            parameters.define<double>("C", 1., "C_SVC regularization parameter");
-            parameters.define<size_t>("progress_interval", 10,
+            parameters.define<double>("nu", 0.5, "nu_SVC regularization parameter");
+            parameters.define<size_t>("progress_interval", 3,
                                       "time in sec between progress reports");
         }
 
@@ -162,10 +162,10 @@ int main(int argc, char** argv)
         {
             // create the model
             svm::parameters<kernel_t> kernel_params(1., 0.,
-                                                    parameters["C"].as<double>(),
-                                                    svm::machine_type::C_SVC);
+                                                    parameters["nu"].as<double>(),
+                                                    svm::machine_type::NU_SVC);
             std::cout << "Creating SVM model..."
-                      << " (C = " << parameters["C"].as<double>() << ')'
+                      << " (nu = " << parameters["nu"].as<double>() << ')'
                       << std::endl;
             model_t model(std::move(prob), kernel_params);
 
