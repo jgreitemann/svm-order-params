@@ -118,7 +118,9 @@ int main(int argc, char** argv)
                     {
                         double total = std::accumulate(progress.begin(),
                                                        progress.end(), 0.);
-                        std::cout << 100.*total/n_clones << " %" << std::endl;
+                        std::cout << std::setprecision(3)
+                                  << 100.*total/n_clones << " %     \r"
+                                  << std::flush;
                     }
 
                 };
