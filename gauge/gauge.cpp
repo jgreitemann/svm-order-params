@@ -64,10 +64,12 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     , random_int_01(0, 1)
 
 {
+#ifdef DEBUGMODE
     if(!O3)
         std::cout << "SO(3)/" << gauge_group << " gauge model at K = 0" << std::endl;
     else
         std::cout << "O(3)/" << gauge_group << " gauge model at K = 0" << std::endl;
+#endif
 
     R.resize(boost::extents[L3]);
     Ux.resize(boost::extents[L3]);
@@ -120,7 +122,7 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
             return nematicity_Ih();
         };
     else {
-        std::cout << "ERROR in the symmetry" << std::endl;
+        std::cerr << "ERROR in the symmetry" << std::endl;
         return;
     }
 
@@ -142,8 +144,10 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 
     Eg = total_energy();
 
+#ifdef DEBUGMODE
     std::cout << "Nematicity(normalized) at perfect order: \n "
               << sqrt(nematicity()) << std::endl;
+#endif
 
     /* Random Initialization */
     for(int i = 0; i < L3; i++)
@@ -158,11 +162,13 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     // Get initial energy
     current_energy = total_energy();
 
+#ifdef DEBUGMODE
     std::cout << "Energy(normalized) at infinite temperature: \n "
               << current_energy/Eg << std::endl;
 
     std::cout << "Nematicity(normalized) at infinite temperature: \n "
               << sqrt(nematicity()) << std::endl;
+#endif
 
     // Adds the measurements
     measurements
