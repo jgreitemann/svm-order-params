@@ -143,9 +143,9 @@ int main(int argc, char** argv)
 
         // rescale the SVM order parameter to match magnetization at end points
         if (cmp_true) {
-            double fac = ((mag.front().first - mag.back().first)
+            double fac = ((pow(mag.front().first, 2)- pow(mag.back().first, 2))
                           / (svm.front().first - svm.back().first));
-            double offset = mag.front().first - fac * svm.front().first;
+            double offset = pow(mag.front().first, 2) - fac * svm.front().first;
             for (size_t i = 0; i < temps.size(); ++i) {
                 svm[i].first = fac * svm[i].first + offset;
                 svm[i].second = std::abs(fac) * svm[i].second;
@@ -158,8 +158,8 @@ int main(int argc, char** argv)
             os << temps[i] << '\t'
                << ordered[i].first << '\t'
                << ordered[i].second << '\t'
-               << svm[i].first << '\t'
-               << svm[i].second << '\t'
+               << sqrt(svm[i].first) << '\t'
+               << svm[i].second / 2. / sqrt(svm[i].first) << '\t'
                << mag[i].first << '\t'
                << mag[i].second << '\n';
         }
