@@ -534,18 +534,19 @@ bool gauge_sim::is_thermalized() const {
 }
 
 size_t gauge_sim::configuration_size() const {
-    return 3;
+    return 9;
 }
 
 std::vector<double> gauge_sim::configuration() const {
     std::vector<double> v(configuration_size(), 0.);
     for (size_t i = 0; i < L3; ++i) {
         for (size_t a = 0; a < 3; ++a) {
-            v[a] += R[i](2,a);
+            for (size_t b = 0; b < 3; ++b) {
+                v[3*a+b] += R[i](2,a) * R[i](2,b);
+            }
         }
     }
-    for (size_t a = 0; a < 3; ++a) {
-        v[a] /= L3;
-    }
+    for (double & ve : v)
+        ve /= L3;
     return v;
 }
