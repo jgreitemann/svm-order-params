@@ -532,23 +532,3 @@ void gauge_sim::temperature(double new_temp) {
 bool gauge_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
 }
-
-size_t gauge_sim::configuration_size() const {
-    return 6;
-}
-
-std::vector<double> gauge_sim::configuration() const {
-    std::vector<double> v;
-    v.reserve(configuration_size());
-    for (size_t a = 0; a < 3; ++a) {
-        for (size_t b = a; b < 3; ++b) {
-            double sum = 0.;
-            for (size_t i = 0; i < L3; ++i) {
-                sum += R[i](2,a) * R[i](2,b);
-            }
-            sum /= L3;
-            v.push_back(sum);
-        }
-    }
-    return v;
-}
