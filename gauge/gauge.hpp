@@ -4,6 +4,7 @@
 #include <time.h>
 #include <random>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <boost/math/constants/constants.hpp>
 #include <boost/multi_array.hpp>
@@ -12,8 +13,7 @@
 #include "Eigen/Dense"
 #include "point_groups.hpp"
 
-#include <iterator>
-#include "binomial.hpp"
+#include "config_policy.hpp"
 
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
@@ -129,41 +129,9 @@ public:
     void reset_sweeps(bool skip_therm);
     void temperature(double new_temp);
     bool is_thermalized() const;
+    size_t configuration_size() const;
+    std::vector<double> configuration() const;
 
-    template <size_t Rank = 2, size_t Range = 3>
-    size_t configuration_size() const {
-        return binomial(Rank + Range - 1, Rank);
-    }
-
-    template <size_t Rank = 2, size_t Range = 3>
-    std::vector<double> configuration() const {
-        std::vector<double> v(configuration_size<Rank,Range>());
-
-        std::array<size_t, Rank> ind = {};
-        for (double & elem : v) {
-            for (Rt3 const& site : R) {
-                double prod = 1;
-                for (size_t a : ind)
-                    prod *= site(2, a);
-                elem += prod;
-            }
-            elem /= L3;
-
-            auto it = ind.begin();
-            ++(*it);
-            while (*it == Range) {
-                ++it;
-                if (it == ind.end())
-                    break;
-                ++(*it);
-                std::reverse_iterator<decltype(it)> rit(it);
-                while (rit != ind.rend()) {
-                    *rit = *it;
-                    ++rit;
-                }
-            }
-        }
-        return v;
-    }
-
+private:
+    std::unique_ptr<config_policy> confpol;
 };

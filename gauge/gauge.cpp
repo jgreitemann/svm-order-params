@@ -31,6 +31,11 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<int>("sweep_unit", 10, "scale a sweep")
         .define<double>("spacing_E", 0.001, "spacing of normalized energy")
         .define<double>("spacing_nem", 0.001, "spacing of nematicity");
+
+    parameters
+        .define<bool>("symmetrized", 1, "use symmetry <l_x m_y> == <m_y l_x>")
+        .define<bool>("uniaxial", false, "only consider n-vector in configuration")
+        .define<size_t>("rank", "rank of the order parameter tensor");
 }
 
 
@@ -179,6 +184,26 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^2")
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^4")
         ;
+
+    // set up SVM configuration policy
+    size_t rank = parameters["rank"].as<size_t>();
+    if (parameters["symmetrized"].as<bool>()) {
+        if (parameters["uniaxial"].as<bool>()) {
+            confpol = std::unique_ptr<config_policy>(
+                new symmetrized_config_policy<uniaxial_element_policy>(rank));
+        } else {
+            confpol = std::unique_ptr<config_policy>(
+                new symmetrized_config_policy<triaxial_element_policy>(rank));
+        }
+    } else {
+        if (parameters["uniaxial"].as<bool>()) {
+            confpol = std::unique_ptr<config_policy>(
+                new full_config_policy<uniaxial_element_policy>(rank));
+        } else {
+            confpol = std::unique_ptr<config_policy>(
+                new full_config_policy<triaxial_element_policy>(rank));
+        }
+    }
 }
 
 /** Define member functions **/
@@ -531,4 +556,12 @@ void gauge_sim::temperature(double new_temp) {
 
 bool gauge_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
+}
+
+size_t gauge_sim::configuration_size() const {
+    return confpol->size();
+}
+
+std::vector<double> gauge_sim::configuration() const {
+    return confpol->configuration(R);
 }
