@@ -88,6 +88,8 @@ public:
 
     static void define_parameters(parameters_type & parameters);
 
+    static std::unique_ptr<config_policy> config_policy_from_parameters(parameters_type const& parameters);
+
     virtual void update();
     virtual void measure();
     virtual double fraction_completed() const;

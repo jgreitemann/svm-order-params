@@ -10,37 +10,34 @@
 #include <Eigen/Dense>
 
 
-struct config_policy {
-    typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> local_state;
-    typedef boost::multi_array<local_state, 1> config_array;
+namespace element_policy {
 
-    virtual size_t size () const = 0;
-    virtual std::vector<double> configuration (config_array const&) const = 0;
-};
+    struct uniaxial {
+        static const size_t range = 3;
+        inline size_t color(size_t index) const { return 2; }
+        inline size_t component(size_t index) const { return index; }
+    };
 
-template <typename ElementPolicy>
-struct full_config_policy : public config_policy, private ElementPolicy {
-    full_config_policy (size_t rank) : rank(rank) {}
+    struct triad {
+        static const size_t range = 9;
+        inline size_t color(size_t index) const { return index / 3; }
+        inline size_t component(size_t index) const { return index % 3; }
+    };
 
-    virtual size_t size () const override {
-        return combinatorics::ipow(ElementPolicy::range, rank);
-    }
+}
 
-    virtual std::vector<double> configuration (config_array const& R) const override {
-        std::vector<double> v(size());
-        std::vector<size_t> ind(rank);
-        for (double & elem : v) {
-            for (local_state const& site : R) {
-                double prod = 1;
-                for (size_t a : ind)
-                    prod *= get(site, a);
-                elem += prod;
-            }
-            elem /= R.size();
 
+namespace symmetry_policy {
+
+    struct none {
+        size_t size (size_t range, size_t rank) const {
+            return combinatorics::ipow(range, rank);
+        }
+
+        void advance_ind (std::vector<size_t> & ind, size_t range) const {
             auto it = ind.begin();
             ++(*it);
-            while (*it == ElementPolicy::range) {
+            while (*it == range) {
                 ++it;
                 if (it == ind.end())
                     break;
@@ -52,37 +49,17 @@ struct full_config_policy : public config_policy, private ElementPolicy {
                 }
             }
         }
-        return v;
-    }
+    };
 
-private:
-    using ElementPolicy::get;
-    size_t rank;
-};
+    struct symmetrized {
+        size_t size (size_t range, size_t rank) const {
+            return combinatorics::binomial(rank + range - 1, rank);
+        }
 
-template <typename ElementPolicy>
-struct symmetrized_config_policy : public config_policy, private ElementPolicy {
-    symmetrized_config_policy (size_t rank) : rank(rank) {}
-
-    virtual size_t size () const override {
-        return combinatorics::binomial(rank + ElementPolicy::range - 1, rank);
-    }
-
-    virtual std::vector<double> configuration (config_array const& R) const override {
-        std::vector<double> v(size());
-        std::vector<size_t> ind(rank);
-        for (double & elem : v) {
-            for (local_state const& site : R) {
-                double prod = 1;
-                for (size_t a : ind)
-                    prod *= get(site, a);
-                elem += prod;
-            }
-            elem /= R.size();
-
+        void advance_ind (std::vector<size_t> & ind, size_t range) const {
             auto it = ind.begin();
             ++(*it);
-            while (*it == ElementPolicy::range) {
+            while (*it == range) {
                 ++it;
                 if (it == ind.end())
                     break;
@@ -94,28 +71,52 @@ struct symmetrized_config_policy : public config_policy, private ElementPolicy {
                 }
             }
         }
+    };
+
+}
+
+
+struct config_policy {
+    typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> local_state;
+    typedef boost::multi_array<local_state, 1> config_array;
+    typedef boost::multi_array<double, 2> matrix_t;
+
+    virtual size_t size () const = 0;
+    virtual std::vector<double> configuration (config_array const&) const = 0;
+};
+
+template <typename ElementPolicy, typename SymmetryPolicy>
+struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
+    gauge_config_policy (size_t rank) : rank(rank) {}
+
+    virtual size_t size () const override {
+        return SymmetryPolicy::size(ElementPolicy::range, rank);
+    }
+
+    virtual std::vector<double> configuration (config_array const& R) const override {
+        std::vector<double> v(size());
+        std::vector<size_t> ind(rank);
+        for (double & elem : v) {
+            for (local_state const& site : R) {
+                double prod = 1;
+                for (size_t a : ind)
+                    prod *= site(color(a), component(a));
+                elem += prod;
+            }
+            elem /= R.size();
+
+            advance_ind(ind);
+        }
         return v;
     }
 
 private:
-    using ElementPolicy::get;
+    using ElementPolicy::color;
+    using ElementPolicy::component;
+
+    void advance_ind (std::vector<size_t> & ind) const {
+        SymmetryPolicy::advance_ind(ind, ElementPolicy::range);
+    }
+
     size_t rank;
-};
-
-struct uniaxial_element_policy {
-    using local_state = typename config_policy::local_state;
-
-    static const size_t range = 3;
-    double get (local_state const& site, size_t index) const {
-        return site(2, index);
-    }
-};
-
-struct triaxial_element_policy {
-    using local_state = typename config_policy::local_state;
-
-    static const size_t range = 9;
-    double get (local_state const& site, size_t index) const {
-        return site(index / 3, index % 3);
-    }
 };

@@ -39,6 +39,33 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
 }
 
 
+std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(parameters_type const& parameters) {
+    // set up SVM configuration policy
+    size_t rank = parameters["rank"].as<size_t>();
+    if (parameters["symmetrized"].as<bool>()) {
+        if (parameters["uniaxial"].as<bool>()) {
+            return std::unique_ptr<config_policy>(
+                new gauge_config_policy<element_policy::uniaxial,
+                                        symmetry_policy::symmetrized>(rank));
+        } else {
+            return std::unique_ptr<config_policy>(
+                new gauge_config_policy<element_policy::triad,
+                                        symmetry_policy::symmetrized>(rank));
+        }
+    } else {
+        if (parameters["uniaxial"].as<bool>()) {
+            return std::unique_ptr<config_policy>(
+                new gauge_config_policy<element_policy::uniaxial,
+                                        symmetry_policy::none>(rank));
+        } else {
+            return std::unique_ptr<config_policy>(
+                new gauge_config_policy<element_policy::triad,
+                                        symmetry_policy::none>(rank));
+        }
+    }
+}
+
+
 /** Initialize the parameters **/
 gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     : alps::mcbase(parms, seed_offset)
@@ -185,25 +212,7 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^4")
         ;
 
-    // set up SVM configuration policy
-    size_t rank = parameters["rank"].as<size_t>();
-    if (parameters["symmetrized"].as<bool>()) {
-        if (parameters["uniaxial"].as<bool>()) {
-            confpol = std::unique_ptr<config_policy>(
-                new symmetrized_config_policy<uniaxial_element_policy>(rank));
-        } else {
-            confpol = std::unique_ptr<config_policy>(
-                new symmetrized_config_policy<triaxial_element_policy>(rank));
-        }
-    } else {
-        if (parameters["uniaxial"].as<bool>()) {
-            confpol = std::unique_ptr<config_policy>(
-                new full_config_policy<uniaxial_element_policy>(rank));
-        } else {
-            confpol = std::unique_ptr<config_policy>(
-                new full_config_policy<triaxial_element_policy>(rank));
-        }
-    }
+    confpol = config_policy_from_parameters(parameters);
 }
 
 /** Define member functions **/
