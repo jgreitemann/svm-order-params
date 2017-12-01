@@ -22,6 +22,20 @@ namespace element_policy {
         static const size_t range = 9;
         inline size_t color(size_t index) const { return index / 3; }
         inline size_t component(size_t index) const { return index % 3; }
+
+        size_t rearranged_index (std::vector<size_t> const& ind) const {
+            size_t components = 0;
+            size_t colors = 0;
+            size_t shift = 1;
+            for (auto rit = ind.rbegin(); rit != ind.rend(); ++rit) {
+                components *= 3;
+                components += component(*rit);
+                colors *= 3;
+                colors += color(*rit);
+                shift *= 3;
+            }
+            return colors * shift + components;
+        }
     };
 
 }
@@ -83,6 +97,8 @@ struct config_policy {
 
     virtual size_t size () const = 0;
     virtual std::vector<double> configuration (config_array const&) const = 0;
+
+    virtual matrix_t rearrange_by_component (matrix_t const& c) const = 0;
 };
 
 template <typename ElementPolicy, typename SymmetryPolicy>
@@ -108,6 +124,26 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
             advance_ind(ind);
         }
         return v;
+    }
+
+    virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
+        symmetry_policy::none no_symm;
+        size_t no_symm_size = no_symm.size(ElementPolicy::range, rank);
+        if constexpr(std::is_same<ElementPolicy, element_policy::triad>::value) {
+            matrix_t out(boost::extents[no_symm_size][no_symm_size]);
+            std::vector<size_t> i_ind(rank);
+            for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+                size_t i_out = ElementPolicy::rearranged_index(i_ind);
+                std::vector<size_t> j_ind(rank);
+                for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
+                    size_t j_out = ElementPolicy::rearranged_index(j_ind);
+                    out[i_out][j_out] = c[i][j];
+                }
+            }
+            return out;
+        } else {
+            return c;
+        }
     }
 
 private:
