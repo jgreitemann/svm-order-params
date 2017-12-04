@@ -2,6 +2,7 @@
 
 #include "combinatorics.hpp"
 
+#include <algorithm>
 #include <iterator>
 #include <vector>
 
@@ -133,12 +134,16 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
             matrix_t out(boost::extents[no_symm_size][no_symm_size]);
             std::vector<size_t> i_ind(rank);
             for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
-                size_t i_out = ElementPolicy::rearranged_index(i_ind);
-                std::vector<size_t> j_ind(rank);
-                for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
-                    size_t j_out = ElementPolicy::rearranged_index(j_ind);
-                    out[i_out][j_out] = c[i][j];
-                }
+                do {
+                    size_t i_out = ElementPolicy::rearranged_index(i_ind);
+                    std::vector<size_t> j_ind(rank);
+                    for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
+                        do {
+                            size_t j_out = ElementPolicy::rearranged_index(j_ind);
+                            out[i_out][j_out] = c[i][j];
+                        } while (std::next_permutation(j_ind.begin(), j_ind.end()));
+                    }
+                } while (std::next_permutation(i_ind.begin(), i_ind.end()));
             }
             return out;
         } else {
