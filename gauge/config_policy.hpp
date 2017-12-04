@@ -27,11 +27,11 @@ namespace element_policy {
             size_t components = 0;
             size_t colors = 0;
             size_t shift = 1;
-            for (auto rit = ind.rbegin(); rit != ind.rend(); ++rit) {
+            for (auto it = ind.begin(); it != ind.end(); ++it) {
                 components *= 3;
-                components += component(*rit);
+                components += component(*it);
                 colors *= 3;
-                colors += color(*rit);
+                colors += color(*it);
                 shift *= 3;
             }
             return colors * shift + components;
@@ -49,17 +49,17 @@ namespace symmetry_policy {
         }
 
         void advance_ind (std::vector<size_t> & ind, size_t range) const {
-            auto it = ind.begin();
-            ++(*it);
-            while (*it == range) {
-                ++it;
-                if (it == ind.end())
+            auto rit = ind.rbegin();
+            ++(*rit);
+            while (*rit == range) {
+                ++rit;
+                if (rit == ind.rend())
                     break;
-                ++(*it);
-                std::reverse_iterator<decltype(it)> rit(it);
-                while (rit != ind.rend()) {
-                    *rit = 0;
-                    ++rit;
+                ++(*rit);
+                auto it = rit.base();
+                while (it != ind.end()) {
+                    *it = 0;
+                    ++it;
                 }
             }
         }
@@ -71,17 +71,17 @@ namespace symmetry_policy {
         }
 
         void advance_ind (std::vector<size_t> & ind, size_t range) const {
-            auto it = ind.begin();
-            ++(*it);
-            while (*it == range) {
-                ++it;
-                if (it == ind.end())
+            auto rit = ind.rbegin();
+            ++(*rit);
+            while (*rit == range) {
+                ++rit;
+                if (rit == ind.rend())
                     break;
-                ++(*it);
-                std::reverse_iterator<decltype(it)> rit(it);
-                while (rit != ind.rend()) {
-                    *rit = *it;
-                    ++rit;
+                ++(*rit);
+                auto it = rit.base();
+                while (it != ind.end()) {
+                    *it = *rit;
+                    ++it;
                 }
             }
         }
