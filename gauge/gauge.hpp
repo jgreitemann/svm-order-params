@@ -4,6 +4,7 @@
 #include <time.h>
 #include <random>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <boost/math/constants/constants.hpp>
 #include <boost/multi_array.hpp>
@@ -11,6 +12,8 @@
 #include <alps/numeric/vector_functions.hpp>
 #include "Eigen/Dense"
 #include "point_groups.hpp"
+
+#include "config_policy.hpp"
 
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
@@ -85,6 +88,8 @@ public:
 
     static void define_parameters(parameters_type & parameters);
 
+    static std::unique_ptr<config_policy> config_policy_from_parameters(parameters_type const& parameters);
+
     virtual void update();
     virtual void measure();
     virtual double fraction_completed() const;
@@ -128,4 +133,7 @@ public:
     bool is_thermalized() const;
     size_t configuration_size() const;
     std::vector<double> configuration() const;
+
+private:
+    std::unique_ptr<config_policy> confpol;
 };

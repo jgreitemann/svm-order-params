@@ -44,15 +44,21 @@ int main(int argc, char** argv) {
                 coeffs[i][j] = coeff.tensor({i, j});
             }
         }
-        for (size_t i = 0; i < model.dim(); ++i) {
-            for (size_t j = 0; j < model.dim(); ++j) {
-                os << coeffs[i][j] << '\t';
+
+        // rearrange elements in blocks by components
+        std::unique_ptr<config_policy> confpol =
+            sim_type::config_policy_from_parameters(parameters);
+        auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
+
+        for (size_t i = 0; i < rearranged_coeffs.shape()[0]; ++i) {
+            for (size_t j = 0; j < rearranged_coeffs.shape()[1]; ++j) {
+                os << rearranged_coeffs[i][j] << '\t';
             }
             os << '\n';
         }
 
         return 0;
-    } catch (const std::runtime_error& exc) {
+    } catch (const std::exception& exc) {
         std::cout << "Exception caught: " << exc.what() << std::endl;
         return 2;
     } catch (...) {

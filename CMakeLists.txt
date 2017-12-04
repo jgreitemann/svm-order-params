@@ -8,6 +8,7 @@ if(OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1z")
 
 find_package(ALPSCore 1.0 REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -54,8 +55,8 @@ add_executable(gauge-test
     svm/data_view.cpp)
 target_compile_definitions(gauge-test PUBLIC -DGAUGE)
 
-add_executable(heisenberg-coeffs
-    heisenberg-coeffs.cpp
+add_executable(gauge-coeffs
+    gauge/gauge-coeffs.cpp
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
@@ -68,4 +69,4 @@ target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm)
 
 target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm)
 target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(heisenberg-coeffs ${ALPSCore_LIBRARIES} svm)
+target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm)

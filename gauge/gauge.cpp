@@ -31,6 +31,38 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<int>("sweep_unit", 10, "scale a sweep")
         .define<double>("spacing_E", 0.001, "spacing of normalized energy")
         .define<double>("spacing_nem", 0.001, "spacing of nematicity");
+
+    parameters
+        .define<bool>("symmetrized", 1, "use symmetry <l_x m_y> == <m_y l_x>")
+        .define<bool>("uniaxial", false, "only consider n-vector in configuration")
+        .define<size_t>("rank", "rank of the order parameter tensor");
+}
+
+
+std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(parameters_type const& parameters) {
+    // set up SVM configuration policy
+    size_t rank = parameters["rank"].as<size_t>();
+    if (parameters["symmetrized"].as<bool>()) {
+        if (parameters["uniaxial"].as<bool>()) {
+            return std::unique_ptr<config_policy>(
+                new gauge_config_policy<element_policy::uniaxial,
+                                        symmetry_policy::symmetrized>(rank));
+        } else {
+            return std::unique_ptr<config_policy>(
+                new gauge_config_policy<element_policy::triad,
+                                        symmetry_policy::symmetrized>(rank));
+        }
+    } else {
+        if (parameters["uniaxial"].as<bool>()) {
+            return std::unique_ptr<config_policy>(
+                new gauge_config_policy<element_policy::uniaxial,
+                                        symmetry_policy::none>(rank));
+        } else {
+            return std::unique_ptr<config_policy>(
+                new gauge_config_policy<element_policy::triad,
+                                        symmetry_policy::none>(rank));
+        }
+    }
 }
 
 
@@ -179,6 +211,8 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^2")
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^4")
         ;
+
+    confpol = config_policy_from_parameters(parameters);
 }
 
 /** Define member functions **/
@@ -534,18 +568,9 @@ bool gauge_sim::is_thermalized() const {
 }
 
 size_t gauge_sim::configuration_size() const {
-    return 3;
+    return confpol->size();
 }
 
 std::vector<double> gauge_sim::configuration() const {
-    std::vector<double> v(configuration_size(), 0.);
-    for (size_t i = 0; i < L3; ++i) {
-        for (size_t a = 0; a < 3; ++a) {
-            v[a] += R[i](2,a);
-        }
-    }
-    for (size_t a = 0; a < 3; ++a) {
-        v[a] /= L3;
-    }
-    return v;
+    return confpol->configuration(R);
 }
