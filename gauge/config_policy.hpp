@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iterator>
+#include <limits>
 #include <vector>
 
 #include <boost/multi_array.hpp>
@@ -101,6 +102,40 @@ namespace symmetry_policy {
 
 }
 
+namespace block_reduction {
+
+    constexpr size_t inf = std::numeric_limits<size_t>::infinity();
+
+    template <size_t N>
+    struct norm {
+        norm & operator+= (double x) {
+            sum += std::pow(std::abs(x), N);
+            ++M;
+            return *this;
+        }
+        operator double () const {
+            return std::pow(sum, 1./N);
+        }
+    private:
+        double sum = 0.;
+        size_t M = 0;
+    };
+
+    template <>
+    struct norm<inf> {
+        norm & operator+= (double x) {
+            if (std::abs(x) > max)
+                max = std::abs(x);
+            return *this;
+        }
+        operator double () const {
+            return max;
+        }
+    private:
+        double max = 0.;
+    };
+}
+
 
 struct config_policy {
     typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> local_state;
@@ -114,7 +149,8 @@ struct config_policy {
     virtual matrix_t block_structure (matrix_t const& c) const = 0;
 };
 
-template <typename ElementPolicy, typename SymmetryPolicy>
+template <typename ElementPolicy, typename SymmetryPolicy,
+          typename BlockReduction = block_reduction::norm<1>>
 struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
     gauge_config_policy (size_t rank) : rank(rank) {}
 
@@ -168,6 +204,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_color, rank);
         matrix_t blocks(boost::extents[block_range][block_range]);
         if constexpr(std::is_same<ElementPolicy, element_policy::triad>::value) {
+            boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
             std::vector<size_t> i_ind(rank);
             for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
                 do {
@@ -176,11 +213,14 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                     for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                         do {
                             size_t j_out = ElementPolicy::rearranged_index(j_ind);
-                            blocks[i_out / block_size][j_out / block_size] += std::abs(c[i][j]);
+                            block_norms[i_out / block_size][j_out / block_size] += c[i][j];
                         } while (transform_ind(j_ind));
                     }
                 } while (transform_ind(i_ind));
             }
+            for (size_t i = 0; i < block_range; ++i)
+                for (size_t j = 0; j < block_range; ++j)
+                    blocks[i][j] = block_norms[i][j];
         } else {
             blocks[0][0] = 1.;
         }
