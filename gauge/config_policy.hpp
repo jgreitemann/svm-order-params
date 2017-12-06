@@ -3,6 +3,7 @@
 #include "combinatorics.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <iterator>
 #include <vector>
 
@@ -110,6 +111,7 @@ struct config_policy {
     virtual std::vector<double> configuration (config_array const&) const = 0;
 
     virtual matrix_t rearrange_by_component (matrix_t const& c) const = 0;
+    virtual matrix_t block_structure (matrix_t const& c) const = 0;
 };
 
 template <typename ElementPolicy, typename SymmetryPolicy>
@@ -159,6 +161,30 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         } else {
             return c;
         }
+    }
+
+    virtual matrix_t block_structure (matrix_t const& c) const override {
+        size_t block_range = combinatorics::ipow(ElementPolicy::n_color, rank);
+        size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_color, rank);
+        matrix_t blocks(boost::extents[block_range][block_range]);
+        if constexpr(std::is_same<ElementPolicy, element_policy::triad>::value) {
+            std::vector<size_t> i_ind(rank);
+            for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+                do {
+                    size_t i_out = ElementPolicy::rearranged_index(i_ind);
+                    std::vector<size_t> j_ind(rank);
+                    for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
+                        do {
+                            size_t j_out = ElementPolicy::rearranged_index(j_ind);
+                            blocks[i_out / block_size][j_out / block_size] += std::abs(c[i][j]);
+                        } while (transform_ind(j_ind));
+                    }
+                } while (transform_ind(i_ind));
+            }
+        } else {
+            blocks[0][0] = 1.;
+        }
+        return blocks;
     }
 
 private:

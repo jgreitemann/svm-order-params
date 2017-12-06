@@ -35,8 +35,6 @@ int main(int argc, char** argv) {
 
         svm::tensor_introspector<kernel_t, 2> coeff(model);
 
-        std::string outname = alps::fs::remove_extensions(arname) + ".coeffs.txt";
-        std::ofstream os(outname);
         boost::multi_array<double,2> coeffs(boost::extents[model.dim()][model.dim()]);
 #pragma omp parallel for
         for (size_t i = 0; i < model.dim(); ++i) {
@@ -48,13 +46,27 @@ int main(int argc, char** argv) {
         // rearrange elements in blocks by components
         std::unique_ptr<config_policy> confpol =
             sim_type::config_policy_from_parameters(parameters);
-        auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
-
-        for (size_t i = 0; i < rearranged_coeffs.shape()[0]; ++i) {
-            for (size_t j = 0; j < rearranged_coeffs.shape()[1]; ++j) {
-                os << rearranged_coeffs[i][j] << '\t';
+        {
+            auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
+            std::string outname = alps::fs::remove_extensions(arname) + ".coeffs.txt";
+            std::ofstream os(outname);
+            for (size_t i = 0; i < rearranged_coeffs.shape()[0]; ++i) {
+                for (size_t j = 0; j < rearranged_coeffs.shape()[1]; ++j) {
+                    os << rearranged_coeffs[i][j] << '\t';
+                }
+                os << '\n';
             }
-            os << '\n';
+        }
+        {
+            auto block_structure = confpol->block_structure(coeffs);
+            std::string outname = alps::fs::remove_extensions(arname) + ".blocks.txt";
+            std::ofstream os(outname);
+            for (size_t i = 0; i < block_structure.shape()[0]; ++i) {
+                for (size_t j = 0; j < block_structure.shape()[1]; ++j) {
+                    os << block_structure[i][j] << '\t';
+                }
+                os << '\n';
+            }
         }
 
         return 0;
