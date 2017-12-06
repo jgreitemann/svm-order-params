@@ -14,13 +14,15 @@
 namespace element_policy {
 
     struct uniaxial {
-        static const size_t range = 3;
+        static const size_t n_color = 1;
+        static const size_t range = 3 * n_color;
         inline size_t color(size_t index) const { return 2; }
         inline size_t component(size_t index) const { return index; }
     };
 
     struct triad {
-        static const size_t range = 9;
+        static const size_t n_color = 3;
+        static const size_t range = 3 * n_color;
         inline size_t color(size_t index) const { return index / 3; }
         inline size_t component(size_t index) const { return index % 3; }
 
@@ -64,6 +66,10 @@ namespace symmetry_policy {
                 }
             }
         }
+
+        bool transform_ind (std::vector<size_t> & ind) const {
+            return false;
+        }
     };
 
     struct symmetrized {
@@ -85,6 +91,10 @@ namespace symmetry_policy {
                     ++it;
                 }
             }
+        }
+
+        bool transform_ind (std::vector<size_t> & ind) const {
+            return std::next_permutation(ind.begin(), ind.end());
         }
     };
 
@@ -141,9 +151,9 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                         do {
                             size_t j_out = ElementPolicy::rearranged_index(j_ind);
                             out[i_out][j_out] = c[i][j];
-                        } while (std::next_permutation(j_ind.begin(), j_ind.end()));
+                        } while (transform_ind(j_ind));
                     }
-                } while (std::next_permutation(i_ind.begin(), i_ind.end()));
+                } while (transform_ind(i_ind));
             }
             return out;
         } else {
@@ -158,6 +168,7 @@ private:
     void advance_ind (std::vector<size_t> & ind) const {
         SymmetryPolicy::advance_ind(ind, ElementPolicy::range);
     }
+    using SymmetryPolicy::transform_ind;
 
     size_t rank;
 };
