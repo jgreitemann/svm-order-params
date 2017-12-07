@@ -20,6 +20,15 @@ namespace element_policy {
         static const size_t range = 3 * n_color;
         inline size_t color(size_t index) const { return 2; }
         inline size_t component(size_t index) const { return index; }
+
+        size_t rearranged_index (std::vector<size_t> const& ind) const {
+            size_t components = 0;
+            for (auto it = ind.begin(); it != ind.end(); ++it) {
+                components *= 3;
+                components += component(*it);
+            }
+            return components;
+        }
     };
 
     struct triad {
@@ -178,52 +187,44 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
     virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
         symmetry_policy::none no_symm;
         size_t no_symm_size = no_symm.size(ElementPolicy::range, rank);
-        if constexpr(std::is_same<ElementPolicy, element_policy::triad>::value) {
-            matrix_t out(boost::extents[no_symm_size][no_symm_size]);
-            std::vector<size_t> i_ind(rank);
-            for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
-                do {
-                    size_t i_out = ElementPolicy::rearranged_index(i_ind);
-                    std::vector<size_t> j_ind(rank);
-                    for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
-                        do {
-                            size_t j_out = ElementPolicy::rearranged_index(j_ind);
-                            out[i_out][j_out] = c[i][j];
-                        } while (transform_ind(j_ind));
-                    }
-                } while (transform_ind(i_ind));
-            }
-            return out;
-        } else {
-            return c;
+        matrix_t out(boost::extents[no_symm_size][no_symm_size]);
+        std::vector<size_t> i_ind(rank);
+        for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+            do {
+                size_t i_out = ElementPolicy::rearranged_index(i_ind);
+                std::vector<size_t> j_ind(rank);
+                for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
+                    do {
+                        size_t j_out = ElementPolicy::rearranged_index(j_ind);
+                        out[i_out][j_out] = c[i][j];
+                    } while (transform_ind(j_ind));
+                }
+            } while (transform_ind(i_ind));
         }
+        return out;
     }
 
     virtual matrix_t block_structure (matrix_t const& c) const override {
         size_t block_range = combinatorics::ipow(ElementPolicy::n_color, rank);
         size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_color, rank);
         matrix_t blocks(boost::extents[block_range][block_range]);
-        if constexpr(std::is_same<ElementPolicy, element_policy::triad>::value) {
-            boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
-            std::vector<size_t> i_ind(rank);
-            for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
-                do {
-                    size_t i_out = ElementPolicy::rearranged_index(i_ind);
-                    std::vector<size_t> j_ind(rank);
-                    for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
-                        do {
-                            size_t j_out = ElementPolicy::rearranged_index(j_ind);
-                            block_norms[i_out / block_size][j_out / block_size] += c[i][j];
-                        } while (transform_ind(j_ind));
-                    }
-                } while (transform_ind(i_ind));
-            }
-            for (size_t i = 0; i < block_range; ++i)
-                for (size_t j = 0; j < block_range; ++j)
-                    blocks[i][j] = block_norms[i][j];
-        } else {
-            blocks[0][0] = 1.;
+        boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
+        std::vector<size_t> i_ind(rank);
+        for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+            do {
+                size_t i_out = ElementPolicy::rearranged_index(i_ind);
+                std::vector<size_t> j_ind(rank);
+                for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
+                    do {
+                        size_t j_out = ElementPolicy::rearranged_index(j_ind);
+                        block_norms[i_out / block_size][j_out / block_size] += c[i][j];
+                    } while (transform_ind(j_ind));
+                }
+            } while (transform_ind(i_ind));
         }
+        for (size_t i = 0; i < block_range; ++i)
+            for (size_t j = 0; j < block_range; ++j)
+                blocks[i][j] = block_norms[i][j];
         return blocks;
     }
 
