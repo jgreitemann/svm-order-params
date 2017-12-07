@@ -14,6 +14,8 @@ find_package(ALPSCore 1.0 REQUIRED)
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
+include_directories(.)
+
 add_subdirectory(svm)
 include_directories(svm)
 include_directories(svm/libsvm)
