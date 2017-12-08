@@ -63,19 +63,15 @@ int main(int argc, char** argv)
         svm::problem<kernel_t> prob(0);
         std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
 
-        // determine number of temps remaining
-        size_t remaining_temps = parameters["N_temp"].as<size_t>();
-        size_t temps_done = 0;
         int n_clones;
         if (parameters.is_restored()) {
             alps::hdf5::archive cp(checkpoint_file, "r");
-            cp["simulation/temps_done"] >> temps_done;
-            remaining_temps -= temps_done;
 
             cp["simulation/n_clones"] >> n_clones;
         }
     
         std::vector<double> progress;
+        double global_progress = 0.;
 #pragma omp parallel
         {
             if (!parameters.is_restored()) {
@@ -86,13 +82,9 @@ int main(int argc, char** argv)
 
 #pragma omp for schedule(dynamic)
             for (int tid = 0; tid < n_clones; ++tid) {
-                size_t N_temp_thread = remaining_temps / n_clones;
-                if (tid == n_clones - 1)
-                    N_temp_thread += remaining_temps % n_clones;
-
                 std::unique_ptr<sim_type> sim;
 #pragma omp critical
-                sim = std::unique_ptr<sim_type>(new sim_type(parameters, N_temp_thread, tid));
+                sim = std::unique_ptr<sim_type>(new sim_type(parameters, global_progress, tid));
 
                 std::string checkpoint_path = [&] {
                     std::stringstream ss;
@@ -111,15 +103,17 @@ int main(int argc, char** argv)
                 }
 
                 auto progress_report = [&] () {
-                    double local_frac = sim->fraction_completed();
+                    double local_frac = sim->local_fraction_completed();
 #pragma omp atomic write
                     progress[tid] = local_frac;
 #pragma omp master
                     {
                         double total = std::accumulate(progress.begin(),
                                                        progress.end(), 0.);
+#pragma omp atomic write
+                        global_progress = total;
                         std::cout << std::setprecision(3)
-                                  << 100.*total/n_clones << " %     \r"
+                                  << 100.*total << " %     \r"
                                   << std::flush;
                     }
 
@@ -127,9 +121,6 @@ int main(int argc, char** argv)
                 sim->run(checkpointing_stop_callback(size_t(parameters["timelimit"]),
                                                      size_t(parameters["progress_interval"]),
                                                      progress_report));
-#pragma omp atomic write
-                progress[tid] = 1.;
-
 
                 // Checkpoint the simulation
 #pragma omp critical
@@ -139,7 +130,6 @@ int main(int argc, char** argv)
                             << std::endl;
                     alps::hdf5::archive cp(checkpoint_file, "w");
                     cp[checkpoint_path] << *sim;
-                    temps_done += sim->temps_done();
                 }
 
 #pragma omp critical
@@ -155,7 +145,6 @@ int main(int argc, char** argv)
 
         {
             alps::hdf5::archive cp(checkpoint_file, "w");
-            cp["simulation/temps_done"] << temps_done;
             cp["simulation/n_clones"] << n_clones;
         }
 

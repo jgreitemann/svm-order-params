@@ -42,15 +42,16 @@ public:
     }
 
     training_adapter (parameters_type & parms,
-                      size_t N_temp,
+                      double const& global_progress,
                       std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
+        , global_progress(global_progress)
         , temp_step(double(parameters["temp_step"]))
         , temp_crit(double(parameters["temp_crit"]))
         , temp_sigma_sq(pow(double(parameters["temp_sigma"]), 2))
         , temp_min(double(parameters["temp_min"]))
         , temp_max(double(parameters["temp_max"]))
-        , N_temp(N_temp)
+        , N_temp(size_t(parameters["N_temp"]))
         , N_sample(size_t(parameters["N_sample"]))
         , temp(temp_crit)
         , n_temp(0)
@@ -61,8 +62,15 @@ public:
         update_temperature();
     }
 
-    virtual double fraction_completed() const {
+    double local_fraction_completed() const {
         return (n_temp + Simulation::fraction_completed()) / N_temp;
+    }
+
+    virtual double fraction_completed() const {
+        double atomic_progress;
+#pragma omp atomic read
+        atomic_progress = global_progress;
+        return atomic_progress;
     }
 
     virtual void update () override {
@@ -100,6 +108,7 @@ public:
         // state
         ar["training/temp"] << temp;
         ar["training/i_temp"] << i_temp;
+        ar["training/n_temp"] << n_temp;
 
         ar["training/problem"] << prob_serializer;
     }
@@ -115,6 +124,7 @@ public:
         // state
         ar["training/temp"] >> temp;
         ar["training/i_temp"] >> i_temp;
+        ar["training/n_temp"] >> n_temp;
 
         ar["training/problem"] >> prob_serializer;
         if (problem.dim() != Simulation::configuration_size())
@@ -134,10 +144,6 @@ public:
         return other_problem;
     }
 
-    size_t temps_done () const {
-        return n_temp + (i_temp == N_sample);
-    }
-
 private:
     bool update_temperature () {
         double delta_temp = (2. * random() - 1.) * temp_step;
@@ -155,6 +161,8 @@ private:
 
     using Simulation::parameters;
     using Simulation::random;
+
+    double const& global_progress;
 
     double temp_step;
     double temp_crit;
