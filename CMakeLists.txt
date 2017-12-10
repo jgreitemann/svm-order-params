@@ -15,6 +15,7 @@ find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
 include_directories(.)
+include_directories(colormap)
 
 add_subdirectory(svm)
 include_directories(svm)
