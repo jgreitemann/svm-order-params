@@ -42,8 +42,8 @@ void write_matrix (boost::multi_array<double,2> const& mat, std::string basename
         } ();
         ppm.write(header.c_str(), header.size());
         for (auto row_it = mat.rbegin(); row_it != mat.rend(); ++row_it) {
-            for (double elem : *row_it) {
-                auto pix = pal(elem);
+            auto row = *row_it;
+            for (auto pix : color::map_color(row, pal)) {
                 pix.write(ppm);
             }
         }
