@@ -41,18 +41,18 @@ void write_matrix (boost::multi_array<double,2> const& mat, std::string basename
             return ss.str();
         } ();
         ppm.write(header.c_str(), header.size());
-        for (int i = mat.shape()[0] - 1; i >= 0; --i) {
-            for (size_t j = 0; j < mat.shape()[1]; ++j) {
-                auto pix = pal(mat[i][j]);
+        for (auto row_it = mat.rbegin(); row_it != mat.rend(); ++row_it) {
+            for (double elem : *row_it) {
+                auto pix = pal(elem);
                 pix.write(ppm);
             }
         }
     }
     /* TXT output */ {
         std::ofstream txt(basename + ".txt");
-        for (size_t i = 0; i < mat.shape()[0]; ++i) {
-            for (size_t j = 0; j < mat.shape()[1]; ++j) {
-                txt << mat[i][j] << '\t';
+        for (auto row_it = mat.rbegin(); row_it != mat.rend(); ++row_it) {
+            for (double elem : *row_it) {
+                txt << elem << '\t';
             }
             txt << '\n';
         }
