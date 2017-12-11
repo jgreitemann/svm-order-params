@@ -235,12 +235,20 @@ void gauge_sim::flip_ratio(double current_beta, int count)
 
 void gauge_sim::update()
 {
-    for (int i = 0; i < L3 * sweep_unit; i++)
-    {
-        flip_R(random_site(rng));
-        flip_Ux(random_site(rng));
-        flip_Uy(random_site(rng));
-        flip_Uz(random_site(rng));
+    if (random_01(rng) < 0.05) {
+        Rt3 Omega;
+        random_R(Omega);
+        for (int i = 0; i < L3; ++i) {
+            R[i] *= Omega;
+        }
+    } else {
+        for (int i = 0; i < L3 * sweep_unit; i++)
+        {
+            flip_R(random_site(rng));
+            flip_Ux(random_site(rng));
+            flip_Uy(random_site(rng));
+            flip_Uz(random_site(rng));
+        }
     }
     sweeps++;
 }
