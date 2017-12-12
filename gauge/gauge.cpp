@@ -28,6 +28,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<int>("thermalization_sweeps", 10000, "number of sweeps for thermalization")
         .define<int>("hits_R", 1, "number of hits in each flip of R")
         .define<int>("hits_U", 1, "number of hits in each flip of U")
+        .define<double>("global_gauge_prob", 0.05, "probability for global gauge update")
         .define<int>("sweep_unit", 10, "scale a sweep")
         .define<double>("spacing_E", 0.001, "spacing of normalized energy")
         .define<double>("spacing_nem", 0.001, "spacing of nematicity");
@@ -84,6 +85,7 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     , total_sweeps(parameters["total_sweeps"])
     , hits_R(parameters["hits_R"])
     , hits_U(parameters["hits_U"])
+    , global_gauge_prob(parameters["global_gauge_prob"].as<double>())
     , sweep_unit(parameters["sweep_unit"])
     , spacing_E(parameters["spacing_E"].as<double>())
     , spacing_nem(parameters["spacing_nem"].as<double>())
@@ -235,12 +237,8 @@ void gauge_sim::flip_ratio(double current_beta, int count)
 
 void gauge_sim::update()
 {
-    if (random_01(rng) < 0.05) {
-        Rt3 Omega;
-        random_R(Omega);
-        for (int i = 0; i < L3; ++i) {
-            R[i] *= Omega;
-        }
+    if (random_01(rng) < global_gauge_prob) {
+        global_gauge_update();
     } else {
         for (int i = 0; i < L3 * sweep_unit; i++)
         {
@@ -251,6 +249,15 @@ void gauge_sim::update()
         }
     }
     sweeps++;
+}
+
+void gauge_sim::global_gauge_update()
+{
+    Rt3 Omega;
+    random_R(Omega);
+    for (int i = 0; i < L3; ++i) {
+        R[i] *= Omega;
+    }
 }
 
 /* updates of R */

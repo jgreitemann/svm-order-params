@@ -32,6 +32,7 @@ private:
     int total_sweeps;
     int hits_R; // number of hits in each update of R
     int hits_U;
+    double global_gauge_prob;
     int sweep_unit; // the actual unit is sweep_unit*hits
 
     /* for histogram */
@@ -98,6 +99,7 @@ public:
     /** contents of update **/
     void random_R(Rt3& Rt); // re-set the value of R
 
+    void global_gauge_update();
     void flip_R(int i);
     void flip_Ux(int i);
     void flip_Uy(int i);
