@@ -239,3 +239,49 @@ private:
 
     size_t rank;
 };
+
+template <typename ElementPolicy, typename BlockReduction = block_reduction::norm<1>>
+struct site_resolved_rank1_config_policy : public config_policy, private ElementPolicy {
+    site_resolved_rank1_config_policy (size_t N) : n_sites(N) {}
+
+    virtual size_t size () const override {
+        return ElementPolicy::range * n_sites;
+    }
+
+    virtual std::vector<double> configuration (config_array const& R) const override {
+        std::vector<double> v;
+        v.reserve(size());
+        for (local_state const& site : R) {
+            for (size_t a = 0; a < ElementPolicy::range; ++a) {
+                v.push_back(site(color(a), component(a)));
+            }
+        }
+        return v;
+    }
+
+    virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
+        return c;
+    }
+
+    virtual matrix_t block_structure (matrix_t const& c) const override {
+        size_t block_range = ElementPolicy::n_color * n_sites;
+        size_t block_size = ElementPolicy::range / ElementPolicy::n_color;
+        matrix_t blocks(boost::extents[block_range][block_range]);
+        boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
+        for (size_t i = 0; i < size(); ++i) {
+            for (size_t j = 0; j < size(); ++j) {
+                block_norms[i / block_size][j / block_size] += c[i][j];
+            }
+        }
+        for (size_t i = 0; i < block_range; ++i)
+            for (size_t j = 0; j < block_range; ++j)
+                blocks[i][j] = block_norms[i][j];
+        return blocks;
+    }
+
+private:
+    using ElementPolicy::color;
+    using ElementPolicy::component;
+
+    size_t n_sites;
+};
