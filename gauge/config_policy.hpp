@@ -6,6 +6,8 @@
 #include <cmath>
 #include <iterator>
 #include <limits>
+#include <memory>
+#include <stdexcept>
 #include <vector>
 
 #include <boost/multi_array.hpp>
@@ -18,6 +20,7 @@ namespace element_policy {
     struct uniaxial {
         static const size_t n_color = 1;
         static const size_t range = 3 * n_color;
+        inline size_t sublattice(size_t index) const { return 0; }
         inline size_t color(size_t index) const { return 2; }
         inline size_t component(size_t index) const { return index; }
 
@@ -34,6 +37,7 @@ namespace element_policy {
     struct triad {
         static const size_t n_color = 3;
         static const size_t range = 3 * n_color;
+        inline size_t sublattice(size_t index) const { return 0; }
         inline size_t color(size_t index) const { return index / 3; }
         inline size_t component(size_t index) const { return index % 3; }
 
@@ -50,6 +54,67 @@ namespace element_policy {
             }
             return colors * shift + components;
         }
+    };
+
+}
+
+namespace lattice {
+
+    template <typename BaseElementPolicy, typename Container>
+    struct uniform {
+        using ElementPolicy = BaseElementPolicy;
+        using site_const_iterator = typename Container::const_iterator;
+
+        struct unitcell;
+        struct const_iterator {
+            const_iterator & operator++ () { ++sit; return *this; }
+            const_iterator operator++ (int) {
+                const_iterator old(*this);
+                ++(*this);
+                return old;
+            }
+            const_iterator & operator-- () { --sit; return *this; }
+            const_iterator operator-- (int) {
+                const_iterator old(*this);
+                --(*this);
+                return old;
+            }
+            friend bool operator== (const_iterator lhs, const_iterator rhs) { return lhs.sit == rhs.sit; }
+            friend bool operator!= (const_iterator lhs, const_iterator rhs) { return lhs.sit != rhs.sit; }
+            unitcell operator* () const { return {sit}; }
+            std::unique_ptr<unitcell> operator-> () const {
+                return std::unique_ptr<unitcell>(new unitcell(sit));
+            }
+            friend uniform;
+        private:
+            const_iterator (site_const_iterator it) : sit {it} {}
+            site_const_iterator sit;
+        };
+
+        struct unitcell {
+            typename Container::value_type const& sublattice (size_t i = 0) const {
+                if (i != 0)
+                    throw std::runtime_error("invalid sublattice index");
+                return it[i];
+            }
+            friend const_iterator;
+        private:
+            unitcell (site_const_iterator it) : it {it} {}
+            site_const_iterator it;
+        };
+
+        uniform (Container const& linear) : linear(linear) {}
+
+        const_iterator begin () const {
+            return {linear.begin()};
+        }
+
+        const_iterator end () const {
+            return {linear.end()};
+        }
+
+    private:
+        Container const& linear;
     };
 
 }
@@ -158,9 +223,11 @@ struct config_policy {
     virtual matrix_t block_structure (matrix_t const& c) const = 0;
 };
 
-template <typename ElementPolicy, typename SymmetryPolicy,
-          typename BlockReduction = block_reduction::norm<1>>
+template <typename LatticePolicy, typename SymmetryPolicy,
+          typename BlockReduction = block_reduction::norm<1>,
+          typename ElementPolicy = typename LatticePolicy::ElementPolicy>
 struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
+
     gauge_config_policy (size_t rank) : rank(rank) {}
 
     virtual size_t size () const override {
@@ -170,11 +237,12 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
     virtual std::vector<double> configuration (config_array const& R) const override {
         std::vector<double> v(size());
         std::vector<size_t> ind(rank);
+        LatticePolicy lattice(R);
         for (double & elem : v) {
-            for (local_state const& site : R) {
+            for (auto cell : lattice) {
                 double prod = 1;
                 for (size_t a : ind)
-                    prod *= site(color(a), component(a));
+                    prod *= cell.sublattice(sublattice(a))(color(a), component(a));
                 elem += prod;
             }
             elem /= R.size();
@@ -231,6 +299,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
 private:
     using ElementPolicy::color;
     using ElementPolicy::component;
+    using ElementPolicy::sublattice;
 
     void advance_ind (std::vector<size_t> & ind) const {
         SymmetryPolicy::advance_ind(ind, ElementPolicy::range);

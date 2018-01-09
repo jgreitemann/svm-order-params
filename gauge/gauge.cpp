@@ -57,24 +57,25 @@ std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(paramete
                 new site_resolved_rank1_config_policy<element_policy::triad>(n_sites));
         }
     }
+    using ctype = decltype(R);
     if (parameters["symmetrized"].as<bool>()) {
         if (parameters["uniaxial"].as<bool>()) {
             return std::unique_ptr<config_policy>(
-                new gauge_config_policy<element_policy::uniaxial,
+                new gauge_config_policy<lattice::uniform<element_policy::uniaxial, ctype>,
                                         symmetry_policy::symmetrized>(rank));
         } else {
             return std::unique_ptr<config_policy>(
-                new gauge_config_policy<element_policy::triad,
+                new gauge_config_policy<lattice::uniform<element_policy::triad, ctype>,
                                         symmetry_policy::symmetrized>(rank));
         }
     } else {
         if (parameters["uniaxial"].as<bool>()) {
             return std::unique_ptr<config_policy>(
-                new gauge_config_policy<element_policy::uniaxial,
+                new gauge_config_policy<lattice::uniform<element_policy::uniaxial, ctype>,
                                         symmetry_policy::none>(rank));
         } else {
             return std::unique_ptr<config_policy>(
-                new gauge_config_policy<element_policy::triad,
+                new gauge_config_policy<lattice::uniform<element_policy::triad, ctype>,
                                         symmetry_policy::none>(rank));
         }
     }
