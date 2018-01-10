@@ -13,20 +13,41 @@
 
 double gauge_sim::nematicity_Cinfv() {
 	// Q_a = n_a = R[i](2,a)
-	double Q[3] = {0};
-	for(int i = 0; i < L3; i++)
-		for(int a = 0; a < 3; a++)
-			Q[a] += R[i](2,a);
 
+	double A[3] = {0}; //sublattice
+	double B[3] = {0};
+	double Q[3] = {0}; // total
+	int i = 0; //initial coordinates in chain
+
+	for(int z=0; z<L; z++)
+		for(int y=0; y<L; y++)
+			for(int x=0; x<L; x++)
+			{
+				if((x+y+z)%2 == 0)
+				{
+					for(int a=0; a<3; a++)
+						A[a] += R[i](2,a);
+					i++;
+				}
+				else
+				{
+					for(int b=0; b<3; b++)
+						B[b] += R[i](2,b);
+					i++;
+				}
+			}
+
+	for(int a=0; a<3; a++)
+		Q[a] = A[a] + J3*B[a];
 
 	double Q2 = 0;
-	for(int a = 0; a < 3; a++)
-		Q2 += Q[a] * Q[a];
-
-	double norm = 1. * L3 * L3;
+	
+	for(int a=0; a<3; a++)
+		Q2 += Q[a]*Q[a];
+	
+	double norm = L3 * L3;
 
 	return Q2/norm;
-
 }
 
 double gauge_sim::nematicity_Dinfh() { // to or not to take the trace out?
@@ -51,7 +72,6 @@ double gauge_sim::nematicity_Dinfh() { // to or not to take the trace out?
 	double norm = 2./3 * L3 * L3;
 
 	return Q2/norm;
-
 }
 
 double gauge_sim::nematicity_T() 
