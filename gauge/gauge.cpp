@@ -34,6 +34,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
 
     parameters
         .define<bool>("resolve_sites", false, "do not average over sites (rank 1 only)")
+        .define<bool>("bipartite", false, "use a bipartite configuration (AFM)")
         .define<bool>("symmetrized", true, "use symmetry <l_x m_y> == <m_y l_x>")
         .define<bool>("uniaxial", false, "only consider n-vector in configuration")
         .define<size_t>("rank", "rank of the order parameter tensor");
@@ -58,6 +59,29 @@ std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(paramete
         }
     }
     using ctype = decltype(R);
+    if (parameters["bipartite"].as<bool>()) {
+        if (parameters["symmetrized"].as<bool>()) {
+            if (parameters["uniaxial"].as<bool>()) {
+                return std::unique_ptr<config_policy>(
+                    new gauge_config_policy<lattice::square<element_policy::uniaxial, ctype>,
+                                            symmetry_policy::symmetrized>(rank));
+            } else {
+                return std::unique_ptr<config_policy>(
+                    new gauge_config_policy<lattice::square<element_policy::triad, ctype>,
+                                            symmetry_policy::symmetrized>(rank));
+            }
+        } else {
+            if (parameters["uniaxial"].as<bool>()) {
+                return std::unique_ptr<config_policy>(
+                    new gauge_config_policy<lattice::square<element_policy::uniaxial, ctype>,
+                                            symmetry_policy::none>(rank));
+            } else {
+                return std::unique_ptr<config_policy>(
+                    new gauge_config_policy<lattice::square<element_policy::triad, ctype>,
+                                            symmetry_policy::none>(rank));
+            }
+        }
+    }
     if (parameters["symmetrized"].as<bool>()) {
         if (parameters["uniaxial"].as<bool>()) {
             return std::unique_ptr<config_policy>(

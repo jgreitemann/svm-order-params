@@ -3,6 +3,7 @@
 #include "combinatorics.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iterator>
 #include <limits>
@@ -56,6 +57,38 @@ namespace element_policy {
         }
     };
 
+    template <typename BaseElementPolicy, size_t N_UNIT>
+    struct n_partite : private BaseElementPolicy {
+        static const size_t n_unitcell = N_UNIT;
+        static const size_t n_color = n_unitcell * BaseElementPolicy::n_color;
+        static const size_t range = n_unitcell * BaseElementPolicy::range;
+        inline size_t sublattice(size_t index) const {
+            return index / BaseElementPolicy::range;
+        }
+        inline size_t color(size_t index) const {
+            return BaseElementPolicy::color(index % BaseElementPolicy::range);
+        }
+        inline size_t component(size_t index) const {
+            return BaseElementPolicy::component(index % BaseElementPolicy::range);
+        }
+
+        size_t rearranged_index (std::vector<size_t> const& ind) const {
+            size_t sublats = 0;
+            size_t shift = 1;
+            for (auto it = ind.begin(); it != ind.end(); ++it) {
+                sublats *= 2;
+                sublats += sublattice(*it);
+                shift *= BaseElementPolicy::range;
+            }
+            std::vector<size_t> base_ind(ind);
+            for (size_t & i : base_ind)
+                i = i % BaseElementPolicy::range;
+            return sublats * shift + BaseElementPolicy::rearranged_index(base_ind);
+        }
+    };
+
+    template <typename BaseElementPolicy>
+    using bipartite = n_partite<BaseElementPolicy, 2>;
 }
 
 namespace lattice {
@@ -115,6 +148,107 @@ namespace lattice {
 
     private:
         Container const& linear;
+    };
+
+    template <typename BaseElementPolicy, typename Container, size_t DIM = 3>
+    struct square {
+        using ElementPolicy = element_policy::bipartite<BaseElementPolicy>;
+        using site_const_iterator = typename Container::const_iterator;
+        using coord_t = std::array<size_t, DIM>;
+
+        struct unitcell;
+        struct const_iterator {
+            const_iterator & operator++ () {
+                coord[0] += 2;
+                if (coord[0] >= L) {
+                    size_t i;
+                    for (i = 1; i < coord.size(); ++i) {
+                        ++coord[i];
+                        if (coord[i] < L)
+                            break;
+                        coord[i] = 0;
+                    }
+                    if (i == coord.size()) {
+                        coord[0] = L;
+                    } else {
+                        size_t sum = 0;
+                        for (i = 1; i < coord.size(); ++i) {
+                            sum += coord[i];
+                        }
+                        coord[0] = sum % 2;
+                    }
+                }
+                return *this;
+            }
+            const_iterator operator++ (int) {
+                const_iterator old(*this);
+                ++(*this);
+                return old;
+            }
+            friend bool operator== (const_iterator lhs, const_iterator rhs) {
+                return (lhs.coord == rhs.coord
+                        && lhs.root == rhs.root
+                        && lhs.L == rhs.L);
+            }
+            friend bool operator!= (const_iterator lhs, const_iterator rhs) { return !(lhs == rhs); }
+            unitcell operator* () const { return {root, lin_index(), L}; }
+            std::unique_ptr<unitcell> operator-> () const {
+                return std::unique_ptr<unitcell>(root, lin_index(), L);
+            }
+            friend square;
+        private:
+            const_iterator (site_const_iterator it, coord_t c, size_t L)
+                : root{it}, coord{c}, L{L} {}
+            size_t lin_index () const {
+                size_t sum = 0;
+                for (size_t c : coord) {
+                    sum *= L;
+                    sum += c;
+                }
+                return sum;
+            }
+            site_const_iterator root;
+            coord_t coord;
+            size_t L;
+        };
+
+        struct unitcell {
+            typename Container::value_type const& sublattice (size_t i) const {
+                if (i == 0)
+                    return root[idx];
+                else if (i == 1)
+                    return root[idx / L * L + (idx + 1) % L];
+                else
+                    throw std::runtime_error("invalid sublattice index");
+            }
+            friend const_iterator;
+        private:
+            unitcell (site_const_iterator it, size_t idx, size_t L)
+                : root{it}, idx{idx}, L{L} {}
+            site_const_iterator root;
+            size_t idx;
+            size_t L;
+        };
+
+        square (Container const& linear) : linear(linear) {
+            L = static_cast<size_t>(pow(linear.size() + 0.5, 1./DIM));
+            if (combinatorics::ipow(L, DIM) != linear.size())
+                throw std::runtime_error("linear configuration size doesn't match DIM");
+            if (L % 2 != 0)
+                throw std::runtime_error("lattice not bipartite w.r.t. PBCs");
+        }
+
+        const_iterator begin () const {
+            return {linear.begin(), {0}, L};
+        }
+
+        const_iterator end () const {
+            return {linear.begin(), {L}, L};
+        }
+
+    private:
+        Container const& linear;
+        size_t L;
     };
 
 }
