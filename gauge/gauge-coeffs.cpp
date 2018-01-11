@@ -33,20 +33,13 @@ template <typename Palette>
 void write_matrix (boost::multi_array<double,2> const& mat, std::string basename,
                    Palette const& pal) {
     /* PPM output */ {
-        std::ofstream ppm(basename + ".ppm", std::ios::binary);
-        std::string header = [&] {
-            std::stringstream ss;
-            ss << "P6\n" << mat.shape()[0] << ' ' << mat.shape()[1] << '\n'
-            << size_t(Palette::color_type::depth()) << '\n';
-            return ss.str();
-        } ();
-        ppm.write(header.c_str(), header.size());
-        for (auto row_it = mat.rbegin(); row_it != mat.rend(); ++row_it) {
-            auto row = *row_it;
-            for (auto pix : color::map_color(row, pal)) {
-                pix.write(ppm);
-            }
-        }
+        boost::multi_array<double,2> flat(mat);
+        flat.reshape(std::array<size_t,2>{1, mat.shape()[0] * mat.shape()[1]});
+        auto pixit = itadpt::map_iterator(flat[0].begin(), pal);
+        auto pmap = color::pixmap(pixit, std::array<size_t,2>{mat.shape()[0], mat.shape()[1]});
+
+        std::ofstream ppm(basename + "." + pmap.file_extension(), std::ios::binary);
+        pmap.write_binary(ppm);
     }
     /* TXT output */ {
         std::ofstream txt(basename + ".txt");
