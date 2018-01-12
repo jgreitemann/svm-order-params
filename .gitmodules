@@ -1,3 +1,6 @@
 [submodule "colormap"]
 	path = colormap
 	url = https://github.com/jgreitemann/colormap.git
+[submodule "svm"]
+	path = svm
+	url = https://github.com/jgreitemann/svm.git
