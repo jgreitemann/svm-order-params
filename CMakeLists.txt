@@ -28,19 +28,19 @@ add_executable(ising-learn
     learn.cpp
     checkpointing_stop_callback.cpp
     ising/ising.cpp
-    svm/data_view.cpp)
+    )
 target_compile_definitions(ising-learn PUBLIC -DISING)
 
 add_executable(ising-test
     test.cpp
     ising/ising.cpp
-    svm/data_view.cpp)
+    )
 target_compile_definitions(ising-test PUBLIC -DISING)
 
 add_executable(ising-coeffs
     ising-coeffs.cpp
     ising/ising.cpp
-    svm/data_view.cpp)
+    )
 
 include_directories(gauge)
 add_executable(gauge-learn
@@ -49,7 +49,7 @@ add_executable(gauge-learn
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
-    svm/data_view.cpp)
+    )
 target_compile_definitions(gauge-learn PUBLIC -DGAUGE)
 
 add_executable(gauge-test
@@ -57,7 +57,7 @@ add_executable(gauge-test
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
-    svm/data_view.cpp)
+    )
 target_compile_definitions(gauge-test PUBLIC -DGAUGE)
 
 add_executable(gauge-coeffs
@@ -65,7 +65,7 @@ add_executable(gauge-coeffs
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
-    svm/data_view.cpp)
+    )
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
 target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm)
