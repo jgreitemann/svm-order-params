@@ -20,6 +20,9 @@ add_subdirectory(svm)
 include_directories(svm)
 include_directories(svm/libsvm)
 
+add_subdirectory(colormap/test)
+include_directories(colormap)
+
 include_directories(ising)
 add_executable(ising-learn
     learn.cpp
