@@ -146,6 +146,10 @@ namespace lattice {
             return {linear.end()};
         }
 
+        size_t size () const {
+            return linear.size();
+        }
+
     private:
         Container const& linear;
     };
@@ -244,6 +248,10 @@ namespace lattice {
 
         const_iterator end () const {
             return {linear.begin(), {L}, L};
+        }
+
+        size_t size () const {
+            return linear.size() / 2;
         }
 
     private:
@@ -379,7 +387,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                     prod *= cell.sublattice(sublattice(a))(color(a), component(a));
                 elem += prod;
             }
-            elem /= R.size();
+            elem /= lattice.size();
 
             advance_ind(ind);
         }
