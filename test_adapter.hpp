@@ -35,10 +35,13 @@ public:
     {
         std::string arname = parms.get_archive_name();
 
-        alps::hdf5::archive ar(arname, "r");
+#pragma omp critical
+        {
+            alps::hdf5::archive ar(arname, "r");
 
-        svm::model_serializer<svm::hdf5_tag, svm::model<kernel_t>> serial(model);
-        ar["model"] >> serial;
+            svm::model_serializer<svm::hdf5_tag, svm::model<kernel_t>> serial(model);
+            ar["model"] >> serial;
+        }
 
         measurements << alps::accumulators::FullBinningAccumulator<double>("SVM")
                      << alps::accumulators::FullBinningAccumulator<double>("ordered");
