@@ -424,7 +424,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                 for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
-                        out[i_out][j_out] = c[i][j];
+                        out[i_out][j_out] = c[i][j] / (weights[i] * weights[j]);
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
             } while (unsymmetrize && transform_ind(i_ind));
