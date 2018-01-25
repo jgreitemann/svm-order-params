@@ -288,6 +288,10 @@ namespace symmetry_policy {
         bool transform_ind (std::vector<size_t> & ind) const {
             return false;
         }
+
+        size_t number_of_equivalents (std::vector<size_t> const& ind) const {
+            return 1;
+        }
     };
 
     struct symmetrized {
@@ -313,6 +317,10 @@ namespace symmetry_policy {
 
         bool transform_ind (std::vector<size_t> & ind) const {
             return std::next_permutation(ind.begin(), ind.end());
+        }
+
+        size_t number_of_equivalents (std::vector<size_t> const& ind) const {
+            return combinatorics::number_of_permutations(ind);
         }
     };
 
@@ -371,7 +379,14 @@ template <typename LatticePolicy, typename SymmetryPolicy,
 struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
 
     gauge_config_policy (size_t rank, bool unsymmetrize = true)
-        : rank(rank), unsymmetrize(unsymmetrize) {}
+        : rank(rank), unsymmetrize(unsymmetrize), weights(size())
+    {
+        std::vector<size_t> ind(rank);
+        for (double & w : weights) {
+            w = sqrt(SymmetryPolicy::number_of_equivalents(ind));
+            advance_ind(ind);
+        }
+    }
 
     virtual size_t size () const override {
         return SymmetryPolicy::size(ElementPolicy::range, rank);
@@ -381,6 +396,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         std::vector<double> v(size());
         std::vector<size_t> ind(rank);
         LatticePolicy lattice(R);
+        auto w_it = weights.begin();
         for (double & elem : v) {
             for (auto cell : lattice) {
                 double prod = 1;
@@ -388,9 +404,10 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                     prod *= cell.sublattice(sublattice(a))(color(a), component(a));
                 elem += prod;
             }
-            elem /= lattice.size();
+            elem *= *w_it / lattice.size();
 
             advance_ind(ind);
+            ++w_it;
         }
         return v;
     }
@@ -451,6 +468,7 @@ private:
 
     size_t rank;
     bool unsymmetrize;
+    std::vector<double> weights;
 };
 
 template <typename ElementPolicy, typename BlockReduction = block_reduction::norm<1>>
