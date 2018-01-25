@@ -42,7 +42,9 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
 }
 
 
-std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(parameters_type const& parameters) {
+std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(parameters_type const& parameters,
+                                                                        bool unsymmetrize = true)
+{
     // set up SVM configuration policy
     size_t rank = parameters["rank"].as<size_t>();
     if (parameters["resolve_sites"].as<bool>()) {
@@ -65,21 +67,21 @@ std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(paramete
             if (parameters["uniaxial"].as<bool>()) {
                 return std::unique_ptr<config_policy>(
                     new gauge_config_policy<lattice::square<element_policy::uniaxial, ctype>,
-                                            symmetry_policy::symmetrized>(rank));
+                                            symmetry_policy::symmetrized>(rank, unsymmetrize));
             } else {
                 return std::unique_ptr<config_policy>(
                     new gauge_config_policy<lattice::square<element_policy::triad, ctype>,
-                                            symmetry_policy::symmetrized>(rank));
+                                            symmetry_policy::symmetrized>(rank, unsymmetrize));
             }
         } else {
             if (parameters["uniaxial"].as<bool>()) {
                 return std::unique_ptr<config_policy>(
                     new gauge_config_policy<lattice::square<element_policy::uniaxial, ctype>,
-                                            symmetry_policy::none>(rank));
+                                            symmetry_policy::none>(rank, unsymmetrize));
             } else {
                 return std::unique_ptr<config_policy>(
                     new gauge_config_policy<lattice::square<element_policy::triad, ctype>,
-                                            symmetry_policy::none>(rank));
+                                            symmetry_policy::none>(rank, unsymmetrize));
             }
         }
     }
@@ -87,21 +89,21 @@ std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(paramete
         if (parameters["uniaxial"].as<bool>()) {
             return std::unique_ptr<config_policy>(
                 new gauge_config_policy<lattice::uniform<element_policy::uniaxial, ctype>,
-                                        symmetry_policy::symmetrized>(rank));
+                                        symmetry_policy::symmetrized>(rank, unsymmetrize));
         } else {
             return std::unique_ptr<config_policy>(
                 new gauge_config_policy<lattice::uniform<element_policy::triad, ctype>,
-                                        symmetry_policy::symmetrized>(rank));
+                                        symmetry_policy::symmetrized>(rank, unsymmetrize));
         }
     } else {
         if (parameters["uniaxial"].as<bool>()) {
             return std::unique_ptr<config_policy>(
                 new gauge_config_policy<lattice::uniform<element_policy::uniaxial, ctype>,
-                                        symmetry_policy::none>(rank));
+                                        symmetry_policy::none>(rank, unsymmetrize));
         } else {
             return std::unique_ptr<config_policy>(
                 new gauge_config_policy<lattice::uniform<element_policy::triad, ctype>,
-                                        symmetry_policy::none>(rank));
+                                        symmetry_policy::none>(rank, unsymmetrize));
         }
     }
 }

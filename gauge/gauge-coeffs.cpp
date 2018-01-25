@@ -2,6 +2,7 @@
 #include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
 #include "colormap.hpp"
+#include "argh.h"
 
 #include <array>
 #include <iostream>
@@ -56,7 +57,14 @@ void write_matrix (boost::multi_array<double,2> const& mat, std::string basename
 
 int main(int argc, char** argv) {
     try {
-        alps::params parameters(argc, argv);
+        argh::parser cmdl(argv);
+        alps::params parameters = [&] {
+            if (cmdl[1].empty())
+                return alps::params(argc, argv);
+            std::string pseudo_args[] = {cmdl[0], cmdl[1]};
+            char const * pseudo_argv[] = {pseudo_args[0].c_str(), pseudo_args[1].c_str()};
+            return alps::params(2, pseudo_argv);
+        } ();
         sim_type::define_parameters(parameters);
 
         if (parameters.help_requested(std::cout) ||
@@ -84,7 +92,7 @@ int main(int argc, char** argv) {
         }
 
         std::unique_ptr<config_policy> confpol =
-            sim_type::config_policy_from_parameters(parameters);
+            sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
         {
             auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
             normalize_matrix(rearranged_coeffs);

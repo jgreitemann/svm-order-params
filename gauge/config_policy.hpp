@@ -370,7 +370,8 @@ template <typename LatticePolicy, typename SymmetryPolicy,
           typename ElementPolicy = typename LatticePolicy::ElementPolicy>
 struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
 
-    gauge_config_policy (size_t rank) : rank(rank) {}
+    gauge_config_policy (size_t rank, bool unsymmetrize = true)
+        : rank(rank), unsymmetrize(unsymmetrize) {}
 
     virtual size_t size () const override {
         return SymmetryPolicy::size(ElementPolicy::range, rank);
@@ -407,9 +408,9 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
                         out[i_out][j_out] = c[i][j];
-                    } while (transform_ind(j_ind));
+                    } while (unsymmetrize && transform_ind(j_ind));
                 }
-            } while (transform_ind(i_ind));
+            } while (unsymmetrize && transform_ind(i_ind));
         }
         return out;
     }
@@ -428,9 +429,9 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
                         block_norms[i_out / block_size][j_out / block_size] += c[i][j];
-                    } while (transform_ind(j_ind));
+                    } while (unsymmetrize && transform_ind(j_ind));
                 }
-            } while (transform_ind(i_ind));
+            } while (unsymmetrize && transform_ind(i_ind));
         }
         for (size_t i = 0; i < block_range; ++i)
             for (size_t j = 0; j < block_range; ++j)
@@ -449,6 +450,7 @@ private:
     using SymmetryPolicy::transform_ind;
 
     size_t rank;
+    bool unsymmetrize;
 };
 
 template <typename ElementPolicy, typename BlockReduction = block_reduction::norm<1>>
