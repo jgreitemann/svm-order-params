@@ -46,7 +46,10 @@ const std::map<std::string, tensor_factory> exact_tensor = {
         "Dinfh",
         {
             {
-                {     1.,  {"aa", "aa"}}
+                {   1./9,  {"aa", "bb"}},
+                {  -1./3,  {"aa", "22"}},
+                {  -1./3,  {"22", "aa"}},
+                {     1.,  {"22", "22"}}
             },
             {
                 {     1.,  {"ab", "ab"}},

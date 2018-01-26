@@ -16,12 +16,17 @@ bool delta_rule::operator() (std::vector<size_t> const& i_ind, std::vector<size_
     auto idx_it = i_ind.begin();
     auto c_it = pattern.first.begin();
     while (idx_it != j_ind.end()) {
-        auto find = assignments.find(*c_it);
-        if (find == assignments.end()) {
-            assignments[*c_it] = *idx_it;
-        } else {
-            if (find->second != *idx_it)
+        if ('0' <= *c_it && *c_it <= '9') {
+            if (*c_it - '0' != *idx_it)
                 return false;
+        } else {
+            auto find = assignments.find(*c_it);
+            if (find == assignments.end()) {
+                assignments[*c_it] = *idx_it;
+            } else {
+                if (find->second != *idx_it)
+                    return false;
+            }
         }
 
         ++idx_it;
