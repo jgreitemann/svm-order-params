@@ -30,6 +30,13 @@ private:
 
 rule_ptr make_delta (std::string const& lhs, std::string const& rhs);
 
+struct distinct_rule : public index_rule {
+    virtual bool operator() (indices_t const& i_ind, indices_t const& j_ind) const override;
+    virtual rule_ptr clone () const override;
+};
+
+rule_ptr make_distinct ();
+
 struct contraction {
     double operator() (indices_t const& i_ind, indices_t const& j_ind) const;
     contraction (double, rule_ptr &&);

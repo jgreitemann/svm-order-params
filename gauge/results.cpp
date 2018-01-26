@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <set>
 #include <stdexcept>
 
 
@@ -45,6 +46,22 @@ rule_ptr delta_rule::clone () const {
 
 rule_ptr make_delta (std::string const& lhs, std::string const& rhs) {
     return rule_ptr(new delta_rule(lhs, rhs));
+}
+
+bool distinct_rule::operator() (indices_t const& i_ind, indices_t const& j_ind) const {
+    std::set<size_t> set(i_ind.begin(), i_ind.end());
+    if (i_ind.size() != set.size()) return false;
+    set.clear();
+    set.insert(j_ind.begin(), j_ind.end());
+    return j_ind.size() == set.size();
+}
+
+rule_ptr distinct_rule::clone () const {
+    return rule_ptr(new distinct_rule(*this));
+}
+
+rule_ptr make_distinct () {
+    return rule_ptr(new distinct_rule());
 }
 
 contraction::contraction (double weight, rule_ptr && rule)
