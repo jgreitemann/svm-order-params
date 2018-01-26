@@ -8,7 +8,7 @@
 delta_rule::delta_rule (std::string const& lhs, std::string const& rhs)
     : pattern {lhs, rhs} {}
 
-bool delta_rule::operator() (std::vector<size_t> const& i_ind, std::vector<size_t> const& j_ind) const {
+bool delta_rule::operator() (indices_t const& i_ind, indices_t const& j_ind) const {
     if (i_ind.size() != pattern.first.size() || j_ind.size() != pattern.second.size())
         throw std::runtime_error("index ranks don't match delta rule pattern");
 
@@ -39,23 +39,22 @@ bool delta_rule::operator() (std::vector<size_t> const& i_ind, std::vector<size_
     return true;
 }
 
-size_t delta_rule::rank () const {
-    if (pattern.first.size() != pattern.second.size())
-        throw std::runtime_error("delta rule pattern has different ranks");
-    return pattern.first.size();
+rule_ptr delta_rule::clone () const {
+    return rule_ptr(new delta_rule(*this));
 }
 
-contraction::contraction (double weight, delta_rule && rule)
-    : weight(weight), rule_(std::forward<delta_rule>(rule)) {}
-
-double contraction::operator() (std::vector<size_t> const& i_ind, std::vector<size_t> const& j_ind) const {
-    if (rule_(i_ind, j_ind))
-        return weight;
-    return 0.;
+rule_ptr make_delta (std::string const& lhs, std::string const& rhs) {
+    return rule_ptr(new delta_rule(lhs, rhs));
 }
 
-delta_rule const& contraction::rule () const {
-    return rule_;
+contraction::contraction (double weight, rule_ptr && rule)
+    : weight(weight), rule_(std::forward<rule_ptr>(rule)) {}
+
+contraction::contraction (contraction const& other)
+    : weight(other.weight), rule_(other.rule_->clone()) {}
+
+double contraction::operator() (indices_t const& i_ind, indices_t const& j_ind) const {
+    return (*rule_)(i_ind, j_ind) ? weight : 0.;
 }
 
 tensor_factory::tensor_factory (std::vector<contraction> && bc,
@@ -64,27 +63,19 @@ tensor_factory::tensor_factory (std::vector<contraction> && bc,
       component_contractions(std::forward<std::vector<contraction>>(cc)) {}
 
 boost::multi_array<double, 2> tensor_factory::get (std::unique_ptr<config_policy> const& cpol) const {
-    size_t rank = cpol->rank();
-    for (auto const& c : block_contractions)
-        if (c.rule().rank() != rank)
-            throw std::runtime_error("inconsistent ranks across block "
-                                     "contractions in the same tensor factory");
-    for (auto const& c : component_contractions)
-        if (c.rule().rank() != rank)
-            throw std::runtime_error("inconsistent ranks across component "
-                                     "contractions in the same tensor factory");
     symmetry_policy::none symm;
+    size_t rank = cpol->rank();
     size_t size = symm.size(cpol->range(), rank);
     boost::multi_array<double, 2> res(boost::extents[size][size]);
-    std::vector<size_t> i_ind(rank);
+    indices_t i_ind(rank);
     for (auto row : res) {
-        std::vector<size_t> i_ind_block = cpol->block_indices(i_ind);
-        std::vector<size_t> i_ind_component = cpol->component_indices(i_ind);
-        std::vector<size_t> j_ind(rank);
+        indices_t i_ind_block = cpol->block_indices(i_ind);
+        indices_t i_ind_component = cpol->component_indices(i_ind);
+        indices_t j_ind(rank);
         for (auto & elem : row) {
             elem = 0;
-            std::vector<size_t> j_ind_block = cpol->block_indices(j_ind);
-            std::vector<size_t> j_ind_component = cpol->component_indices(j_ind);
+            indices_t j_ind_block = cpol->block_indices(j_ind);
+            indices_t j_ind_component = cpol->component_indices(j_ind);
             for (auto const& bc : block_contractions)
                 for (auto const& cc : component_contractions)
                     elem += (bc(i_ind_block, j_ind_block)
