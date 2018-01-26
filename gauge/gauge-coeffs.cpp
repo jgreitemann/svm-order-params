@@ -114,7 +114,7 @@ int main(int argc, char** argv) {
             auto cpol = sim_type::config_policy_from_parameters(parameters, false);
             try {
                 auto exact = cpol->rearrange_by_component(
-                    exact_tensor.at(parameters["gauge_group"]).get(cpol->range()));
+                    exact_tensor.at(parameters["gauge_group"]).get(cpol));
                 normalize_matrix(exact);
                 write_matrix(exact,
                              alps::fs::remove_extensions(arname) + ".exact",

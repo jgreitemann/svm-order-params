@@ -1,7 +1,10 @@
 #pragma once
 
+#include "config_policy.hpp"
+
 #include <initializer_list>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 #include <utility>
@@ -31,7 +34,7 @@ struct tensor_factory {
     boost::multi_array<double, 2> get () const {
         return operator() (ElementPolicy::range);
     }
-    boost::multi_array<double, 2> get (size_t range) const;
+    boost::multi_array<double, 2> get (std::unique_ptr<config_policy> const& cpol) const;
     tensor_factory (std::vector<contraction> && bc, std::vector<contraction> && cc);
 private:
     std::vector<contraction> block_contractions;

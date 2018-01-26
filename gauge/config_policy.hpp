@@ -16,6 +16,8 @@
 #include <Eigen/Dense>
 
 
+using indices_t = std::vector<size_t>;
+
 namespace element_policy {
 
     struct uniaxial {
@@ -25,7 +27,7 @@ namespace element_policy {
         inline size_t color(size_t index) const { return 2; }
         inline size_t component(size_t index) const { return index; }
 
-        size_t rearranged_index (std::vector<size_t> const& ind) const {
+        size_t rearranged_index (indices_t const& ind) const {
             size_t components = 0;
             for (auto it = ind.begin(); it != ind.end(); ++it) {
                 components *= 3;
@@ -42,7 +44,7 @@ namespace element_policy {
         inline size_t color(size_t index) const { return index / 3; }
         inline size_t component(size_t index) const { return index % 3; }
 
-        size_t rearranged_index (std::vector<size_t> const& ind) const {
+        size_t rearranged_index (indices_t const& ind) const {
             size_t components = 0;
             size_t colors = 0;
             size_t shift = 1;
@@ -72,7 +74,7 @@ namespace element_policy {
             return BaseElementPolicy::component(index % BaseElementPolicy::range);
         }
 
-        size_t rearranged_index (std::vector<size_t> const& ind) const {
+        size_t rearranged_index (indices_t const& ind) const {
             size_t sublats = 0;
             size_t shift = 1;
             for (auto it = ind.begin(); it != ind.end(); ++it) {
@@ -80,7 +82,7 @@ namespace element_policy {
                 sublats += sublattice(*it);
                 shift *= BaseElementPolicy::range;
             }
-            std::vector<size_t> base_ind(ind);
+            indices_t base_ind(ind);
             for (size_t & i : base_ind)
                 i = i % BaseElementPolicy::range;
             return sublats * shift + BaseElementPolicy::rearranged_index(base_ind);
@@ -269,7 +271,7 @@ namespace symmetry_policy {
             return combinatorics::ipow(range, rank);
         }
 
-        void advance_ind (std::vector<size_t> & ind, size_t range) const {
+        void advance_ind (indices_t & ind, size_t range) const {
             auto rit = ind.rbegin();
             ++(*rit);
             while (*rit == range) {
@@ -285,11 +287,11 @@ namespace symmetry_policy {
             }
         }
 
-        bool transform_ind (std::vector<size_t> & ind) const {
+        bool transform_ind (indices_t & ind) const {
             return false;
         }
 
-        size_t number_of_equivalents (std::vector<size_t> const& ind) const {
+        size_t number_of_equivalents (indices_t const& ind) const {
             return 1;
         }
     };
@@ -299,7 +301,7 @@ namespace symmetry_policy {
             return combinatorics::binomial(rank + range - 1, rank);
         }
 
-        void advance_ind (std::vector<size_t> & ind, size_t range) const {
+        void advance_ind (indices_t & ind, size_t range) const {
             auto rit = ind.rbegin();
             ++(*rit);
             while (*rit == range) {
@@ -315,11 +317,11 @@ namespace symmetry_policy {
             }
         }
 
-        bool transform_ind (std::vector<size_t> & ind) const {
+        bool transform_ind (indices_t & ind) const {
             return std::next_permutation(ind.begin(), ind.end());
         }
 
-        size_t number_of_equivalents (std::vector<size_t> const& ind) const {
+        size_t number_of_equivalents (indices_t const& ind) const {
             return combinatorics::number_of_permutations(ind);
         }
     };
@@ -368,10 +370,14 @@ struct config_policy {
 
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
+    virtual size_t rank () const = 0;
     virtual std::vector<double> configuration (config_array const&) const = 0;
 
     virtual matrix_t rearrange_by_component (matrix_t const& c) const = 0;
     virtual matrix_t block_structure (matrix_t const& c) const = 0;
+
+    virtual indices_t block_indices(indices_t const& ind) const = 0;
+    virtual indices_t component_indices(indices_t const& ind) const = 0;
 };
 
 template <typename LatticePolicy, typename SymmetryPolicy,
@@ -380,9 +386,9 @@ template <typename LatticePolicy, typename SymmetryPolicy,
 struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
 
     gauge_config_policy (size_t rank, bool unsymmetrize = true)
-        : rank(rank), unsymmetrize(unsymmetrize), weights(size())
+        : rank_(rank), unsymmetrize(unsymmetrize), weights(size())
     {
-        std::vector<size_t> ind(rank);
+        indices_t ind(rank_);
         for (double & w : weights) {
             w = sqrt(SymmetryPolicy::number_of_equivalents(ind));
             advance_ind(ind);
@@ -390,12 +396,12 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
     }
 
     virtual size_t size () const override {
-        return SymmetryPolicy::size(ElementPolicy::range, rank);
+        return SymmetryPolicy::size(ElementPolicy::range, rank_);
     }
 
     virtual std::vector<double> configuration (config_array const& R) const override {
         std::vector<double> v(size());
-        std::vector<size_t> ind(rank);
+        indices_t ind(rank_);
         LatticePolicy lattice(R);
         auto w_it = weights.begin();
         for (double & elem : v) {
@@ -415,13 +421,13 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
 
     virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
         symmetry_policy::none no_symm;
-        size_t no_symm_size = no_symm.size(ElementPolicy::range, rank);
+        size_t no_symm_size = no_symm.size(ElementPolicy::range, rank_);
         matrix_t out(boost::extents[no_symm_size][no_symm_size]);
-        std::vector<size_t> i_ind(rank);
+        indices_t i_ind(rank_);
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
             do {
                 size_t i_out = ElementPolicy::rearranged_index(i_ind);
-                std::vector<size_t> j_ind(rank);
+                indices_t j_ind(rank_);
                 for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
@@ -434,15 +440,15 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
     }
 
     virtual matrix_t block_structure (matrix_t const& c) const override {
-        size_t block_range = combinatorics::ipow(ElementPolicy::n_color, rank);
-        size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_color, rank);
+        size_t block_range = combinatorics::ipow(ElementPolicy::n_color, rank_);
+        size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_color, rank_);
         matrix_t blocks(boost::extents[block_range][block_range]);
         boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
-        std::vector<size_t> i_ind(rank);
+        indices_t i_ind(rank_);
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
             do {
                 size_t i_out = ElementPolicy::rearranged_index(i_ind);
-                std::vector<size_t> j_ind(rank);
+                indices_t j_ind(rank_);
                 for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
@@ -461,17 +467,37 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return ElementPolicy::range;
     }
 
+    virtual size_t rank () const override {
+        return rank_;
+    }
+
+    virtual indices_t block_indices(indices_t const& ind) const override {
+        indices_t cind;
+        cind.reserve(ind.size());
+        std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
+                       [this] (size_t a) { return color(a); });
+        return cind;
+    }
+
+    virtual indices_t component_indices(indices_t const& ind) const override {
+        indices_t cind;
+        cind.reserve(ind.size());
+        std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
+                       [this] (size_t a) { return component(a); });
+        return cind;
+    }
+
 private:
     using ElementPolicy::color;
     using ElementPolicy::component;
     using ElementPolicy::sublattice;
 
-    void advance_ind (std::vector<size_t> & ind) const {
+    void advance_ind (indices_t & ind) const {
         SymmetryPolicy::advance_ind(ind, ElementPolicy::range);
     }
     using SymmetryPolicy::transform_ind;
 
-    size_t rank;
+    size_t rank_;
     bool unsymmetrize;
     std::vector<double> weights;
 };
@@ -517,6 +543,26 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
 
     virtual size_t range () const override {
         return size();
+    }
+
+    virtual size_t rank () const override {
+        return 1;
+    }
+
+    virtual indices_t block_indices(indices_t const& ind) const override {
+        indices_t cind;
+        cind.reserve(ind.size());
+        std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
+                       [this] (size_t a) { return color(a); });
+        return cind;
+    }
+
+    virtual indices_t component_indices(indices_t const& ind) const override {
+        indices_t cind;
+        cind.reserve(ind.size());
+        std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
+                       [this] (size_t a) { return component(a); });
+        return cind;
     }
 
 private:

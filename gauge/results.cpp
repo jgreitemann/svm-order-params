@@ -1,5 +1,4 @@
 #include "results.hpp"
-#include "config_policy.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -59,43 +58,35 @@ tensor_factory::tensor_factory (std::vector<contraction> && bc,
     : block_contractions(std::forward<std::vector<contraction>>(bc)),
       component_contractions(std::forward<std::vector<contraction>>(cc)) {}
 
-boost::multi_array<double, 2> tensor_factory::get (size_t range) const {
-    size_t rank = block_contractions.begin()->rule().rank();
+boost::multi_array<double, 2> tensor_factory::get (std::unique_ptr<config_policy> const& cpol) const {
+    size_t rank = cpol->rank();
     for (auto const& c : block_contractions)
         if (c.rule().rank() != rank)
-            throw std::runtime_error("inconsistent ranks across different block "
+            throw std::runtime_error("inconsistent ranks across block "
                                      "contractions in the same tensor factory");
     for (auto const& c : component_contractions)
         if (c.rule().rank() != rank)
-            throw std::runtime_error("inconsistent ranks across different component "
+            throw std::runtime_error("inconsistent ranks across component "
                                      "contractions in the same tensor factory");
     symmetry_policy::none symm;
-    size_t size = symm.size(range, rank);
+    size_t size = symm.size(cpol->range(), rank);
     boost::multi_array<double, 2> res(boost::extents[size][size]);
     std::vector<size_t> i_ind(rank);
-    std::vector<size_t> i_ind_block(rank);
-    std::vector<size_t> i_ind_component(rank);
     for (auto row : res) {
+        std::vector<size_t> i_ind_block = cpol->block_indices(i_ind);
+        std::vector<size_t> i_ind_component = cpol->component_indices(i_ind);
         std::vector<size_t> j_ind(rank);
-        std::vector<size_t> j_ind_block(rank);
-        std::vector<size_t> j_ind_component(rank);
         for (auto & elem : row) {
             elem = 0;
+            std::vector<size_t> j_ind_block = cpol->block_indices(j_ind);
+            std::vector<size_t> j_ind_component = cpol->component_indices(j_ind);
             for (auto const& bc : block_contractions)
                 for (auto const& cc : component_contractions)
                     elem += (bc(i_ind_block, j_ind_block)
                              * cc(i_ind_component, j_ind_component));
-            symm.advance_ind(j_ind, range);
-            std::transform(j_ind.begin(), j_ind.end(), j_ind_block.begin(),
-                           [] (size_t a) { return a / 3; });
-            std::transform(j_ind.begin(), j_ind.end(), j_ind_component.begin(),
-                           [] (size_t a) { return a % 3; });
+            symm.advance_ind(j_ind, cpol->range());
         }
-        symm.advance_ind(i_ind, range);
-        std::transform(i_ind.begin(), i_ind.end(), i_ind_block.begin(),
-                       [] (size_t a) { return a / 3; });
-        std::transform(i_ind.begin(), i_ind.end(), i_ind_component.begin(),
-                       [] (size_t a) { return a % 3; });
+        symm.advance_ind(i_ind, cpol->range());
     }
     return res;
 }
