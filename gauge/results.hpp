@@ -17,15 +17,24 @@ private:
     std::pair<std::string, std::string> pattern;
 };
 
+struct contraction {
+    double operator() (std::vector<size_t> const& i_ind, std::vector<size_t> const& j_ind) const;
+    contraction (double, delta_rule &&);
+    delta_rule const& rule () const;
+private:
+    double weight;
+    delta_rule rule_;
+};
+
 struct tensor_factory {
     template <typename ElementPolicy>
     boost::multi_array<double, 2> get () const {
         return operator() (ElementPolicy::range);
     }
     boost::multi_array<double, 2> get (size_t range) const;
-    tensor_factory (std::initializer_list<std::pair<double, delta_rule>> il);
+    tensor_factory (std::initializer_list<contraction> il);
 private:
-    std::vector<std::pair<double, delta_rule>> contractions;
+    std::vector<contraction> contractions;
 };
 
 const std::map<std::string, tensor_factory> exact_tensor = {
