@@ -32,18 +32,24 @@ struct tensor_factory {
         return operator() (ElementPolicy::range);
     }
     boost::multi_array<double, 2> get (size_t range) const;
-    tensor_factory (std::initializer_list<contraction> il);
+    tensor_factory (std::vector<contraction> && bc, std::vector<contraction> && cc);
 private:
-    std::vector<contraction> contractions;
+    std::vector<contraction> block_contractions;
+    std::vector<contraction> component_contractions;
 };
 
 const std::map<std::string, tensor_factory> exact_tensor = {
     {
         "Dinfh",
         {
-            {     1.,  {"ab", "ab"}},
-            {     1.,  {"ab", "ba"}},
-            {  -2./3,  {"aa", "bb"}}
+            {
+                {     1.,  {"aa", "aa"}}
+            },
+            {
+                {     1.,  {"ab", "ab"}},
+                {     1.,  {"ab", "ba"}},
+                {  -2./3,  {"aa", "bb"}}
+            }
         }
     }
 };
