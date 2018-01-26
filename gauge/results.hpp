@@ -74,5 +74,30 @@ const std::map<std::string, tensor_factory> exact_tensor = {
                 {  -2./3, make_delta("aa", "bb")}
             }
         }
+    },
+    {
+        "Td",
+        {
+            {
+                {     1.,  make_distinct()}
+            },
+            {
+                {     1.,  make_delta("abc", "abc")},
+                {     1.,  make_delta("abc", "bca")},
+                {     1.,  make_delta("abc", "cab")},
+                {     1.,  make_delta("abc", "bac")},
+                {     1.,  make_delta("abc", "acb")},
+                {     1.,  make_delta("abc", "cba")},
+                {  -2./5,  make_delta("aac", "bbc")},
+                {  -2./5,  make_delta("aac", "bcb")},
+                {  -2./5,  make_delta("aac", "cbb")},
+                {  -2./5,  make_delta("aca", "bbc")},
+                {  -2./5,  make_delta("aca", "bcb")},
+                {  -2./5,  make_delta("aca", "cbb")},
+                {  -2./5,  make_delta("caa", "bbc")},
+                {  -2./5,  make_delta("caa", "bcb")},
+                {  -2./5,  make_delta("caa", "cbb")}
+            }
+        }
     }
 };
