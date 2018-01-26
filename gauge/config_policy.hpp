@@ -367,6 +367,7 @@ struct config_policy {
     typedef boost::multi_array<double, 2> matrix_t;
 
     virtual size_t size () const = 0;
+    virtual size_t range () const = 0;
     virtual std::vector<double> configuration (config_array const&) const = 0;
 
     virtual matrix_t rearrange_by_component (matrix_t const& c) const = 0;
@@ -456,6 +457,10 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return blocks;
     }
 
+    virtual size_t range () const override {
+        return ElementPolicy::range;
+    }
+
 private:
     using ElementPolicy::color;
     using ElementPolicy::component;
@@ -508,6 +513,10 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
             for (size_t j = 0; j < block_range; ++j)
                 blocks[i][j] = block_norms[i][j];
         return blocks;
+    }
+
+    virtual size_t range () const override {
+        return size();
     }
 
 private:

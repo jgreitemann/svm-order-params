@@ -65,6 +65,7 @@ add_executable(gauge-coeffs
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
+    gauge/results.cpp
     )
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 

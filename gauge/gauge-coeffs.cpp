@@ -1,4 +1,5 @@
 #include "gauge.hpp"
+#include "results.hpp"
 #include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
 #include "colormap.hpp"
@@ -106,6 +107,24 @@ int main(int argc, char** argv) {
             write_matrix(block_structure,
                          alps::fs::remove_extensions(arname) + ".blocks",
                          color::palettes.at("parula"));
+        }
+
+        if (cmdl[{"-e", "--exact"}]) {
+            parameters["symmetrized"] = false;
+            auto cpol = sim_type::config_policy_from_parameters(parameters, false);
+            try {
+                auto exact = cpol->rearrange_by_component(
+                    exact_tensor.at(parameters["gauge_group"]).get(cpol->range()));
+                normalize_matrix(exact);
+                write_matrix(exact,
+                             alps::fs::remove_extensions(arname) + ".exact",
+                             color::palettes.at("rdbu").rescale(-1, 1));
+            } catch (std::out_of_range const& e) {
+                std::cerr << "No exact solution know for symmetry \""
+                          << parameters["gauge_group"]
+                          << "\" despite --exact flag given."
+                          << std::endl;
+            }
         }
         return 0;
     } catch (const std::exception& exc) {
