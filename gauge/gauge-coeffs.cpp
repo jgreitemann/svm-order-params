@@ -58,7 +58,7 @@ void write_matrix (boost::multi_array<double,2> const& mat, std::string basename
 
 int main(int argc, char** argv) {
     try {
-        argh::parser cmdl(argv);
+        argh::parser cmdl(argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
                 return alps::params(argc, argv);
