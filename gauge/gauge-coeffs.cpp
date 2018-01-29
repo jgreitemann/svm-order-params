@@ -132,6 +132,18 @@ int main(int argc, char** argv) {
                                      alps::fs::remove_extensions(arname) + ".diff",
                                      color::palettes.at("rdbu").rescale(-1, 1));
                         std::cout << "deviation metric: " << double(norm) << std::endl;
+                        auto nSV = model.nSV();
+                        std::ofstream os (alps::fs::remove_extensions(arname) + ".dev.txt");
+                        os << parameters["length"].as<size_t>() << '\t'
+                           << parameters["temp_crit"].as<double>() << '\t'
+                           << (parameters["sweep_unit"].as<size_t>()
+                               * parameters["total_sweeps"].as<size_t>()
+                               / parameters["N_sample"].as<size_t>()) << '\t'
+                           << (parameters["sweep_unit"].as<size_t>()
+                               * parameters["thermalization_sweeps"].as<size_t>()) << '\t'
+                           << parameters["nu"].as<double>() << '\t'
+                           << nSV.first << '\t' << nSV.second << '\t'
+                           << double(norm) << '\n';
                     }
                 } catch (std::out_of_range const& e) {
                     std::cerr << "No exact solution know for symmetry \""

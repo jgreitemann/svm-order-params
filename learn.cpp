@@ -154,7 +154,8 @@ int main(int argc, char** argv)
                                                     parameters["nu"].as<double>(),
                                                     svm::machine_type::NU_SVC);
             std::cout << "Creating SVM model..."
-                      << " (nu = " << parameters["nu"].as<double>() << ')'
+                      << " (nu = " << parameters["nu"].as<double>()
+                      << ", total samples = " << prob.size() << ')'
                       << std::endl;
             model_t model(std::move(prob), kernel_params);
 
