@@ -19,16 +19,16 @@
 using sim_type = gauge_sim;
 using kernel_t = svm::kernel::polynomial<2>;
 
-void normalize_matrix (boost::multi_array<double,2> & mat) {
+double normalize_matrix (boost::multi_array<double,2> & mat) {
     double absmax = 0.;
     for (size_t i = 0; i < mat.shape()[0]; ++i)
         for (size_t j = 0; j < mat.shape()[0]; ++j)
             if (absmax < std::abs(mat[i][j]))
                 absmax = std::abs(mat[i][j]);
-    absmax = 1./absmax;
     for (size_t i = 0; i < mat.shape()[0]; ++i)
         for (size_t j = 0; j < mat.shape()[0]; ++j)
-            mat[i][j] *= absmax;
+            mat[i][j] /= absmax;
+    return absmax;
 }
 
 template <typename Palette>
@@ -100,6 +100,43 @@ int main(int argc, char** argv) {
             write_matrix(rearranged_coeffs,
                          alps::fs::remove_extensions(arname) + ".coeffs",
                          color::palettes.at("rdbu").rescale(-1, 1));
+            if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
+                parameters["symmetrized"] = false;
+                auto cpol = sim_type::config_policy_from_parameters(parameters, false);
+                try {
+                    auto exact = cpol->rearrange_by_component(
+                        exact_tensor.at(parameters["gauge_group"]).get(cpol));
+                    normalize_matrix(exact);
+                    if (cmdl[{"-e", "--exact"}]) {
+                        write_matrix(exact,
+                                     alps::fs::remove_extensions(arname) + ".exact",
+                                     color::palettes.at("rdbu").rescale(-1, 1));
+                    }
+
+                    if (cmdl[{"-d", "--diff"}]) {
+                        auto it_row_exact = exact.begin();
+                        for (auto row : rearranged_coeffs) {
+                            auto it_elem_exact = it_row_exact->begin();
+                            for (auto & elem : row) {
+                                elem -= *it_elem_exact;
+                                ++it_elem_exact;
+                            }
+                            ++it_row_exact;
+                        }
+                        std::cout << "relative scale of difference tensor: "
+                                  << normalize_matrix(rearranged_coeffs)
+                                  << std::endl;
+                        write_matrix(rearranged_coeffs,
+                                     alps::fs::remove_extensions(arname) + ".diff",
+                                     color::palettes.at("rdbu").rescale(-1, 1));
+                    }
+                } catch (std::out_of_range const& e) {
+                    std::cerr << "No exact solution know for symmetry \""
+                              << parameters["gauge_group"]
+                              << "\" despite --exact flag given."
+                              << std::endl;
+                }
+            }
         }
         {
             auto block_structure = confpol->block_structure(coeffs);
@@ -109,23 +146,6 @@ int main(int argc, char** argv) {
                          color::palettes.at("parula"));
         }
 
-        if (cmdl[{"-e", "--exact"}]) {
-            parameters["symmetrized"] = false;
-            auto cpol = sim_type::config_policy_from_parameters(parameters, false);
-            try {
-                auto exact = cpol->rearrange_by_component(
-                    exact_tensor.at(parameters["gauge_group"]).get(cpol));
-                normalize_matrix(exact);
-                write_matrix(exact,
-                             alps::fs::remove_extensions(arname) + ".exact",
-                             color::palettes.at("rdbu").rescale(-1, 1));
-            } catch (std::out_of_range const& e) {
-                std::cerr << "No exact solution know for symmetry \""
-                          << parameters["gauge_group"]
-                          << "\" despite --exact flag given."
-                          << std::endl;
-            }
-        }
         return 0;
     } catch (const std::exception& exc) {
         std::cout << "Exception caught: " << exc.what() << std::endl;
