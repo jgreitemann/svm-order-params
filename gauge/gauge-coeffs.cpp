@@ -114,11 +114,13 @@ int main(int argc, char** argv) {
                     }
 
                     if (cmdl[{"-d", "--diff"}]) {
+                        block_reduction::norm<2> norm;
                         auto it_row_exact = exact.begin();
                         for (auto row : rearranged_coeffs) {
                             auto it_elem_exact = it_row_exact->begin();
                             for (auto & elem : row) {
                                 elem -= *it_elem_exact;
+                                norm += elem;
                                 ++it_elem_exact;
                             }
                             ++it_row_exact;
@@ -129,6 +131,7 @@ int main(int argc, char** argv) {
                         write_matrix(rearranged_coeffs,
                                      alps::fs::remove_extensions(arname) + ".diff",
                                      color::palettes.at("rdbu").rescale(-1, 1));
+                        std::cout << "deviation metric: " << double(norm) << std::endl;
                     }
                 } catch (std::out_of_range const& e) {
                     std::cerr << "No exact solution know for symmetry \""
