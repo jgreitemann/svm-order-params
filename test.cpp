@@ -50,11 +50,11 @@ int main(int argc, char** argv)
 
         if (parameters["test.filename"].as<std::string>().empty())
             parameters["test.filename"] =
-                alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
+                alps::fs::remove_extensions(alps::fs::get_basename(alps::origin_name(parameters)))
                 + ".test.h5";
         if (parameters["test.txtname"].as<std::string>().empty())
             parameters["test.txtname"] =
-                alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
+                alps::fs::remove_extensions(alps::fs::get_basename(alps::origin_name(parameters)))
                 + ".test.txt";
 
         if (parameters.help_requested(std::cout) ||
@@ -124,12 +124,12 @@ int main(int argc, char** argv)
 
                 if (cmp_true) {
                     mag[i] = {results[order_param_name].mean<double>(),
-                            results[order_param_name].error<double>()};
+                              results[order_param_name].error<double>()};
                 }
                 svm[i] = {results["SVM"].mean<double>(),
-                        results["SVM"].error<double>()};
+                          results["SVM"].error<double>()};
                 ordered[i] = {results["ordered"].mean<double>(),
-                            results["ordered"].error<double>()};
+                              results["ordered"].error<double>()};
 
 #pragma omp atomic
                 ++done;
