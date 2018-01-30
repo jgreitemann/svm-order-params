@@ -1,6 +1,7 @@
 #include "ising.hpp"
 #include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
+#include "filesystem.hpp"
 
 #include <array>
 #include <iostream>
@@ -49,7 +50,7 @@ int main(int argc, char** argv) {
         }
         C.reshape(std::array<size_t,2>{length, length});
 
-        std::string outname = alps::fs::remove_extensions(arname) + ".coeffs.txt";
+        std::string outname = replace_extension(alps::origin_name(parameters), ".coeffs.txt");
         std::ofstream os(outname);
         for (size_t i = 0; i < length; ++i) {
             for (size_t j = 0; j < length; ++j) {

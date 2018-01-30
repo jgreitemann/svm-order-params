@@ -6,8 +6,6 @@
 #include <tuple>
 
 #include <alps/mc/mcbase.hpp>
-#include <alps/utilities/fs/get_basename.hpp>
-#include <alps/utilities/fs/remove_extensions.hpp>
 
 
 void define_test_parameters(alps::params & parameters) {

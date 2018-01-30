@@ -68,10 +68,10 @@ add_executable(gauge-coeffs
     )
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
-target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm)
+target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
 
-target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm)
+target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)

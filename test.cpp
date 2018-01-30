@@ -6,6 +6,7 @@
 
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
+#include "filesystem.hpp"
 
 #include <omp.h>
 
@@ -50,12 +51,10 @@ int main(int argc, char** argv)
 
         if (parameters["test.filename"].as<std::string>().empty())
             parameters["test.filename"] =
-                alps::fs::remove_extensions(alps::fs::get_basename(alps::origin_name(parameters)))
-                + ".test.h5";
+                replace_extension(alps::origin_name(parameters), ".test.h5");
         if (parameters["test.txtname"].as<std::string>().empty())
             parameters["test.txtname"] =
-                alps::fs::remove_extensions(alps::fs::get_basename(alps::origin_name(parameters)))
-                + ".test.txt";
+                replace_extension(alps::origin_name(parameters), ".test.txt");
 
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {

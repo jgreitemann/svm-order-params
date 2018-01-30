@@ -6,7 +6,7 @@
 
 #include "ising.hpp"
 
-#include <alps/params/convenience_params.hpp>
+#include "convenience_params.hpp"
 
 // Defines the parameters for the ising simulation
 void ising_sim::define_parameters(parameters_type & parameters) {
@@ -19,7 +19,7 @@ void ising_sim::define_parameters(parameters_type & parameters) {
     alps::mcbase::define_parameters(parameters);
     // Adds the convenience parameters (for save/load)
     // followed by the ising specific parameters
-    alps::define_convenience_parameters(parameters)
+    define_convenience_parameters(parameters)
         .description("2D ising simulation")
         .define<int>("length", "size of the periodic box")
         .define<int>("sweeps", 0, "maximum number of sweeps (0 means indefinite)")

@@ -2,6 +2,7 @@
 #include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
 #include "colormap.hpp"
+#include "filesystem.hpp"
 
 #include <array>
 #include <iostream>
@@ -9,7 +10,6 @@
 #include <string>
 
 #include <alps/hdf5.hpp>
-#include <alps/utilities/fs/remove_extensions.hpp>
 
 #include <boost/multi_array.hpp>
 
@@ -89,14 +89,14 @@ int main(int argc, char** argv) {
             auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
             normalize_matrix(rearranged_coeffs);
             write_matrix(rearranged_coeffs,
-                         alps::fs::remove_extensions(arname) + ".coeffs",
+                         replace_extension(arname, ".coeffs"),
                          color::palettes.at("rdbu").rescale(-1, 1));
         }
         {
             auto block_structure = confpol->block_structure(coeffs);
             normalize_matrix(block_structure);
             write_matrix(block_structure,
-                         alps::fs::remove_extensions(arname) + ".blocks",
+                         replace_extension(arname, ".blocks"),
                          color::palettes.at("parula"));
         }
         return 0;
