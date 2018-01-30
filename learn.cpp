@@ -8,6 +8,7 @@
 #include "svm-wrapper.hpp"
 #include "training_adapter.hpp"
 #include "test_adapter.hpp"
+#include "argh.h"
 
 #include <iostream>
 #include <memory>
@@ -45,7 +46,14 @@ int main(int argc, char** argv)
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
 
-        alps::params parameters(argc, argv);
+        argh::parser cmdl(argv, argh::parser::PREFER_PARAM_FOR_UNREG_OPTION);
+        alps::params parameters = [&] {
+            if (cmdl[1].empty())
+                return alps::params(argc, argv);
+            std::string pseudo_args[] = {cmdl[0], cmdl[1]};
+            char const * pseudo_argv[] = {pseudo_args[0].c_str(), pseudo_args[1].c_str()};
+            return alps::params(2, pseudo_argv);
+        } ();
         sim_type::define_parameters(parameters);
         define_test_parameters(parameters);
 
@@ -54,6 +62,25 @@ int main(int argc, char** argv)
             parameters.define<size_t>("progress_interval", 3,
                                       "time in sec between progress reports");
         }
+
+        /* WORKAROUND: override parameters from CL args manually */ {
+            double new_nu;
+            if (cmdl("--nu") >> new_nu) {
+                std::cout << "override parameter nu: " << new_nu << std::endl;
+                parameters["nu"] = new_nu;
+            }
+            size_t new_timelimit;
+            if (cmdl("--timelimit") >> new_timelimit) {
+                std::cout << "override parameter timelimit: " << new_timelimit << std::endl;
+                parameters["timelimit"] = new_timelimit;
+            }
+            std::string new_outputfile;
+            if (cmdl("--outputfile") >> new_outputfile) {
+                std::cout << "override parameter outputfile: " << new_outputfile << std::endl;
+                parameters["outputfile"] = new_outputfile;
+            }
+        }
+        bool skip_sampling = cmdl[{"-s", "--skip-sampling"}];
 
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
@@ -100,34 +127,36 @@ int main(int argc, char** argv)
                     cp[checkpoint_path] >> sim;
                 }
 
-                auto progress_report = [&] () {
-                    double local_frac = sim.local_fraction_completed();
+                if (!skip_sampling) {
+                    auto progress_report = [&] () {
+                        double local_frac = sim.local_fraction_completed();
 #pragma omp atomic write
-                    progress[tid] = local_frac;
+                        progress[tid] = local_frac;
 #pragma omp master
-                    {
-                        double total = std::accumulate(progress.begin(),
-                                                       progress.end(), 0.);
+                        {
+                            double total = std::accumulate(progress.begin(),
+                                                           progress.end(), 0.);
 #pragma omp atomic write
-                        global_progress = total;
-                        std::cout << std::setprecision(3)
-                                  << 100.*total << " %     \r"
-                                  << std::flush;
-                    }
+                            global_progress = total;
+                            std::cout << std::setprecision(3)
+                                      << 100.*total << " %     \r"
+                                      << std::flush;
+                        }
 
-                };
-                sim.run(checkpointing_stop_callback(size_t(parameters["timelimit"]),
-                                                     size_t(parameters["progress_interval"]),
-                                                     progress_report));
+                    };
+                    sim.run(checkpointing_stop_callback(size_t(parameters["timelimit"]),
+                                                        size_t(parameters["progress_interval"]),
+                                                        progress_report));
 
-                // Checkpoint the simulation
+                    // Checkpoint the simulation
 #pragma omp critical
-                {
-                    std::cout << "Checkpointing simulation to " << checkpoint_file
-                            << " (thread " << tid << ")"
-                            << std::endl;
-                    alps::hdf5::archive cp(checkpoint_file, "w");
-                    cp[checkpoint_path] << sim;
+                    {
+                        std::cout << "Checkpointing simulation to " << checkpoint_file
+                                  << " (thread " << tid << ")"
+                                  << std::endl;
+                        alps::hdf5::archive cp(checkpoint_file, "w");
+                        cp[checkpoint_path] << sim;
+                    }
                 }
 
 #pragma omp critical
@@ -141,7 +170,7 @@ int main(int argc, char** argv)
             }
         }
 
-        {
+        if (!skip_sampling) {
             alps::hdf5::archive cp(checkpoint_file, "w");
             cp["simulation/n_clones"] << n_clones;
         }
