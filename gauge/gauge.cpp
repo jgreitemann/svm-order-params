@@ -1,5 +1,5 @@
 #include "gauge.hpp"
-#include <alps/params/convenience_params.hpp>
+#include "convenience_params.hpp"
 #include <alps/hdf5/vector.hpp>
 #include <alps/hdf5/multi_array.hpp>
 
@@ -15,7 +15,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
     alps::mcbase::define_parameters(parameters);
 
     // Add convenience parameters of the model
-    alps::define_convenience_parameters(parameters)
+    define_convenience_parameters(parameters)
         .description("Simulation of ")
         .define<int>("length", "linear size of the system")
         .define<std::string>("gauge_group", "specify the symmetry of gauge group")

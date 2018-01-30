@@ -4,6 +4,7 @@
 #include "hdf5_serialization.hpp"
 #include "colormap.hpp"
 #include "argh.h"
+#include "filesystem.hpp"
 
 #include <array>
 #include <iostream>
@@ -11,7 +12,6 @@
 #include <string>
 
 #include <alps/hdf5.hpp>
-#include <alps/utilities/fs/remove_extensions.hpp>
 
 #include <boost/multi_array.hpp>
 
@@ -40,7 +40,7 @@ void write_matrix (boost::multi_array<double,2> const& mat, std::string basename
         boost::multi_array<double,2> flat(mat[boost::indices[range(shape[0]-1, -1, -1)][range(0, shape[1])]]);
         flat.reshape(std::array<size_t,2>{1, flat.num_elements()});
         auto pixit = itadpt::map_iterator(flat[0].begin(), pal);
-        auto pmap = color::pixmap(pixit, shape);
+        auto pmap = color::pixmap<decltype(pixit)>(pixit, shape);
 
         std::ofstream ppm(basename + "." + pmap.file_extension(), std::ios::binary);
         pmap.write_binary(ppm);
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
             auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
             normalize_matrix(rearranged_coeffs);
             write_matrix(rearranged_coeffs,
-                         alps::fs::remove_extensions(arname) + ".coeffs",
+                         replace_extension(arname, ".coeffs"),
                          color::palettes.at("rdbu").rescale(-1, 1));
             if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
                 parameters["symmetrized"] = false;
@@ -109,7 +109,7 @@ int main(int argc, char** argv) {
                     normalize_matrix(exact);
                     if (cmdl[{"-e", "--exact"}]) {
                         write_matrix(exact,
-                                     alps::fs::remove_extensions(arname) + ".exact",
+                                     replace_extension(arname, ".exact"),
                                      color::palettes.at("rdbu").rescale(-1, 1));
                     }
 
@@ -129,11 +129,11 @@ int main(int argc, char** argv) {
                                   << normalize_matrix(rearranged_coeffs)
                                   << std::endl;
                         write_matrix(rearranged_coeffs,
-                                     alps::fs::remove_extensions(arname) + ".diff",
+                                     replace_extension(arname, ".diff"),
                                      color::palettes.at("rdbu").rescale(-1, 1));
                         std::cout << "deviation metric: " << double(norm) << std::endl;
                         auto nSV = model.nSV();
-                        std::ofstream os (alps::fs::remove_extensions(arname) + ".dev.txt");
+                        std::ofstream os (replace_extension(arname, ".dev.txt"));
                         os << parameters["length"].as<size_t>() << '\t'
                            << parameters["temp_crit"].as<double>() << '\t'
                            << (parameters["sweep_unit"].as<size_t>()
@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
             auto block_structure = confpol->block_structure(coeffs);
             normalize_matrix(block_structure);
             write_matrix(block_structure,
-                         alps::fs::remove_extensions(arname) + ".blocks",
+                         replace_extension(arname, ".blocks"),
                          color::palettes.at("parula"));
         }
 

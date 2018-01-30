@@ -82,9 +82,7 @@ int main(int argc, char** argv)
 
 #pragma omp for schedule(dynamic)
             for (int tid = 0; tid < n_clones; ++tid) {
-                std::unique_ptr<sim_type> sim;
-#pragma omp critical
-                sim = std::unique_ptr<sim_type>(new sim_type(parameters, global_progress, tid));
+                sim_type sim(parameters, global_progress, tid);
 
                 std::string checkpoint_path = [&] {
                     std::stringstream ss;
@@ -99,11 +97,11 @@ int main(int argc, char** argv)
                             << " (thread " << tid << ")"
                             << std::endl;
                     alps::hdf5::archive cp(checkpoint_file, "r");
-                    cp[checkpoint_path] >> *sim;
+                    cp[checkpoint_path] >> sim;
                 }
 
                 auto progress_report = [&] () {
-                    double local_frac = sim->local_fraction_completed();
+                    double local_frac = sim.local_fraction_completed();
 #pragma omp atomic write
                     progress[tid] = local_frac;
 #pragma omp master
@@ -118,7 +116,7 @@ int main(int argc, char** argv)
                     }
 
                 };
-                sim->run(checkpointing_stop_callback(size_t(parameters["timelimit"]),
+                sim.run(checkpointing_stop_callback(size_t(parameters["timelimit"]),
                                                      size_t(parameters["progress_interval"]),
                                                      progress_report));
 
@@ -129,15 +127,15 @@ int main(int argc, char** argv)
                             << " (thread " << tid << ")"
                             << std::endl;
                     alps::hdf5::archive cp(checkpoint_file, "w");
-                    cp[checkpoint_path] << *sim;
+                    cp[checkpoint_path] << sim;
                 }
 
 #pragma omp critical
                 {
                     if (prob.dim() == 0) {
-                        prob = sim->surrender_problem();
+                        prob = sim.surrender_problem();
                     } else {
-                        prob.append_problem(sim->surrender_problem());
+                        prob.append_problem(sim.surrender_problem());
                     }
                 }
             }

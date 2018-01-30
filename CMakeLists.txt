@@ -8,9 +8,9 @@ if(OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1z")
+set(CMAKE_CXX_STANDARD 14)
 
-find_package(ALPSCore 1.0 REQUIRED)
+find_package(ALPSCore 2.2.0 REQUIRED)
 find_package(Eigen3 REQUIRED)
 include_directories(${EIGEN3_INCLUDE_DIR})
 
@@ -69,10 +69,10 @@ add_executable(gauge-coeffs
     )
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
-target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm)
+target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
 
-target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm)
-target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm)
+target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)

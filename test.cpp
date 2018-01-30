@@ -6,6 +6,7 @@
 
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
+#include "filesystem.hpp"
 
 #include <omp.h>
 
@@ -50,12 +51,10 @@ int main(int argc, char** argv)
 
         if (parameters["test.filename"].as<std::string>().empty())
             parameters["test.filename"] =
-                alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
-                + ".test.h5";
+                replace_extension(alps::origin_name(parameters), ".test.h5");
         if (parameters["test.txtname"].as<std::string>().empty())
             parameters["test.txtname"] =
-                alps::fs::remove_extensions(alps::fs::get_basename(parameters.get_origin_name()))
-                + ".test.txt";
+                replace_extension(alps::origin_name(parameters), ".test.txt");
 
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
@@ -111,12 +110,10 @@ int main(int argc, char** argv)
                 alps::params local_params(parameters);
                 local_params["temperature"] = temps[i];
 
-                std::unique_ptr<sim_type> sim;
-#pragma omp critical
-                sim = std::unique_ptr<sim_type>(new sim_type(local_params));
-                sim->run(alps::stop_callback(size_t(parameters["timelimit"])));
+                sim_type sim(local_params);
+                sim.run(alps::stop_callback(size_t(parameters["timelimit"])));
 
-                alps::results_type<sim_type>::type results = alps::collect_results(*sim);
+                alps::results_type<sim_type>::type results = alps::collect_results(sim);
                 std::stringstream ss;
 #pragma omp critical
                 {
@@ -126,12 +123,12 @@ int main(int argc, char** argv)
 
                 if (cmp_true) {
                     mag[i] = {results[order_param_name].mean<double>(),
-                            results[order_param_name].error<double>()};
+                              results[order_param_name].error<double>()};
                 }
                 svm[i] = {results["SVM"].mean<double>(),
-                        results["SVM"].error<double>()};
+                          results["SVM"].error<double>()};
                 ordered[i] = {results["ordered"].mean<double>(),
-                            results["ordered"].error<double>()};
+                              results["ordered"].error<double>()};
 
 #pragma omp atomic
                 ++done;
