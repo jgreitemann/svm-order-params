@@ -38,7 +38,7 @@ void write_matrix (boost::multi_array<double,2> const& mat, std::string basename
         boost::multi_array<double,2> flat(mat[boost::indices[range(shape[0]-1, -1, -1)][range(0, shape[1])]]);
         flat.reshape(std::array<size_t,2>{1, flat.num_elements()});
         auto pixit = itadpt::map_iterator(flat[0].begin(), pal);
-        auto pmap = color::pixmap(pixit, shape);
+        auto pmap = color::pixmap<decltype(pixit)>(pixit, shape);
 
         std::ofstream ppm(basename + "." + pmap.file_extension(), std::ios::binary);
         pmap.write_binary(ppm);
