@@ -38,7 +38,7 @@ add_executable(ising-test
 target_compile_definitions(ising-test PUBLIC -DISING)
 
 add_executable(ising-coeffs
-    ising-coeffs.cpp
+    ising/ising-coeffs.cpp
     ising/ising.cpp
     )
 
