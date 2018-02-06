@@ -116,13 +116,14 @@ int main(int argc, char** argv) {
                     }
 
                     if (cmdl[{"-d", "--diff"}]) {
-                        block_reduction::norm<2> norm;
+                        block_reduction::norm<2> norm_diff, norm_exact;
                         auto it_row_exact = exact.begin();
                         for (auto row : rearranged_coeffs) {
                             auto it_elem_exact = it_row_exact->begin();
                             for (auto & elem : row) {
                                 elem -= *it_elem_exact;
-                                norm += elem;
+                                norm_diff += elem;
+                                norm_exact += *it_elem_exact;
                                 ++it_elem_exact;
                             }
                             ++it_row_exact;
@@ -133,7 +134,10 @@ int main(int argc, char** argv) {
                         write_matrix(rearranged_coeffs,
                                      replace_extension(arname, ".diff"),
                                      color::palettes.at("rdbu").rescale(-1, 1));
-                        std::cout << "deviation metric: " << double(norm) << std::endl;
+                        std::cout << "deviation metric: " << double(norm_diff) << '\n'
+                                  << "total Frobenius norm: " << double(norm_exact) << '\n'
+                                  << "relative deviation: " << double(norm_diff)/double(norm_exact)
+                                  << std::endl;
                         auto nSV = model.nSV();
                         std::ofstream os (replace_extension(arname, ".dev.txt"));
                         os << parameters["length"].as<size_t>() << '\t'
@@ -145,7 +149,9 @@ int main(int argc, char** argv) {
                                * parameters["thermalization_sweeps"].as<size_t>()) << '\t'
                            << parameters["nu"].as<double>() << '\t'
                            << nSV.first << '\t' << nSV.second << '\t'
-                           << double(norm) << '\n';
+                           << double(norm_diff) << '\t'
+                           << double(norm_exact) << '\t'
+                           << double(norm_diff) / double(norm_exact) << '\n';
                     }
                 } catch (std::out_of_range const& e) {
                     std::cerr << "No exact solution know for symmetry \""
