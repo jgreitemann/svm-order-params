@@ -163,8 +163,7 @@ int main(int argc, char** argv)
 
         {
             // create the model
-            svm::parameters<kernel_t> kernel_params(1., 0.,
-                                                    parameters["nu"].as<double>(),
+            svm::parameters<kernel_t> kernel_params(parameters["nu"].as<double>(),
                                                     svm::machine_type::NU_SVC);
             std::cout << "Creating SVM model..."
                       << " (nu = " << parameters["nu"].as<double>()
