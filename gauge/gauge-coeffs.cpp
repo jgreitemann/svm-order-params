@@ -63,6 +63,8 @@ int main(int argc, char** argv) {
             if (cmdl[1].empty())
                 return alps::params(argc, argv);
             std::string pseudo_args[] = {cmdl[0], cmdl[1]};
+            if (cmdl[{"-h", "--help"}])
+                pseudo_args[1] = "--help";
             char const * pseudo_argv[] = {pseudo_args[0].c_str(), pseudo_args[1].c_str()};
             return alps::params(2, pseudo_argv);
         } ();

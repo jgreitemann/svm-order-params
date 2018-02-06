@@ -9,6 +9,7 @@
 #include "training_adapter.hpp"
 #include "test_adapter.hpp"
 #include "argh.h"
+#include "override_parameters.hpp"
 
 #include <iostream>
 #include <memory>
@@ -46,11 +47,14 @@ int main(int argc, char** argv)
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
 
-        argh::parser cmdl(argv, argh::parser::PREFER_PARAM_FOR_UNREG_OPTION);
+        argh::parser cmdl({"--nu", "--outputfile", "--timelimit"});
+        cmdl.parse(argc, argv);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
                 return alps::params(argc, argv);
             std::string pseudo_args[] = {cmdl[0], cmdl[1]};
+            if (cmdl[{"-h", "--help"}])
+                pseudo_args[1] = "--help";
             char const * pseudo_argv[] = {pseudo_args[0].c_str(), pseudo_args[1].c_str()};
             return alps::params(2, pseudo_argv);
         } ();
@@ -64,21 +68,9 @@ int main(int argc, char** argv)
         }
 
         /* WORKAROUND: override parameters from CL args manually */ {
-            double new_nu;
-            if (cmdl("--nu") >> new_nu) {
-                std::cout << "override parameter nu: " << new_nu << std::endl;
-                parameters["nu"] = new_nu;
-            }
-            size_t new_timelimit;
-            if (cmdl("--timelimit") >> new_timelimit) {
-                std::cout << "override parameter timelimit: " << new_timelimit << std::endl;
-                parameters["timelimit"] = new_timelimit;
-            }
-            std::string new_outputfile;
-            if (cmdl("--outputfile") >> new_outputfile) {
-                std::cout << "override parameter outputfile: " << new_outputfile << std::endl;
-                parameters["outputfile"] = new_outputfile;
-            }
+            override_parameter<double>("nu", parameters, cmdl);
+            override_parameter<std::string>("outputfile", parameters, cmdl);
+            override_parameter<size_t>("timelimit", parameters, cmdl);
         }
         bool skip_sampling = cmdl[{"-s", "--skip-sampling"}];
 
