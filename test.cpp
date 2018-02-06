@@ -7,6 +7,8 @@
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
 #include "filesystem.hpp"
+#include "argh.h"
+#include "override_parameters.hpp"
 
 #include <omp.h>
 
@@ -45,7 +47,19 @@ int main(int argc, char** argv)
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
 
-        alps::params parameters(argc, argv);
+        argh::parser cmdl({ "timelimit", "total_sweeps", "thermalization_sweeps",
+                    "sweep_unit", "test.temp_min", "test.temp_max", "test.N_temp",
+                    "test.filename", "test.txtname" });
+        cmdl.parse(argc, argv);
+        alps::params parameters = [&] {
+            if (cmdl[1].empty())
+                return alps::params(argc, argv);
+            std::string pseudo_args[] = {cmdl[0], cmdl[1]};
+            if (cmdl[{"-h", "--help"}])
+                pseudo_args[1] = "--help";
+            char const * pseudo_argv[] = {pseudo_args[0].c_str(), pseudo_args[1].c_str()};
+            return alps::params(2, pseudo_argv);
+        } ();
         sim_type::define_parameters(parameters);
         define_test_parameters(parameters);
 
@@ -59,6 +73,19 @@ int main(int argc, char** argv)
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
             return 1;
+        }
+
+        /* WORKAROUND: override parameters from CL args manually */ {
+            override_parameter<size_t>("timelimit", parameters, cmdl);
+            override_parameter<size_t>("total_sweeps", parameters, cmdl);
+            override_parameter<size_t>("thermalization_sweeps", parameters, cmdl);
+            override_parameter<size_t>("sweep_unit", parameters, cmdl);
+
+            override_parameter<double>("test.temp_min", parameters, cmdl);
+            override_parameter<double>("test.temp_max", parameters, cmdl);
+            override_parameter<size_t>("test.N_temp", parameters, cmdl);
+            override_parameter<std::string>("test.filename", parameters, cmdl);
+            override_parameter<std::string>("test.txtname", parameters, cmdl);
         }
 
         std::vector<double> temps(parameters["test.N_temp"].as<size_t>());
