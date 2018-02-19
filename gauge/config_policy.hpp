@@ -68,7 +68,8 @@ namespace element_policy {
             return index / BaseElementPolicy::range;
         }
         inline size_t color(size_t index) const {
-            return BaseElementPolicy::color(index % BaseElementPolicy::range);
+            return sublattice(index) * BaseElementPolicy::n_color
+                + BaseElementPolicy::color(index % BaseElementPolicy::range);
         }
         inline size_t component(size_t index) const {
             return BaseElementPolicy::component(index % BaseElementPolicy::range);
