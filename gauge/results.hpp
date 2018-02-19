@@ -60,6 +60,18 @@ private:
 
 const std::map<std::string, tensor_factory> exact_tensor = {
     {
+        "Cinfv",
+        {
+            {
+                {  -1, make_delta("a", "b")},
+                {   2, make_delta("a", "a")}
+            },
+            {
+                {   1, make_delta("a", "a")}
+            }
+        }
+    },
+    {
         "Dinfh",
         {
             {
