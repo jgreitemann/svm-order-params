@@ -88,13 +88,9 @@ public:
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            problem.add_sample(Simulation::configuration(), order_label());
+            problem.add_sample(Simulation::configuration(), temp);
             ++i_temp;
         }
-    }
-
-    double order_label () const {
-        return (temp < temp_crit) ? 1. : -1.;
     }
 
     using alps::mcbase::save;
