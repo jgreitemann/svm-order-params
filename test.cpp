@@ -43,7 +43,7 @@ int main(int argc, char** argv)
 
         argh::parser cmdl({ "timelimit", "total_sweeps", "thermalization_sweeps",
                     "sweep_unit", "test.temp_min", "test.temp_max", "test.N_temp",
-                    "test.filename", "test.txtname" });
+                    "test.filename", "test.txtname", "SEED" });
         cmdl.parse(argc, argv);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
@@ -74,6 +74,7 @@ int main(int argc, char** argv)
             override_parameter<size_t>("total_sweeps", parameters, cmdl);
             override_parameter<size_t>("thermalization_sweeps", parameters, cmdl);
             override_parameter<size_t>("sweep_unit", parameters, cmdl);
+            override_parameter<long>("SEED", parameters, cmdl);
 
             override_parameter<double>("test.temp_min", parameters, cmdl);
             override_parameter<double>("test.temp_max", parameters, cmdl);
