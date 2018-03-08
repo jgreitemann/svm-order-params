@@ -76,7 +76,13 @@ int main(int argc, char** argv) {
         }
 
         std::string arname = parameters.get_archive_name();
+        bool verbose = cmdl[{"-v", "--verbose"}];
+        auto log_msg = [verbose] (std::string const& msg) {
+            if (verbose)
+                std::cout << msg << std::endl;
+        };
 
+        log_msg("Reading model...");
         svm::model<kernel_t> model;
         {
             alps::hdf5::archive ar(arname, "r");
@@ -86,7 +92,9 @@ int main(int argc, char** argv) {
 
         svm::tensor_introspector<kernel_t, 2> coeff(model);
 
+        log_msg("Allocating coeffs...");
         boost::multi_array<double,2> coeffs(boost::extents[model.dim()][model.dim()]);
+        log_msg("Filling coeffs...");
 #pragma omp parallel for
         for (size_t i = 0; i < model.dim(); ++i) {
             for (size_t j = 0; j < model.dim(); ++j) {
@@ -97,8 +105,11 @@ int main(int argc, char** argv) {
         std::unique_ptr<config_policy> confpol =
             sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
         {
+            log_msg("Rearranging coeffs...");
             auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
+            log_msg("Normalizing coeffs...");
             normalize_matrix(rearranged_coeffs);
+            log_msg("Writing coeffs...");
             write_matrix(rearranged_coeffs,
                          replace_extension(arname, ".coeffs"),
                          color::palettes.at("rdbu").rescale(-1, 1));
@@ -162,6 +173,7 @@ int main(int argc, char** argv) {
             }
         }
         {
+            log_msg("Block structure...");
             auto block_structure = confpol->block_structure(coeffs);
             normalize_matrix(block_structure);
             write_matrix(block_structure,
