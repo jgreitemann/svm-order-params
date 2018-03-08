@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 
         std::unique_ptr<config_policy> confpol =
             sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
-        {
+        if (!cmdl[{"-b", "--blocks-only"}]) {
             log_msg("Rearranging coeffs...");
             auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
             log_msg("Normalizing coeffs...");
