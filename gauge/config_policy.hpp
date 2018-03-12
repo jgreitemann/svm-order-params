@@ -22,6 +22,7 @@ namespace element_policy {
 
     struct uniaxial {
         static const size_t n_color = 1;
+        static const size_t n_block = 1;
         static const size_t range = 3 * n_color;
         inline size_t sublattice(size_t index) const { return 0; }
         inline size_t color(size_t index) const { return 2; }
@@ -39,6 +40,7 @@ namespace element_policy {
 
     struct triad {
         static const size_t n_color = 3;
+        static const size_t n_block = 3;
         static const size_t range = 3 * n_color;
         inline size_t sublattice(size_t index) const { return 0; }
         inline size_t color(size_t index) const { return index / 3; }
@@ -62,14 +64,14 @@ namespace element_policy {
     template <typename BaseElementPolicy, size_t N_UNIT>
     struct n_partite : private BaseElementPolicy {
         static const size_t n_unitcell = N_UNIT;
-        static const size_t n_color = n_unitcell * BaseElementPolicy::n_color;
+        static const size_t n_color = BaseElementPolicy::n_color;
+        static const size_t n_block = n_unitcell * BaseElementPolicy::n_color;
         static const size_t range = n_unitcell * BaseElementPolicy::range;
         inline size_t sublattice(size_t index) const {
             return index / BaseElementPolicy::range;
         }
         inline size_t color(size_t index) const {
-            return sublattice(index) * BaseElementPolicy::n_color
-                + BaseElementPolicy::color(index % BaseElementPolicy::range);
+            return BaseElementPolicy::color(index % BaseElementPolicy::range);
         }
         inline size_t component(size_t index) const {
             return BaseElementPolicy::component(index % BaseElementPolicy::range);
@@ -441,8 +443,8 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
     }
 
     virtual matrix_t block_structure (matrix_t const& c) const override {
-        size_t block_range = combinatorics::ipow(ElementPolicy::n_color, rank_);
-        size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_color, rank_);
+        size_t block_range = combinatorics::ipow(ElementPolicy::n_block, rank_);
+        size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_block, rank_);
         matrix_t blocks(boost::extents[block_range][block_range]);
         boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
         indices_t i_ind(rank_);
@@ -476,7 +478,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         indices_t cind;
         cind.reserve(ind.size());
         std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
-                       [this] (size_t a) { return color(a); });
+                       [this] (size_t a) { return sublattice(a) * ElementPolicy::n_color + color(a); });
         return cind;
     }
 
