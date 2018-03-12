@@ -523,7 +523,15 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
     }
 
     virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
-        return c;
+        matrix_t out(boost::extents[size()][size()]);
+        for (size_t i = 0; i < size(); ++i) {
+            size_t i_out = (i % ElementPolicy::range) * n_sites + (i / ElementPolicy::range);
+            for (size_t j = 0; j < size(); ++j) {
+                size_t j_out = (j % ElementPolicy::range) * n_sites + (j / ElementPolicy::range);
+                out[i_out][j_out] = c[i][j];
+            }
+        }
+        return out;
     }
 
     virtual matrix_t block_structure (matrix_t const& c) const override {
@@ -532,8 +540,10 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         matrix_t blocks(boost::extents[block_range][block_range]);
         boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
         for (size_t i = 0; i < size(); ++i) {
+            size_t i_out = (i % ElementPolicy::range) * n_sites + (i / ElementPolicy::range);
             for (size_t j = 0; j < size(); ++j) {
-                block_norms[i / block_size][j / block_size] += c[i][j];
+                size_t j_out = (j % ElementPolicy::range) * n_sites + (j / ElementPolicy::range);
+                block_norms[i_out / block_size][j_out / block_size] += c[i][j];
             }
         }
         for (size_t i = 0; i < block_range; ++i)
