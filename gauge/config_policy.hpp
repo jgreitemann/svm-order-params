@@ -81,14 +81,14 @@ namespace element_policy {
             size_t sublats = 0;
             size_t shift = 1;
             for (auto it = ind.begin(); it != ind.end(); ++it) {
-                sublats *= 2;
+                sublats *= n_unitcell;
                 sublats += sublattice(*it);
-                shift *= BaseElementPolicy::range;
+                shift *= n_unitcell;
             }
             indices_t base_ind(ind);
             for (size_t & i : base_ind)
                 i = i % BaseElementPolicy::range;
-            return sublats * shift + BaseElementPolicy::rearranged_index(base_ind);
+            return sublats + BaseElementPolicy::rearranged_index(base_ind) * shift;
         }
     };
 
