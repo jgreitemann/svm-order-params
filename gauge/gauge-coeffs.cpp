@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 
         std::unique_ptr<config_policy> confpol =
             sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
-        if (!cmdl[{"-b", "--blocks-only"}]) {
+        if (!cmdl[{"-b", "--blocks-only"}] && !cmdl[{"-r", "--raw"}]) {
             log_msg("Rearranging coeffs...");
             auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
             log_msg("Normalizing coeffs...");
@@ -171,6 +171,13 @@ int main(int argc, char** argv) {
                               << std::endl;
                 }
             }
+        } else if (cmdl[{"-r", "--raw"}]) {
+            log_msg("Normalizing coeffs...");
+            normalize_matrix(coeffs);
+            log_msg("Writing coeffs...");
+            write_matrix(coeffs,
+                         replace_extension(arname, ".coeffs"),
+                         color::palettes.at("rdbu").rescale(-1, 1));
         }
         {
             log_msg("Block structure...");
