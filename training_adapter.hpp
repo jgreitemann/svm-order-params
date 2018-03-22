@@ -35,6 +35,7 @@ public:
             .define<double>("temp_min", 0.0, "minimum value of temperature")
             .define<double>("temp_max", std::numeric_limits<double>::max(),
                             "maximum value of temperature")
+            .define<std::string>("temp_dist", "gaussian", "temperature distribution")
             .define<size_t>("N_temp", 1000, "number of attempted temperature updates")
             .define<size_t>("N_sample", 1000, "number of configuration samples taken"
                             " at each temperature")
@@ -53,6 +54,7 @@ public:
         , temp_max(double(parameters["temp_max"]))
         , N_temp(size_t(parameters["N_temp"]))
         , N_sample(size_t(parameters["N_sample"]))
+        , gaussian(parameters["temp_dist"] == "gaussian")
         , temp(temp_crit)
         , n_temp(0)
         , i_temp(0)
@@ -88,13 +90,9 @@ public:
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            problem.add_sample(Simulation::configuration(), order_label());
+            problem.add_sample(Simulation::configuration(), temp);
             ++i_temp;
         }
-    }
-
-    double order_label () const {
-        return (temp < temp_crit) ? 1. : -1.;
     }
 
     using alps::mcbase::save;
@@ -149,8 +147,11 @@ private:
         double delta_temp = (2. * random() - 1.) * temp_step;
         if (temp + delta_temp < temp_min || temp + delta_temp > temp_max)
             return false;
-        double ratio = exp(-(2. * (temp-temp_crit) + delta_temp) * delta_temp
-                           / 2. / temp_sigma_sq);
+        double ratio = 1.;
+        if (gaussian) {
+            ratio = exp(-(2. * (temp-temp_crit) + delta_temp) * delta_temp
+                        / 2. / temp_sigma_sq);
+        }
         if (ratio > 1 || random() < ratio) {
             temp += delta_temp;
             Simulation::temperature(temp);
@@ -169,6 +170,7 @@ private:
     double temp_sigma_sq;
     double temp_min;
     double temp_max;
+    bool gaussian;
     size_t N_temp;
     size_t N_sample;
 

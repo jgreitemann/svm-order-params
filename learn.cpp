@@ -41,7 +41,7 @@ int main(int argc, char** argv)
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
 
-        argh::parser cmdl({"--nu", "--outputfile", "--timelimit"});
+        argh::parser cmdl({"--nu", "--outputfile", "--timelimit", "--temp_crit"});
         cmdl.parse(argc, argv);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
@@ -65,6 +65,7 @@ int main(int argc, char** argv)
             override_parameter<double>("nu", parameters, cmdl);
             override_parameter<std::string>("outputfile", parameters, cmdl);
             override_parameter<size_t>("timelimit", parameters, cmdl);
+            override_parameter<double>("temp_crit", parameters, cmdl);
         }
         bool skip_sampling = cmdl[{"-s", "--skip-sampling"}];
 
@@ -160,6 +161,14 @@ int main(int argc, char** argv)
             alps::hdf5::archive cp(checkpoint_file, "w");
             cp["simulation/n_clones"] << n_clones;
         }
+
+        // relabel problem data based on crit. temperature
+        double temp_crit = parameters["temp_crit"].as<double>();
+        std::cout << "Label samples relative to crit. temperature Tc = "
+                  << temp_crit << std::endl;
+        prob.map_labels([temp_crit] (double temp) {
+                return temp < temp_crit ? 1. : -1.;
+            });
 
         {
             // create the model
