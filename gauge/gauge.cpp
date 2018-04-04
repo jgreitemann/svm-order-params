@@ -631,3 +631,10 @@ size_t gauge_sim::configuration_size() const {
 std::vector<double> gauge_sim::configuration() const {
     return confpol->configuration(R);
 }
+
+gauge_sim::phase_classifier::phase_classifier(alps::params const& params)
+    : temp_crit(params["temp_crit"].as<double>()) {}
+
+gauge_sim::phase_label gauge_sim::phase_classifier::operator() (phase_point pp) {
+    return pp.temp < temp_crit ? gauge_phase_label::ORDERED : gauge_phase_label::O3;
+}

@@ -17,8 +17,9 @@ class training_adapter : public Simulation {
 public:
     typedef alps::mcbase::parameters_type parameters_type;
 
+    using phase_point = typename Simulation::phase_point;
     using kernel_t = svm::kernel::polynomial<2>;
-    using problem_t = svm::problem<kernel_t>;
+    using problem_t = svm::problem<kernel_t, phase_point>;
 
     static void define_parameters(parameters_type & parameters) {
         // If the parameters are restored, they are already defined
@@ -90,7 +91,8 @@ public:
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            problem.add_sample(Simulation::configuration(), temp);
+            problem.add_sample(Simulation::configuration(),
+                               phase_point { temp });
             ++i_temp;
         }
     }

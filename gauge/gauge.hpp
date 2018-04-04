@@ -14,12 +14,38 @@
 #include "point_groups.hpp"
 
 #include "config_policy.hpp"
+#include "label.hpp"
 
+SVM_LABEL_BEGIN(gauge_phase_label, 2)
+SVM_LABEL_ADD(ORDERED)
+SVM_LABEL_ADD(O3)
+SVM_LABEL_END()
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
 
 
 class gauge_sim : public alps::mcbase {
+public:
+    typedef gauge_phase_label::label phase_label;
+
+    struct phase_point {
+        static const size_t label_dim = 1;
+        phase_point(double temp) : temp(temp) {}
+        template <class Iterator>
+        phase_point(Iterator begin) : temp(*begin) {}
+        double const * begin() const { return &temp; }
+        double const * end() const { return &temp + 1; }
+
+        double const temp;
+    };
+
+    struct phase_classifier {
+        phase_classifier(alps::params const& params);
+        phase_label operator() (phase_point pp);
+    private:
+        double temp_crit;
+    };
+
 private:
 
     /** parameters **/
