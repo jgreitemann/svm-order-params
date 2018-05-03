@@ -180,12 +180,16 @@ int main(int argc, char** argv) {
                          color::palettes.at("rdbu").rescale(-1, 1));
         }
         {
-            log_msg("Block structure...");
+            log_msg("Block structure... (2-norm)");
             auto block_structure = confpol->block_structure(coeffs);
-            normalize_matrix(block_structure);
-            write_matrix(block_structure,
-                         replace_extension(arname, ".blocks"),
-                         color::palettes.at("parula"));
+            normalize_matrix(block_structure.first);
+            write_matrix(block_structure.first,
+                         replace_extension(arname, ".blocks.norm2"),
+                         color::palettes.at("rdbu").rescale(-1, 1));
+            normalize_matrix(block_structure.second);
+            write_matrix(block_structure.second,
+                         replace_extension(arname, ".blocks.sum"),
+                         color::palettes.at("rdbu").rescale(-1, 1));
         }
 
         return 0;

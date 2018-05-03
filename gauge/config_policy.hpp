@@ -389,14 +389,13 @@ struct config_policy {
     virtual std::vector<double> configuration (config_array const&) const = 0;
 
     virtual matrix_t rearrange_by_component (matrix_t const& c) const = 0;
-    virtual matrix_t block_structure (matrix_t const& c) const = 0;
+    virtual std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const = 0;
 
     virtual indices_t block_indices(indices_t const& ind) const = 0;
     virtual indices_t component_indices(indices_t const& ind) const = 0;
 };
 
 template <typename LatticePolicy, typename SymmetryPolicy,
-          typename BlockReduction = block_reduction::norm<1>,
           typename ElementPolicy = typename LatticePolicy::ElementPolicy>
 struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
 
@@ -454,11 +453,15 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return out;
     }
 
-    virtual matrix_t block_structure (matrix_t const& c) const override {
+    std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {
         size_t block_range = combinatorics::ipow(ElementPolicy::n_block, rank_);
         size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_block, rank_);
-        matrix_t blocks(boost::extents[block_range][block_range]);
-        boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
+        std::pair<matrix_t, matrix_t> blocks {
+            matrix_t (boost::extents[block_range][block_range]),
+            matrix_t (boost::extents[block_range][block_range])
+        };
+        boost::multi_array<block_reduction::norm<2>,2> block_2norms(boost::extents[block_range][block_range]);
+        boost::multi_array<block_reduction::sum,2> block_sums(boost::extents[block_range][block_range]);
         indices_t i_ind(rank_);
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
             do {
@@ -467,14 +470,18 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                 for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
-                        block_norms[i_out / block_size][j_out / block_size] += c[i][j];
+                        block_2norms[i_out / block_size][j_out / block_size] += c[i][j];
+                        block_sums[i_out / block_size][j_out / block_size] += c[i][j];
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
             } while (unsymmetrize && transform_ind(i_ind));
         }
-        for (size_t i = 0; i < block_range; ++i)
-            for (size_t j = 0; j < block_range; ++j)
-                blocks[i][j] = block_norms[i][j];
+        for (size_t i = 0; i < block_range; ++i) {
+            for (size_t j = 0; j < block_range; ++j) {
+                blocks.first[i][j] = block_2norms[i][j];
+                blocks.second[i][j] = block_sums[i][j];
+            }
+        }
         return blocks;
     }
 
@@ -517,7 +524,7 @@ private:
     std::vector<double> weights;
 };
 
-template <typename ElementPolicy, typename BlockReduction = block_reduction::norm<1>>
+template <typename ElementPolicy>
 struct site_resolved_rank1_config_policy : public config_policy, private ElementPolicy {
     site_resolved_rank1_config_policy (size_t N) : n_sites(N) {}
 
@@ -548,21 +555,29 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         return out;
     }
 
-    virtual matrix_t block_structure (matrix_t const& c) const override {
+    std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {
         size_t block_range = ElementPolicy::n_color * n_sites;
         size_t block_size = ElementPolicy::range / ElementPolicy::n_color;
-        matrix_t blocks(boost::extents[block_range][block_range]);
-        boost::multi_array<BlockReduction,2> block_norms(boost::extents[block_range][block_range]);
+        std::pair<matrix_t, matrix_t> blocks {
+            matrix_t (boost::extents[block_range][block_range]),
+                matrix_t (boost::extents[block_range][block_range])
+                };
+        boost::multi_array<block_reduction::norm<2>,2> block_2norms(boost::extents[block_range][block_range]);
+        boost::multi_array<block_reduction::sum,2> block_sums(boost::extents[block_range][block_range]);
         for (size_t i = 0; i < size(); ++i) {
             size_t i_out = (i % ElementPolicy::range) * n_sites + (i / ElementPolicy::range);
             for (size_t j = 0; j < size(); ++j) {
                 size_t j_out = (j % ElementPolicy::range) * n_sites + (j / ElementPolicy::range);
-                block_norms[i_out / block_size][j_out / block_size] += c[i][j];
+                block_2norms[i_out / block_size][j_out / block_size] += c[i][j];
+                block_sums[i_out / block_size][j_out / block_size] += c[i][j];
             }
         }
-        for (size_t i = 0; i < block_range; ++i)
-            for (size_t j = 0; j < block_range; ++j)
-                blocks[i][j] = block_norms[i][j];
+        for (size_t i = 0; i < block_range; ++i) {
+            for (size_t j = 0; j < block_range; ++j) {
+                blocks.first[i][j] = block_2norms[i][j];
+                blocks.second[i][j] = block_sums[i][j];
+            }
+        }
         return blocks;
     }
 
