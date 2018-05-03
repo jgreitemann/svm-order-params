@@ -363,6 +363,18 @@ namespace block_reduction {
     private:
         double max = 0.;
     };
+
+    struct sum {
+        sum & operator+= (double x) {
+            sum += x;
+            return *this;
+        }
+        operator double () const {
+            return sum;
+        }
+    private:
+        double sum = 0;
+    };
 }
 
 
