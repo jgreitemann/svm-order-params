@@ -1,5 +1,5 @@
-// Lecture Notes on Diagrammatic Monte Carlo
-// Copyright (C) 2017  Jonas Greitemann and Lode Pollet
+// SVM Order Parameters for Hidden Spin Order
+// Copyright (C) 2017  Jonas Greitemann, Ke Liu, and Lode Pollet
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
