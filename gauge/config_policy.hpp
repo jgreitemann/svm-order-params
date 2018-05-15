@@ -24,6 +24,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -33,6 +34,24 @@
 
 
 using indices_t = std::vector<size_t>;
+
+template <char first_letter>
+struct basic_indices_t {
+    indices_t ind;
+    size_t & operator[] (size_t i) { return ind[i]; }
+    size_t const& operator[] (size_t i) const { return ind[i]; }
+    friend std::ostream & operator << (std::ostream & os,
+                                       basic_indices_t const& indices)
+    {
+        for (size_t i : indices.ind)
+            os << static_cast<char>(first_letter + i);
+        return os;
+    }
+};
+
+using block_indices_t = basic_indices_t<'l'>;
+using contraction_indices_t = basic_indices_t<'a'>;
+using component_indices_t = basic_indices_t<'x'>;
 
 namespace element_policy {
 
@@ -393,11 +412,61 @@ namespace block_reduction {
     };
 }
 
+namespace detail {
+    struct contraction {
+        typedef std::vector<size_t> ep_type;
+        contraction (ep_type && e) : endpoints(std::forward<ep_type>(e)) {}
+
+        bool is_self_contraction () const {
+            for (auto ep : endpoints)
+                if (ep < endpoints.size())
+                    return true;
+            return false;
+        }
+
+        bool operator() (indices_t const& i_ind, indices_t const& j_ind) const {
+            std::vector<bool> checked(2 * endpoints.size(), false);
+            auto ind_get = [&] (size_t i) {
+                return i >= i_ind.size() ? j_ind[i - i_ind.size()] : i_ind[i];
+            };
+            auto it = endpoints.begin();
+            for (size_t i = 0; i < 2 * endpoints.size(); ++i) {
+                if (checked[i])
+                    continue;
+                size_t a = ind_get(i);
+                size_t b = ind_get(*it);
+                if (ind_get(i) != ind_get(*it))
+                    return false;
+                checked[*it] = true;
+                ++it;
+            }
+            return true;
+        }
+
+        friend std::ostream & operator<< (std::ostream & os, contraction const& ct) {
+            char c = 'a';
+            std::string out(2 * ct.endpoints.size(), '-');
+            auto it = ct.endpoints.begin();
+            for (auto & o : out) {
+                if (o == '-') {
+                    o = c++;
+                    out[*(it++)] = o;
+                }
+            }
+            return os << '[' << out.substr(0, ct.endpoints.size())
+                    << ';' << out.substr(ct.endpoints.size(), ct.endpoints.size())
+                    << ']';
+        }
+    private:
+        ep_type endpoints;
+    };
+}
 
 struct config_policy {
     typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> local_state;
     typedef boost::multi_array<local_state, 1> config_array;
     typedef boost::multi_array<double, 2> matrix_t;
+    typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor> contraction_matrix_t;
 
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
@@ -409,6 +478,42 @@ struct config_policy {
 
     virtual indices_t block_indices(indices_t const& ind) const = 0;
     virtual indices_t component_indices(indices_t const& ind) const = 0;
+
+    virtual contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const& cs,
+                                                    indices_t const& i_col_ind,
+                                                    indices_t const& j_col_ind) const = 0;
+
+    std::vector<detail::contraction> contractions() const {
+        std::vector<detail::contraction> cs;
+        std::set<size_t> places;
+        for (size_t i = 0; i < 2 * rank(); ++i)
+            places.insert(i);
+        rec_cs(cs, {}, places);
+        return cs;
+    }
+
+    virtual std::set<indices_t> all_block_indices () const = 0;
+
+private:
+    void rec_cs(std::vector<detail::contraction> & cs,
+                std::vector<size_t> ep,
+                std::set<size_t> pl) const {
+        if (pl.size() == 2) {
+            ep.push_back(*(++pl.begin()));
+            cs.push_back(std::move(ep));
+        } else {
+            pl.erase(pl.begin());
+            std::vector<size_t> epn(ep);
+            for(auto it = pl.begin(); it != pl.end(); ++it) {
+                epn.push_back(*it);
+                pl.erase(it);
+                rec_cs(cs, epn, pl);
+                it = pl.insert(epn.back()).first;
+                epn.pop_back();
+            }
+        }
+    }
+
 };
 
 template <typename LatticePolicy, typename SymmetryPolicy,
@@ -525,6 +630,38 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return cind;
     }
 
+    virtual contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const& cs,
+                                                    indices_t const& i_col_ind,
+                                                    indices_t const& j_col_ind) const override {
+        size_t ts = size();
+        contraction_matrix_t a(ts * ts, cs.size());
+        indices_t i_ind(rank_);
+        for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+            bool i_color_match = std::equal(i_col_ind.begin(), i_col_ind.end(), block_indices(i_ind).begin());
+            indices_t j_ind(rank_);
+            for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
+                bool j_color_match = std::equal(j_col_ind.begin(), j_col_ind.end(), block_indices(j_ind).begin());
+                for (size_t k = 0; k < cs.size(); ++k) {
+                    if (i_color_match && j_color_match)
+                        a(i * ts + j, k) = cs[k](component_indices(i_ind),
+                                                 component_indices(j_ind)) ? 1 : 0;
+                    else
+                        a(i * ts + j, k) = 0.;
+                }
+            }
+        }
+        return a;
+    }
+
+    virtual std::set<indices_t> all_block_indices () const override {
+        std::set<indices_t> b;
+        indices_t i_ind(rank());
+        for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+            b.insert(block_indices(i_ind));
+        }
+        return b;
+    }
+
 private:
     using ElementPolicy::color;
     using ElementPolicy::component;
@@ -619,6 +756,34 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
                        [this] (size_t a) { return component(a); });
         return cind;
+    }
+
+    virtual contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const& cs,
+                                                    indices_t const& i_col_ind,
+                                                    indices_t const& j_col_ind) const override {
+        size_t ts = size();
+        contraction_matrix_t a(ts * ts, cs.size());
+        // TODO
+        // indices_t i_ind(rank_);
+        // for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+        //     indices_t j_ind(rank_);
+        //     for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
+        //         for (size_t k = 0; k < cs.size(); ++k) {
+        //             a(i * ts + j, k) = cs[k](i_ind, j_ind);
+        //         }
+        //     }
+        // }
+        return a;
+    }
+
+    virtual std::set<indices_t> all_block_indices () const override {
+        std::set<indices_t> b;
+        // TODO
+        // indices_t i_ind(rank());
+        // for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+        //     b.insert(block_indices(i_ind));
+        // }
+        return b;
     }
 
 private:

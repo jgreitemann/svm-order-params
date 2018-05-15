@@ -31,6 +31,8 @@
 
 #include <boost/multi_array.hpp>
 
+#include <Eigen/SVD>
+
 
 using sim_type = gauge_sim;
 using kernel_t = svm::kernel::polynomial<2>;
@@ -92,7 +94,7 @@ int main(int argc, char** argv) {
         }
 
         std::string arname = parameters.get_archive_name();
-        bool verbose = cmdl[{"-v", "--verbose"}];
+        bool verbose = cmdl[{"-v", "--verbose"}] || cmdl[{"-c", "--contraction-weights"}];
         auto log_msg = [verbose] (std::string const& msg) {
             if (verbose)
                 std::cout << msg << std::endl;
@@ -110,16 +112,75 @@ int main(int argc, char** argv) {
 
         log_msg("Allocating coeffs...");
         boost::multi_array<double,2> coeffs(boost::extents[model.dim()][model.dim()]);
+        Eigen::VectorXd b(model.dim() * model.dim());
         log_msg("Filling coeffs...");
 #pragma omp parallel for
         for (size_t i = 0; i < model.dim(); ++i) {
             for (size_t j = 0; j < model.dim(); ++j) {
                 coeffs[i][j] = coeff.tensor({i, j});
+                b[i * model.dim() + j] = coeffs[i][j];
             }
         }
 
         std::unique_ptr<config_policy> confpol =
             sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
+
+        auto contractions = confpol->contractions();
+
+        auto block_inds = confpol->all_block_indices();
+        std::vector<decltype(block_inds)::value_type> block_inds_vec(block_inds.begin(), block_inds.end());
+        size_t n_blocks = pow(block_inds.size(), 2);
+        size_t i_block = 0;
+
+        log_msg("Removing self-contractions...");
+#pragma omp parallel for
+        for (size_t bii = 0; bii < block_inds_vec.size(); ++bii) {
+            auto const& bi = block_inds_vec[bii];
+            for (auto const& bj : block_inds) {
+                std::stringstream contr_ss;
+
+                auto a = confpol->contraction_matrix(contractions, bi, bj);
+
+                Eigen::VectorXd x = a.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+                if (cmdl[{"-c", "--contraction-weights"}]) {
+                    for (size_t i = 0; i < contractions.size(); ++i) {
+                        contr_ss
+                            << contractions[i] << '\t'
+                            << (contractions[i].is_self_contraction() ? "self" : "outer")
+                            << '\t' << x[i] << '\n';
+                        
+                    }
+                }
+                for (size_t i = 0; i < contractions.size(); ++i) {
+                    if (!contractions[i].is_self_contraction())
+                        x[i] = 0.;
+                }
+
+                b -= a * x;
+#pragma omp critical
+                {
+                    std::stringstream ss;
+                    ++i_block;
+                    ss << "Block ["
+                       << block_indices_t {bi}
+                       << ';' << block_indices_t {bj}
+                       << "] (" << i_block << " / " << n_blocks << ")";
+                    log_msg(ss.str());
+                    if (cmdl[{"-c", "--contraction-weights"}])
+                        log_msg(contr_ss.str());
+                }
+            }
+        }
+
+#pragma omp for
+        for (size_t i = 0; i < model.dim(); ++i) {
+            for (size_t j = 0; j < model.dim(); ++j) {
+                coeffs[i][j] = b[i * model.dim() + j];
+            }
+        }
+
+
         if (!cmdl[{"-b", "--blocks-only"}] && !cmdl[{"-r", "--raw"}]) {
             log_msg("Rearranging coeffs...");
             auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
