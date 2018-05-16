@@ -135,8 +135,9 @@ int main(int argc, char** argv) {
         log_msg("Removing self-contractions...");
 #pragma omp parallel for
         for (size_t bii = 0; bii < block_inds_vec.size(); ++bii) {
-            auto const& bi = block_inds_vec[bii];
-            for (auto const& bj : block_inds) {
+            auto const& bi = block_inds_vec[bii].first;
+            for (size_t bjj = 0; bjj < block_inds_vec.size(); ++bjj) {
+                auto const& bj = block_inds_vec[bjj].first;
                 std::stringstream contr_ss;
 
                 auto a = confpol->contraction_matrix(contractions, bi, bj);

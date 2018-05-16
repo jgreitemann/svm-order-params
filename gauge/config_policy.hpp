@@ -23,6 +23,7 @@
 #include <cmath>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <memory>
 #include <set>
 #include <stdexcept>
@@ -492,7 +493,7 @@ struct config_policy {
         return cs;
     }
 
-    virtual std::set<indices_t> all_block_indices () const = 0;
+    virtual std::map<indices_t, std::vector<size_t>> all_block_indices () const = 0;
 
 private:
     void rec_cs(std::vector<detail::contraction> & cs,
@@ -653,11 +654,12 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return a;
     }
 
-    virtual std::set<indices_t> all_block_indices () const override {
-        std::set<indices_t> b;
+    virtual std::map<indices_t, std::vector<size_t>> all_block_indices () const override {
+        std::map<indices_t, std::vector<size_t>> b;
         indices_t i_ind(rank());
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
-            b.insert(block_indices(i_ind));
+            auto it = b.insert({block_indices(i_ind), {}}).first;
+            it->second.push_back(i);
         }
         return b;
     }
@@ -776,8 +778,8 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         return a;
     }
 
-    virtual std::set<indices_t> all_block_indices () const override {
-        std::set<indices_t> b;
+    virtual std::map<indices_t, std::vector<size_t>> all_block_indices () const override {
+        std::map<indices_t, std::vector<size_t>> b;
         // TODO
         // indices_t i_ind(rank());
         // for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
