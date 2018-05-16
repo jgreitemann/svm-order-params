@@ -112,13 +112,11 @@ int main(int argc, char** argv) {
 
         log_msg("Allocating coeffs...");
         boost::multi_array<double,2> coeffs(boost::extents[model.dim()][model.dim()]);
-        Eigen::VectorXd b(model.dim() * model.dim());
         log_msg("Filling coeffs...");
 #pragma omp parallel for
         for (size_t i = 0; i < model.dim(); ++i) {
             for (size_t j = 0; j < model.dim(); ++j) {
                 coeffs[i][j] = coeff.tensor({i, j});
-                b[i * model.dim() + j] = coeffs[i][j];
             }
         }
 
@@ -135,12 +133,17 @@ int main(int argc, char** argv) {
         log_msg("Removing self-contractions...");
 #pragma omp parallel for
         for (size_t bii = 0; bii < block_inds_vec.size(); ++bii) {
-            auto const& bi = block_inds_vec[bii].first;
+            auto const& bi = block_inds_vec[bii];
             for (size_t bjj = 0; bjj < block_inds_vec.size(); ++bjj) {
-                auto const& bj = block_inds_vec[bjj].first;
+                auto const& bj = block_inds_vec[bjj];
                 std::stringstream contr_ss;
 
-                auto a = confpol->contraction_matrix(contractions, bi, bj);
+                auto a = confpol->contraction_matrix(contractions,
+                                                     bi.second,
+                                                     bj.second);
+                auto b = confpol->contraction_vector_crop(coeffs,
+                                                          bi.second,
+                                                          bj.second);
 
                 Eigen::VectorXd x = a.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
 
@@ -158,14 +161,17 @@ int main(int argc, char** argv) {
                         x[i] = 0.;
                 }
 
-                b -= a * x;
+                b = a * x;
+                confpol->contraction_vector_sub(coeffs, b,
+                                                bi.second,
+                                                bj.second);
 #pragma omp critical
                 {
                     std::stringstream ss;
                     ++i_block;
                     ss << "Block ["
-                       << block_indices_t {bi}
-                       << ';' << block_indices_t {bj}
+                       << block_indices_t {bi.first}
+                       << ';' << block_indices_t {bj.first}
                        << "] (" << i_block << " / " << n_blocks << ")";
                     log_msg(ss.str());
                     if (cmdl[{"-c", "--contraction-weights"}])
@@ -173,14 +179,6 @@ int main(int argc, char** argv) {
                 }
             }
         }
-
-#pragma omp for
-        for (size_t i = 0; i < model.dim(); ++i) {
-            for (size_t j = 0; j < model.dim(); ++j) {
-                coeffs[i][j] = b[i * model.dim() + j];
-            }
-        }
-
 
         if (!cmdl[{"-b", "--blocks-only"}] && !cmdl[{"-r", "--raw"}]) {
             log_msg("Rearranging coeffs...");

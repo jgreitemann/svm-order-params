@@ -468,6 +468,7 @@ struct config_policy {
     typedef boost::multi_array<local_state, 1> config_array;
     typedef boost::multi_array<double, 2> matrix_t;
     typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor> contraction_matrix_t;
+    typedef Eigen::Matrix<double, Eigen::Dynamic, 1> contraction_vector_t;
 
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
@@ -480,9 +481,18 @@ struct config_policy {
     virtual indices_t block_indices(indices_t const& ind) const = 0;
     virtual indices_t component_indices(indices_t const& ind) const = 0;
 
+    typedef std::pair<size_t, indices_t> index_assoc_t;
+    typedef std::vector<index_assoc_t> index_assoc_vec;
+    virtual contraction_vector_t contraction_vector_crop(matrix_t const& c,
+                                                         index_assoc_vec const& is,
+                                                         index_assoc_vec const& js) const = 0;
+    virtual void contraction_vector_sub(matrix_t & c,
+                                        contraction_vector_t const& b,
+                                        index_assoc_vec const& is,
+                                        index_assoc_vec const& js) const = 0;
     virtual contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const& cs,
-                                                    indices_t const& i_col_ind,
-                                                    indices_t const& j_col_ind) const = 0;
+                                                    index_assoc_vec const& is,
+                                                    index_assoc_vec const& js) const = 0;
 
     std::vector<detail::contraction> contractions() const {
         std::vector<detail::contraction> cs;
@@ -493,7 +503,7 @@ struct config_policy {
         return cs;
     }
 
-    virtual std::map<indices_t, std::vector<size_t>> all_block_indices () const = 0;
+    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const = 0;
 
 private:
     void rec_cs(std::vector<detail::contraction> & cs,
@@ -631,35 +641,42 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return cind;
     }
 
+    virtual contraction_vector_t contraction_vector_crop(matrix_t const& c,
+                                                         index_assoc_vec const& is,
+                                                         index_assoc_vec const& js) const override {
+        contraction_vector_t b(is.size() * js.size());
+        for (size_t i = 0; i < is.size(); ++i)
+            for (size_t j = 0; j < js.size(); ++j)
+                b(i * js.size() + j) = c[is[i].first][js[j].first];
+        return b;
+    }
+
+    virtual void contraction_vector_sub(matrix_t & c,
+                                        contraction_vector_t const& b,
+                                        index_assoc_vec const& is,
+                                        index_assoc_vec const& js) const override {
+        for (size_t i = 0; i < is.size(); ++i)
+            for (size_t j = 0; j < js.size(); ++j)
+                c[is[i].first][js[j].first] -= b(i * js.size() + j);
+    }
+
     virtual contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const& cs,
-                                                    indices_t const& i_col_ind,
-                                                    indices_t const& j_col_ind) const override {
-        size_t ts = size();
-        contraction_matrix_t a(ts * ts, cs.size());
-        indices_t i_ind(rank_);
-        for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
-            bool i_color_match = std::equal(i_col_ind.begin(), i_col_ind.end(), block_indices(i_ind).begin());
-            indices_t j_ind(rank_);
-            for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
-                bool j_color_match = std::equal(j_col_ind.begin(), j_col_ind.end(), block_indices(j_ind).begin());
-                for (size_t k = 0; k < cs.size(); ++k) {
-                    if (i_color_match && j_color_match)
-                        a(i * ts + j, k) = cs[k](component_indices(i_ind),
-                                                 component_indices(j_ind)) ? 1 : 0;
-                    else
-                        a(i * ts + j, k) = 0.;
-                }
-            }
-        }
+                                                    index_assoc_vec const& is,
+                                                    index_assoc_vec const& js) const override {
+        contraction_matrix_t a(is.size() * js.size(), cs.size());
+        for (size_t i = 0; i < is.size(); ++i)
+            for (size_t j = 0; j < js.size(); ++j)
+                for (size_t k = 0; k < cs.size(); ++k)
+                    a(i * js.size() + j, k) = cs[k](is[i].second, js[j].second) ? 1 : 0;
         return a;
     }
 
-    virtual std::map<indices_t, std::vector<size_t>> all_block_indices () const override {
-        std::map<indices_t, std::vector<size_t>> b;
+    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const override {
+        std::map<indices_t, index_assoc_vec> b;
         indices_t i_ind(rank());
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
             auto it = b.insert({block_indices(i_ind), {}}).first;
-            it->second.push_back(i);
+            it->second.push_back({i, component_indices(i_ind)});
         }
         return b;
     }
@@ -760,11 +777,25 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         return cind;
     }
 
+    virtual contraction_vector_t contraction_vector_crop(matrix_t const& c,
+                                                         index_assoc_vec const& is,
+                                                         index_assoc_vec const& js) const override {
+        contraction_vector_t b(is.size() * js.size());
+        // TODO
+        return b;
+    }
+
+    virtual void contraction_vector_sub(matrix_t & c,
+                                        contraction_vector_t const& b,
+                                        index_assoc_vec const& is,
+                                        index_assoc_vec const& js) const override {
+        // TODO
+    }
+
     virtual contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const& cs,
-                                                    indices_t const& i_col_ind,
-                                                    indices_t const& j_col_ind) const override {
-        size_t ts = size();
-        contraction_matrix_t a(ts * ts, cs.size());
+                                                    index_assoc_vec const& is,
+                                                    index_assoc_vec const& js) const override {
+        contraction_matrix_t a(is.size() * js.size(), cs.size());
         // TODO
         // indices_t i_ind(rank_);
         // for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
@@ -778,8 +809,8 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         return a;
     }
 
-    virtual std::map<indices_t, std::vector<size_t>> all_block_indices () const override {
-        std::map<indices_t, std::vector<size_t>> b;
+    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const override {
+        std::map<indices_t, index_assoc_vec> b;
         // TODO
         // indices_t i_ind(rank());
         // for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
