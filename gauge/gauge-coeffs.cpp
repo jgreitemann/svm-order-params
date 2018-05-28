@@ -128,7 +128,7 @@ int main(int argc, char** argv) {
             log_msg("Writing coeffs...");
             write_matrix(rearranged_coeffs,
                          replace_extension(arname, ".coeffs"),
-                         color::palettes.at("rdbu").rescale(-1, 1));
+                         color::palettes.at("rdwhbu").rescale(-1, 1));
             if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
                 parameters["symmetrized"] = false;
                 auto cpol = sim_type::config_policy_from_parameters(parameters, false);
@@ -139,7 +139,7 @@ int main(int argc, char** argv) {
                     if (cmdl[{"-e", "--exact"}]) {
                         write_matrix(exact,
                                      replace_extension(arname, ".exact"),
-                                     color::palettes.at("rdbu").rescale(-1, 1));
+                                     color::palettes.at("rdwhbu").rescale(-1, 1));
                     }
 
                     if (cmdl[{"-d", "--diff"}]) {
@@ -160,7 +160,7 @@ int main(int argc, char** argv) {
                                   << std::endl;
                         write_matrix(rearranged_coeffs,
                                      replace_extension(arname, ".diff"),
-                                     color::palettes.at("rdbu").rescale(-1, 1));
+                                     color::palettes.at("rdwhbu").rescale(-1, 1));
                         std::cout << "deviation metric: " << double(norm_diff) << '\n'
                                   << "total Frobenius norm: " << double(norm_exact) << '\n'
                                   << "relative deviation: " << double(norm_diff)/double(norm_exact)
@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
             log_msg("Writing coeffs...");
             write_matrix(coeffs,
                          replace_extension(arname, ".coeffs"),
-                         color::palettes.at("rdbu").rescale(-1, 1));
+                         color::palettes.at("rdwhbu").rescale(-1, 1));
         }
         {
             log_msg("Block structure... (2-norm)");
@@ -201,11 +201,11 @@ int main(int argc, char** argv) {
             normalize_matrix(block_structure.first);
             write_matrix(block_structure.first,
                          replace_extension(arname, ".blocks.norm2"),
-                         color::palettes.at("rdbu").rescale(-1, 1));
+                         color::palettes.at("whgnbu"));
             normalize_matrix(block_structure.second);
             write_matrix(block_structure.second,
                          replace_extension(arname, ".blocks.sum"),
-                         color::palettes.at("rdbu").rescale(-1, 1));
+                         color::palettes.at("rdwhbu").rescale(-1, 1));
         }
 
         return 0;
