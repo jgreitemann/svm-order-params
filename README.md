@@ -3,24 +3,6 @@
 
 This is the source code accompanying the manuscript [arxiv:1804.08557][1].
 
-License
--------
-
-Copyright © 2018  Jonas Greitemann, Ke Liu, and Lode Pollet
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-A copy of the GNU General Public License is available in the
-file [LICENSE](LICENSE).
-
 Requirements
 ------------
 
@@ -95,7 +77,11 @@ analogous to ALPSCore's, e.g.:
     $ cmake ..
     $ make -jN all
 
-Note that [libsvm][4] or [our wrappers][5] need not be build beforehand.
+Note that the repository makes use of git submodules. To also clone the
+dependent repositories `svm` and `colormap`, supplement your call to `git clone`
+with the flag `--recursive`; if the repository is already cloned, run
+
+    $ git submodule update --init
 
 Six executables will be linked, three each for simulations of the Ising model
 and the gauge model for general orientational order. We focus here on the latter.
@@ -190,6 +176,24 @@ customize:
   exact solution if available. Requires `--unsymmetrize`.
 * `--blocks-only`: skip output of the full coefficient matrix and only output
   block structure.
+
+License
+-------
+
+Copyright © 2018  Jonas Greitemann, Ke Liu, and Lode Pollet
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+A copy of the GNU General Public License is available in the
+file [LICENSE](LICENSE).
 
 
 [1]: https://arxiv.org/abs/1804.08557
