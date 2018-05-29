@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(svm-order-params CXX)
 
-enable_testing()
-
 find_package(OpenMP)
 if(OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
@@ -17,11 +15,9 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(.)
 include_directories(utilities)
 
+option(SVM__ENABLE_TESTS "If tests for SVM submodule should be compiled" OFF)
 add_subdirectory(svm)
-include_directories(svm)
-include_directories(svm/libsvm)
 
-add_subdirectory(colormap/test)
 include_directories(colormap)
 
 include_directories(ising)
