@@ -162,8 +162,84 @@ int main(int argc, char** argv) {
             auto const& bi = *bi_it;
             auto const& bj = *bj_it;
 
-            std::cout << "1st: " << block_indices_t {bi.first} << '\n';
-            std::cout << "2st: " << block_indices_t {bj.first} << '\n';
+            log_msg("Allocating " + block_str(bi.first, bj.first) + " block coeffs...");
+            boost::multi_array<double,2> coeffs(boost::extents[bi.second.size()][bj.second.size()]);
+
+            log_msg("Filling coeffs...");
+#pragma omp parallel for
+            for (size_t i = 0; i < coeffs.shape()[0]; ++i) {
+                for (size_t j = 0; j < coeffs.shape()[1]; ++j) {
+                    coeffs[i][j] = coeff.tensor({bi.second[i].first,
+                                                 bj.second[j].first});
+                }
+            }
+
+            log_msg("Removing self-contractions...");
+            {
+                std::stringstream contr_ss;
+
+                auto a = confpol->contraction_matrix(contractions,
+                                                     bi.second,
+                                                     bj.second);
+                // TODO
+                Eigen::VectorXd b(bi.second.size() * bj.second.size());
+                for (size_t i = 0; i < bi.second.size(); ++i)
+                    for (size_t j = 0; j < bj.second.size(); ++j)
+                        b(i * bj.second.size() + j) = coeffs[i][j];
+
+                Eigen::VectorXd x = a.bdcSvd(Eigen::ComputeThinU
+                                             | Eigen::ComputeThinV).solve(b);
+                
+                if (cmdl[{"-c", "--contraction-weights"}]) {
+                    for (size_t i = 0; i < contractions.size(); ++i) {
+                        contr_ss
+                            << contractions[i] << '\t'
+                            << (contractions[i].is_self_contraction()
+                                ? "self" : "outer")
+                            << '\t' << x[i] << '\n';
+                        
+                    }
+                }
+                for (size_t i = 0; i < contractions.size(); ++i) {
+                    if (!contractions[i].is_self_contraction())
+                        x[i] = 0.;
+                }
+
+                b = a * x;
+                // TODO
+                for (size_t i = 0; i < bi.second.size(); ++i)
+                    for (size_t j = 0; j < bj.second.size(); ++j)
+                        coeffs[i][j] -= b(i * bj.second.size() + j);
+
+                if (cmdl[{"-c", "--contraction-weights"}])
+                        log_msg(contr_ss.str());
+            }
+
+            if (!cmdl[{"-r", "--raw"}]) {
+                log_msg("Rearranging coeffs...");
+                auto rearranged_coeffs = confpol->rearrange(coeffs,
+                                                            bi.second,
+                                                            bj.second);
+                log_msg("Normalizing coeffs...");
+                normalize_matrix(rearranged_coeffs);
+                log_msg("Writing coeffs...");
+                write_matrix(rearranged_coeffs,
+                             replace_extension(arname,
+                                               "."
+                                               + block_str(bi.first, bj.first)
+                                               + ".coeffs"),
+                             color::palettes.at("rdbu").rescale(-1, 1));
+            } else {
+                log_msg("Normalizing coeffs...");
+                normalize_matrix(coeffs);
+                log_msg("Writing coeffs...");
+                write_matrix(coeffs,
+                             replace_extension(arname,
+                                               "."
+                                               + block_str(bi.first, bj.first)
+                                               + ".coeffs"),
+                             color::palettes.at("rdbu").rescale(-1, 1));
+            }
 
         } else {
 
@@ -221,10 +297,8 @@ int main(int argc, char** argv) {
                     {
                         std::stringstream ss;
                         ++i_block;
-                        ss << "Block ["
-                           << block_indices_t {bi.first}
-                           << ';' << block_indices_t {bj.first}
-                           << "] (" << i_block << " / " << n_blocks << ")";
+                        ss << "Block " << block_str(bi.first, bj.first)
+                           << " (" << i_block << " / " << n_blocks << ")";
                         log_msg(ss.str());
                         if (cmdl[{"-c", "--contraction-weights"}])
                             log_msg(contr_ss.str());
@@ -234,7 +308,7 @@ int main(int argc, char** argv) {
 
             if (!cmdl[{"-b", "--blocks-only"}] && !cmdl[{"-r", "--raw"}]) {
                 log_msg("Rearranging coeffs...");
-                auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
+                auto rearranged_coeffs = confpol->rearrange(coeffs);
                 log_msg("Normalizing coeffs...");
                 normalize_matrix(rearranged_coeffs);
                 log_msg("Writing coeffs...");
@@ -245,7 +319,7 @@ int main(int argc, char** argv) {
                     parameters["symmetrized"] = false;
                     auto cpol = sim_type::config_policy_from_parameters(parameters, false);
                     try {
-                        auto exact = cpol->rearrange_by_component(
+                        auto exact = cpol->rearrange(
                             exact_tensor.at(parameters["gauge_group"]).get(cpol));
                         normalize_matrix(exact);
                         if (cmdl[{"-e", "--exact"}]) {

@@ -54,6 +54,13 @@ using block_indices_t = basic_indices_t<'l'>;
 using contraction_indices_t = basic_indices_t<'a'>;
 using component_indices_t = basic_indices_t<'x'>;
 
+inline std::string block_str (indices_t const& bii, indices_t const& bjj) {
+    std::stringstream ss;
+    ss << '[' << block_indices_t{bii}
+       << ';' << block_indices_t{bjj} << ']';
+    return ss.str();
+}
+
 namespace element_policy {
 
     struct uniaxial {
@@ -470,19 +477,23 @@ struct config_policy {
     typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor> contraction_matrix_t;
     typedef Eigen::Matrix<double, Eigen::Dynamic, 1> contraction_vector_t;
 
+    typedef std::pair<size_t, indices_t> index_assoc_t;
+    typedef std::vector<index_assoc_t> index_assoc_vec;
+
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
     virtual size_t rank () const = 0;
     virtual std::vector<double> configuration (config_array const&) const = 0;
 
-    virtual matrix_t rearrange_by_component (matrix_t const& c) const = 0;
+    virtual matrix_t rearrange (matrix_t const& c) const = 0;
+    virtual matrix_t rearrange (matrix_t const& c,
+                                index_assoc_vec const& bii,
+                                index_assoc_vec const& bjj) const = 0;
     virtual std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const = 0;
 
     virtual indices_t block_indices(indices_t const& ind) const = 0;
     virtual indices_t component_indices(indices_t const& ind) const = 0;
 
-    typedef std::pair<size_t, indices_t> index_assoc_t;
-    typedef std::vector<index_assoc_t> index_assoc_vec;
     virtual contraction_vector_t contraction_vector_crop(matrix_t const& c,
                                                          index_assoc_vec const& is,
                                                          index_assoc_vec const& js) const = 0;
@@ -565,7 +576,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return v;
     }
 
-    virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
+    virtual matrix_t rearrange (matrix_t const& c) const override {
         symmetry_policy::none no_symm;
         size_t no_symm_size = no_symm.size(ElementPolicy::range, rank_);
         matrix_t out(boost::extents[no_symm_size][no_symm_size]);
@@ -578,6 +589,33 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
                         out[i_out][j_out] = c[i][j] / (weights[i] * weights[j]);
+                    } while (unsymmetrize && transform_ind(j_ind));
+                }
+            } while (unsymmetrize && transform_ind(i_ind));
+        }
+        return out;
+    }
+
+    virtual matrix_t rearrange (matrix_t const& c,
+                                index_assoc_vec const& bii,
+                                index_assoc_vec const& bjj) const override {
+        symmetry_policy::none no_symm;
+        size_t no_symm_size = no_symm.size(ElementPolicy::range / ElementPolicy::n_block, rank_);
+        matrix_t out(boost::extents[no_symm_size][no_symm_size]);
+        indices_t i_ind = bii.front().second;
+        indices_t j_ind = bjj.front().second;
+        size_t i_offset = ElementPolicy::rearranged_index(i_ind);
+        size_t j_offset = ElementPolicy::rearranged_index(j_ind);
+        for (size_t i = 0; i < bii.size(); ++i) {
+            i_ind = bii[i].second;
+            do {
+                size_t i_out = ElementPolicy::rearranged_index(i_ind) - i_offset;
+                for (size_t j = 0; j < bjj.size(); ++j) {
+                    j_ind = bjj[j].second;
+                    do {
+                        size_t j_out = ElementPolicy::rearranged_index(j_ind) - j_offset;
+                        out[i_out][j_out] = c[i][j]
+                            / (weights[bii[i].first] * weights[bjj[j].first]);
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
             } while (unsymmetrize && transform_ind(i_ind));
@@ -715,7 +753,7 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         return v;
     }
 
-    virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
+    virtual matrix_t rearrange (matrix_t const& c) const override {
         matrix_t out(boost::extents[size()][size()]);
         for (size_t i = 0; i < size(); ++i) {
             size_t i_out = (i % ElementPolicy::range) * n_sites + (i / ElementPolicy::range);
@@ -725,6 +763,13 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
             }
         }
         return out;
+    }
+
+    virtual matrix_t rearrange (matrix_t const& c,
+                                index_assoc_vec const& bii,
+                                index_assoc_vec const& bjj) const override {
+        // TODO
+        return c;
     }
 
     std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {
