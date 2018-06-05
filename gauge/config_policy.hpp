@@ -606,25 +606,28 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         size_t no_symm_size = no_symm.size(ElementPolicy::range / ElementPolicy::n_block, rank_);
         matrix_t out(boost::extents[no_symm_size][no_symm_size]);
 
-        indices_t i_ind(rank_);
-        for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+        indices_t ind(rank_);
+        std::vector<size_t> i_ind_lookup(no_symm_size);
+        std::vector<size_t> j_ind_lookup(no_symm_size);
+        for (size_t i = 0; i < size(); ++i, advance_ind(ind)) {
             do {
-                indices_t i_ind_block = block_indices(i_ind);
-                if (!std::equal(bi.begin(), bi.end(), i_ind_block.begin()))
-                    continue;
-                size_t i_out = ElementPolicy::rearranged_index(component_indices(i_ind));
-                indices_t j_ind(rank_);
-                for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
-                    do {
-                        indices_t j_ind_block = block_indices(j_ind);
-                        if (!std::equal(bj.begin(), bj.end(), j_ind_block.begin()))
-                            continue;
-                        size_t j_out = ElementPolicy::rearranged_index(component_indices(j_ind));
-                        out[i_out][j_out] = coeff.tensor({i, j})
-                            / (weights[i] * weights[j]);
-                    } while (unsymmetrize && transform_ind(j_ind));
-                }
-            } while (unsymmetrize && transform_ind(i_ind));
+                indices_t ind_block = block_indices(ind);
+                size_t out = ElementPolicy::rearranged_index(component_indices(ind));
+                if (std::equal(bi.begin(), bi.end(), ind_block.begin()))
+                    i_ind_lookup[out] = i;
+                if (std::equal(bj.begin(), bj.end(), ind_block.begin()))
+                    j_ind_lookup[out] = i;
+            } while (unsymmetrize && transform_ind(ind));
+        }
+
+#pragma omp parallel for
+        for (size_t i_out = 0; i_out < no_symm_size; ++i_out) {
+            size_t i = i_ind_lookup[i_out];
+            for (size_t j_out = 0; j_out < no_symm_size; ++j_out) {
+                size_t j = j_ind_lookup[j_out];
+                out[i_out][j_out] = coeff.tensor({i, j})
+                    / (weights[i] * weights[j]);
+            }
         }
         return out;
     }

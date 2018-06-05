@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
             auto const& bj = *bj_it;
 
             log_msg("Allocating " + block_str(bi.first, bj.first) + " block coeffs...");
-            boost::multi_array<double,2> coeffs(boost::extents[bi.second.size()][bj.second.size()]);
+            boost::multi_array<double,2> coeffs;
 
             /*
             if (cmdl[{"-s", "--remove-self-contractions"}]
@@ -212,7 +212,7 @@ int main(int argc, char** argv) {
             } */
 
             if (!cmdl[{"-r", "--raw"}]) {
-                log_msg("Rearranging coeffs...");
+                log_msg("Calculating and rearranging coeffs...");
                 auto rearranged_coeffs = confpol->rearrange(coeff, bi.first, bj.first);
                 log_msg("Normalizing coeffs...");
                 normalize_matrix(rearranged_coeffs);
@@ -224,6 +224,15 @@ int main(int argc, char** argv) {
                                                + ".coeffs"),
                              color::palettes.at("rdbu").rescale(-1, 1));
             } else {
+                coeffs.resize(boost::extents[bi.second.size()][bj.second.size()]);
+                log_msg("Filling coeffs...");
+#pragma omp parallel for
+                for (size_t i = 0; i < coeffs.shape()[0]; ++i) {
+                    for (size_t j = 0; j < coeffs.shape()[1]; ++j) {
+                        coeffs[i][j] = coeff.tensor({bi.second[i].first,
+                                                     bj.second[j].first});
+                    }
+                }
                 log_msg("Normalizing coeffs...");
                 normalize_matrix(coeffs);
                 log_msg("Writing coeffs...");
@@ -382,7 +391,7 @@ int main(int argc, char** argv) {
                              color::palettes.at("rdbu").rescale(-1, 1));
             }
             {
-                log_msg("Block structure... (2-norm)");
+                log_msg("Block structure...");
                 auto block_structure = confpol->block_structure(coeffs);
                 normalize_matrix(block_structure.first);
                 write_matrix(block_structure.first,
