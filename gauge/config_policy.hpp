@@ -17,6 +17,7 @@
 #pragma once
 
 #include "combinatorics.hpp"
+#include "svm-wrapper.hpp"
 
 #include <algorithm>
 #include <array>
@@ -480,15 +481,17 @@ struct config_policy {
     typedef std::pair<size_t, indices_t> index_assoc_t;
     typedef std::vector<index_assoc_t> index_assoc_vec;
 
+    typedef svm::tensor_introspector<svm::kernel::polynomial<2>, 2> introspec_t;
+
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
     virtual size_t rank () const = 0;
     virtual std::vector<double> configuration (config_array const&) const = 0;
 
     virtual matrix_t rearrange (matrix_t const& c) const = 0;
-    virtual matrix_t rearrange (matrix_t const& c,
-                                index_assoc_vec const& bii,
-                                index_assoc_vec const& bjj) const = 0;
+    virtual matrix_t rearrange (introspec_t const& c,
+                                indices_t const& bi,
+                                indices_t const& bj) const = 0;
     virtual std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const = 0;
 
     virtual indices_t block_indices(indices_t const& ind) const = 0;
@@ -596,26 +599,29 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return out;
     }
 
-    virtual matrix_t rearrange (matrix_t const& c,
-                                index_assoc_vec const& bii,
-                                index_assoc_vec const& bjj) const override {
+    virtual matrix_t rearrange (introspec_t const& coeff,
+                                indices_t const& bi,
+                                indices_t const& bj) const override {
         symmetry_policy::none no_symm;
         size_t no_symm_size = no_symm.size(ElementPolicy::range / ElementPolicy::n_block, rank_);
         matrix_t out(boost::extents[no_symm_size][no_symm_size]);
-        indices_t i_ind = bii.front().second;
-        indices_t j_ind = bjj.front().second;
-        size_t i_offset = ElementPolicy::rearranged_index(i_ind);
-        size_t j_offset = ElementPolicy::rearranged_index(j_ind);
-        for (size_t i = 0; i < bii.size(); ++i) {
-            i_ind = bii[i].second;
+
+        indices_t i_ind(rank_);
+        for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
             do {
-                size_t i_out = ElementPolicy::rearranged_index(i_ind) - i_offset;
-                for (size_t j = 0; j < bjj.size(); ++j) {
-                    j_ind = bjj[j].second;
+                indices_t i_ind_block = block_indices(i_ind);
+                if (!std::equal(bi.begin(), bi.end(), i_ind_block.begin()))
+                    continue;
+                size_t i_out = ElementPolicy::rearranged_index(component_indices(i_ind));
+                indices_t j_ind(rank_);
+                for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
-                        size_t j_out = ElementPolicy::rearranged_index(j_ind) - j_offset;
-                        out[i_out][j_out] = c[i][j]
-                            / (weights[bii[i].first] * weights[bjj[j].first]);
+                        indices_t j_ind_block = block_indices(j_ind);
+                        if (!std::equal(bj.begin(), bj.end(), j_ind_block.begin()))
+                            continue;
+                        size_t j_out = ElementPolicy::rearranged_index(component_indices(j_ind));
+                        out[i_out][j_out] = coeff.tensor({i, j})
+                            / (weights[i] * weights[j]);
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
             } while (unsymmetrize && transform_ind(i_ind));
@@ -765,11 +771,11 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         return out;
     }
 
-    virtual matrix_t rearrange (matrix_t const& c,
-                                index_assoc_vec const& bii,
-                                index_assoc_vec const& bjj) const override {
+    virtual matrix_t rearrange (introspec_t const& c,
+                                indices_t const& bi,
+                                indices_t const& bj) const override {
         // TODO
-        return c;
+        return matrix_t {};
     }
 
     std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {

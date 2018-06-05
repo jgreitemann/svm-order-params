@@ -165,15 +165,7 @@ int main(int argc, char** argv) {
             log_msg("Allocating " + block_str(bi.first, bj.first) + " block coeffs...");
             boost::multi_array<double,2> coeffs(boost::extents[bi.second.size()][bj.second.size()]);
 
-            log_msg("Filling coeffs...");
-#pragma omp parallel for
-            for (size_t i = 0; i < coeffs.shape()[0]; ++i) {
-                for (size_t j = 0; j < coeffs.shape()[1]; ++j) {
-                    coeffs[i][j] = coeff.tensor({bi.second[i].first,
-                                                 bj.second[j].first});
-                }
-            }
-
+            /*
             if (cmdl[{"-s", "--remove-self-contractions"}]
                 || cmdl[{"-c", "--contraction-weights"}])
             {
@@ -217,13 +209,11 @@ int main(int argc, char** argv) {
                     if (cmdl[{"-c", "--contraction-weights"}])
                         log_msg(contr_ss.str());
                 }
-            }
+            } */
 
             if (!cmdl[{"-r", "--raw"}]) {
                 log_msg("Rearranging coeffs...");
-                auto rearranged_coeffs = confpol->rearrange(coeffs,
-                                                            bi.second,
-                                                            bj.second);
+                auto rearranged_coeffs = confpol->rearrange(coeff, bi.first, bj.first);
                 log_msg("Normalizing coeffs...");
                 normalize_matrix(rearranged_coeffs);
                 log_msg("Writing coeffs...");
