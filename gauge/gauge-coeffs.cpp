@@ -174,8 +174,10 @@ int main(int argc, char** argv) {
                 }
             }
 
-            log_msg("Removing self-contractions...");
+            if (cmdl[{"-s", "--remove-self-contractions"}]
+                || cmdl[{"-c", "--contraction-weights"}])
             {
+                log_msg("Analyzing contractions...");
                 std::stringstream contr_ss;
 
                 auto a = confpol->contraction_matrix(contractions,
@@ -200,19 +202,21 @@ int main(int argc, char** argv) {
                         
                     }
                 }
-                for (size_t i = 0; i < contractions.size(); ++i) {
-                    if (!contractions[i].is_self_contraction())
-                        x[i] = 0.;
-                }
+                if (cmdl[{"-s", "--remove-self-contractions"}]) {
+                    for (size_t i = 0; i < contractions.size(); ++i) {
+                        if (!contractions[i].is_self_contraction())
+                            x[i] = 0.;
+                    }
 
-                b = a * x;
-                // TODO
-                for (size_t i = 0; i < bi.second.size(); ++i)
-                    for (size_t j = 0; j < bj.second.size(); ++j)
-                        coeffs[i][j] -= b(i * bj.second.size() + j);
+                    // TODO
+                    b = a * x;
+                    for (size_t i = 0; i < bi.second.size(); ++i)
+                        for (size_t j = 0; j < bj.second.size(); ++j)
+                            coeffs[i][j] -= b(i * bj.second.size() + j);
 
-                if (cmdl[{"-c", "--contraction-weights"}])
+                    if (cmdl[{"-c", "--contraction-weights"}])
                         log_msg(contr_ss.str());
+                }
             }
 
             if (!cmdl[{"-r", "--raw"}]) {
@@ -256,52 +260,58 @@ int main(int argc, char** argv) {
             size_t n_blocks = pow(block_inds.size(), 2);
             size_t i_block = 0;
 
-            log_msg("Removing self-contractions...");
+            if (cmdl[{"-s", "--remove-self-contractions"}]
+                || cmdl[{"-c", "--contraction-weights"}])
+            {
+                log_msg("Analyzing contractions...");
 #pragma omp parallel for
-            for (size_t bii = 0; bii < block_inds_vec.size(); ++bii) {
-                auto const& bi = block_inds_vec[bii];
-                for (size_t bjj = 0; bjj < block_inds_vec.size(); ++bjj) {
-                    auto const& bj = block_inds_vec[bjj];
-                    std::stringstream contr_ss;
+                for (size_t bii = 0; bii < block_inds_vec.size(); ++bii) {
+                    auto const& bi = block_inds_vec[bii];
+                    for (size_t bjj = 0; bjj < block_inds_vec.size(); ++bjj) {
+                        auto const& bj = block_inds_vec[bjj];
+                        std::stringstream contr_ss;
 
-                    auto a = confpol->contraction_matrix(contractions,
-                                                         bi.second,
-                                                         bj.second);
-                    auto b = confpol->contraction_vector_crop(coeffs,
-                                                              bi.second,
-                                                              bj.second);
+                        auto a = confpol->contraction_matrix(contractions,
+                                                             bi.second,
+                                                             bj.second);
+                        auto b = confpol->contraction_vector_crop(coeffs,
+                                                                  bi.second,
+                                                                  bj.second);
 
-                    Eigen::VectorXd x = a.bdcSvd(Eigen::ComputeThinU
-                                                 | Eigen::ComputeThinV).solve(b);
+                        Eigen::VectorXd x = a.bdcSvd(Eigen::ComputeThinU
+                                                     | Eigen::ComputeThinV).solve(b);
 
-                    if (cmdl[{"-c", "--contraction-weights"}]) {
-                        for (size_t i = 0; i < contractions.size(); ++i) {
-                            contr_ss
-                                << contractions[i] << '\t'
-                                << (contractions[i].is_self_contraction()
-                                    ? "self" : "outer")
-                                << '\t' << x[i] << '\n';
+                        if (cmdl[{"-c", "--contraction-weights"}]) {
+                            for (size_t i = 0; i < contractions.size(); ++i) {
+                                contr_ss
+                                    << contractions[i] << '\t'
+                                    << (contractions[i].is_self_contraction()
+                                        ? "self" : "outer")
+                                    << '\t' << x[i] << '\n';
 
+                            }
                         }
-                    }
-                    for (size_t i = 0; i < contractions.size(); ++i) {
-                        if (!contractions[i].is_self_contraction())
-                            x[i] = 0.;
-                    }
+                        if (cmdl[{"-s", "--remove-self-contractions"}]) {
+                            for (size_t i = 0; i < contractions.size(); ++i) {
+                                if (!contractions[i].is_self_contraction())
+                                    x[i] = 0.;
+                            }
 
-                    b = a * x;
-                    confpol->contraction_vector_sub(coeffs, b,
-                                                    bi.second,
-                                                    bj.second);
+                            b = a * x;
+                            confpol->contraction_vector_sub(coeffs, b,
+                                                            bi.second,
+                                                            bj.second);
 #pragma omp critical
-                    {
-                        std::stringstream ss;
-                        ++i_block;
-                        ss << "Block " << block_str(bi.first, bj.first)
-                           << " (" << i_block << " / " << n_blocks << ")";
-                        log_msg(ss.str());
-                        if (cmdl[{"-c", "--contraction-weights"}])
-                            log_msg(contr_ss.str());
+                            {
+                                std::stringstream ss;
+                                ++i_block;
+                                ss << "Block " << block_str(bi.first, bj.first)
+                                   << " (" << i_block << " / " << n_blocks << ")";
+                                log_msg(ss.str());
+                                if (cmdl[{"-c", "--contraction-weights"}])
+                                    log_msg(contr_ss.str());
+                            }
+                        }
                     }
                 }
             }
