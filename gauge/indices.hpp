@@ -17,11 +17,15 @@
 #pragma once
 
 #include <iostream>
-#include <vector>
 #include <sstream>
+#include <utility>
+#include <vector>
 
 
 using indices_t = std::vector<size_t>;
+
+using index_assoc_t = std::pair<size_t, indices_t>;
+using index_assoc_vec = std::vector<index_assoc_t>;
 
 template <char first_letter>
 struct basic_indices_t {

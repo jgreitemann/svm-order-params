@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include <Eigen/Dense>
+
 
 namespace detail {
     struct contraction {
@@ -37,6 +39,14 @@ namespace detail {
     };
 
     std::ostream & operator<< (std::ostream &, contraction const&);
-    std::vector<contraction> get_contractions(size_t rank);
 
 }
+
+std::vector<detail::contraction> get_contractions(size_t rank);
+
+using contraction_matrix_t = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
+using contraction_vector_t = Eigen::Matrix<double, Eigen::Dynamic, 1>;
+
+contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const&,
+                                        index_assoc_vec const& is,
+                                        index_assoc_vec const& js);

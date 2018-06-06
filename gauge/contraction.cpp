@@ -65,9 +65,9 @@ std::ostream & detail::operator<< (std::ostream & os, contraction const& ct) {
               << ']';
 }
 
-std::vector<contraction> detail::get_contractions(size_t rank) {
+std::vector<detail::contraction> get_contractions(size_t rank) {
     // define a recursive lambda
-    static void (*rec)(std::vector<contraction> &,
+    static void (*rec)(std::vector<detail::contraction> &,
                        std::vector<size_t>,
                        std::set<size_t>)
         = [] (std::vector<contraction> & cs,
@@ -90,11 +90,23 @@ std::vector<contraction> detail::get_contractions(size_t rank) {
             }
         };
 
-    std::vector<contraction> cs;
+    std::vector<detail::contraction> cs;
     std::set<size_t> places;
     for (size_t i = 0; i < 2 * rank; ++i)
         places.insert(i);
 
     rec(cs, {}, places);
     return cs;
+}
+
+contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const& cs,
+                                        index_assoc_vec const& is,
+                                        index_assoc_vec const& js)
+{
+    contraction_matrix_t a(is.size() * js.size(), cs.size());
+    for (size_t i = 0; i < is.size(); ++i)
+        for (size_t j = 0; j < js.size(); ++j)
+            for (size_t k = 0; k < cs.size(); ++k)
+                a(i * js.size() + j, k) = cs[k](is[i].second, js[j].second) ? 1 : 0;
+    return a;
 }

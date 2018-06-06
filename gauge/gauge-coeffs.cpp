@@ -117,7 +117,7 @@ int main(int argc, char** argv) {
         std::unique_ptr<config_policy> confpol =
             sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
 
-        auto contractions = detail::get_contractions(confpol->rank());
+        auto contractions = get_contractions(confpol->rank());
         auto block_inds = confpol->all_block_indices();
         using block_ind_t = decltype(block_inds)::value_type;
 
@@ -271,12 +271,16 @@ int main(int argc, char** argv) {
                         auto const& bj = block_inds_vec[bjj];
                         std::stringstream contr_ss;
 
-                        auto a = confpol->contraction_matrix(contractions,
-                                                             bi.second,
-                                                             bj.second);
-                        auto b = confpol->contraction_vector_crop(coeffs,
-                                                                  bi.second,
-                                                                  bj.second);
+                        auto a = contraction_matrix(contractions,
+                                                    bi.second,
+                                                    bj.second);
+
+                        // crop the RHS vector
+                        contraction_vector_t b(bi.second.size() * bj.second.size());
+                        for (size_t i = 0; i < bi.second.size(); ++i)
+                            for (size_t j = 0; j < bj.second.size(); ++j)
+                                b(i * bj.second.size() + j)
+                                    = coeffs[bi.second[i].first][bj.second[j].first];
 
                         Eigen::VectorXd x = a.bdcSvd(Eigen::ComputeThinU
                                                      | Eigen::ComputeThinV).solve(b);
@@ -298,9 +302,13 @@ int main(int argc, char** argv) {
                             }
 
                             b = a * x;
-                            confpol->contraction_vector_sub(coeffs, b,
-                                                            bi.second,
-                                                            bj.second);
+
+                            // subtract self-contractions from coeffs
+                            for (size_t i = 0; i < bi.second.size(); ++i)
+                                for (size_t j = 0; j < bj.second.size(); ++j)
+                                    coeffs[bi.second[i].first][bj.second[j].first]
+                                        -= b(i * bj.second.size() + j);
+
 #pragma omp critical
                             {
                                 std::stringstream ss;
