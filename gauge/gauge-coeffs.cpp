@@ -21,6 +21,7 @@
 #include "colormap.hpp"
 #include "argh.h"
 #include "filesystem.hpp"
+#include "contraction.hpp"
 
 #include <array>
 #include <iostream>
@@ -116,7 +117,7 @@ int main(int argc, char** argv) {
         std::unique_ptr<config_policy> confpol =
             sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
 
-        auto contractions = confpol->contractions();
+        auto contractions = detail::get_contractions(confpol->rank());
         auto block_inds = confpol->all_block_indices();
         using block_ind_t = decltype(block_inds)::value_type;
 

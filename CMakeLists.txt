@@ -65,6 +65,7 @@ add_executable(gauge-coeffs
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
+    gauge/contraction.cpp
     gauge/results.cpp
     )
 
