@@ -25,28 +25,25 @@
 #include <Eigen/Dense>
 
 
-namespace detail {
-    struct contraction {
-        typedef std::vector<size_t> ep_type;
+struct contraction {
+    typedef std::vector<size_t> ep_type;
 
-        contraction (ep_type &&e) : endpoints(std::forward<ep_type>(e)) {}
-        bool is_self_contraction () const;
-        bool operator() (indices_t const&, indices_t const&) const;
+    contraction (ep_type &&e) : endpoints(std::forward<ep_type>(e)) {}
+    bool is_self_contraction () const;
+    bool operator() (indices_t const&, indices_t const&) const;
 
-    private:
-        ep_type endpoints;
-        friend std::ostream & operator<< (std::ostream &, contraction const&);
-    };
+private:
+    ep_type endpoints;
+    friend std::ostream & operator<< (std::ostream &, contraction const&);
+};
 
-    std::ostream & operator<< (std::ostream &, contraction const&);
+std::ostream & operator<< (std::ostream &, contraction const&);
 
-}
-
-std::vector<detail::contraction> get_contractions(size_t rank);
+std::vector<contraction> get_contractions(size_t rank);
 
 using contraction_matrix_t = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::ColMajor>;
 using contraction_vector_t = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 
-contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const&,
+contraction_matrix_t contraction_matrix(std::vector<contraction> const&,
                                         index_assoc_vec const& is,
                                         index_assoc_vec const& js);

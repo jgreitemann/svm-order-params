@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
                     auto cpol = sim_type::config_policy_from_parameters(parameters, false);
                     try {
                         auto exact = cpol->rearrange(
-                            exact_tensor.at(parameters["gauge_group"]).get(cpol));
+                            results::exact_tensor.at(parameters["gauge_group"]).get(cpol));
                         normalize_matrix(exact);
                         if (cmdl[{"-e", "--exact"}]) {
                             write_matrix(exact,

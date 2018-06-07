@@ -20,8 +20,6 @@
 #include <string>
 
 
-using namespace detail;
-
 bool contraction::is_self_contraction () const {
     for (auto ep : endpoints)
         if (ep < endpoints.size())
@@ -50,7 +48,7 @@ bool contraction::operator() (indices_t const& i_ind,
     return true;
 }
 
-std::ostream & detail::operator<< (std::ostream & os, contraction const& ct) {
+std::ostream & operator<< (std::ostream & os, contraction const& ct) {
     char c = 'a';
     std::string out(2 * ct.endpoints.size(), '-');
     auto it = ct.endpoints.begin();
@@ -65,9 +63,9 @@ std::ostream & detail::operator<< (std::ostream & os, contraction const& ct) {
               << ']';
 }
 
-std::vector<detail::contraction> get_contractions(size_t rank) {
+std::vector<contraction> get_contractions(size_t rank) {
     // define a recursive lambda
-    static void (*rec)(std::vector<detail::contraction> &,
+    static void (*rec)(std::vector<contraction> &,
                        std::vector<size_t>,
                        std::set<size_t>)
         = [] (std::vector<contraction> & cs,
@@ -90,7 +88,7 @@ std::vector<detail::contraction> get_contractions(size_t rank) {
             }
         };
 
-    std::vector<detail::contraction> cs;
+    std::vector<contraction> cs;
     std::set<size_t> places;
     for (size_t i = 0; i < 2 * rank; ++i)
         places.insert(i);
@@ -99,7 +97,7 @@ std::vector<detail::contraction> get_contractions(size_t rank) {
     return cs;
 }
 
-contraction_matrix_t contraction_matrix(std::vector<detail::contraction> const& cs,
+contraction_matrix_t contraction_matrix(std::vector<contraction> const& cs,
                                         index_assoc_vec const& is,
                                         index_assoc_vec const& js)
 {

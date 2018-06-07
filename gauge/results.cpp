@@ -22,6 +22,8 @@
 #include <stdexcept>
 
 
+using namespace results;
+
 delta_rule::delta_rule (std::string const& lhs, std::string const& rhs)
     : pattern {lhs, rhs} {}
 
@@ -60,7 +62,7 @@ rule_ptr delta_rule::clone () const {
     return rule_ptr(new delta_rule(*this));
 }
 
-rule_ptr make_delta (std::string const& lhs, std::string const& rhs) {
+rule_ptr results::make_delta (std::string const& lhs, std::string const& rhs) {
     return rule_ptr(new delta_rule(lhs, rhs));
 }
 
@@ -76,7 +78,7 @@ rule_ptr distinct_rule::clone () const {
     return rule_ptr(new distinct_rule(*this));
 }
 
-rule_ptr make_distinct () {
+rule_ptr results::make_distinct () {
     return rule_ptr(new distinct_rule());
 }
 
