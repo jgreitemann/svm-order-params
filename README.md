@@ -175,7 +175,7 @@ The program has two major modes: extraction of the full coefficient matrix and
 *single-block mode* where a single block is targetted and extracted exclusively.
 This is done by specifying the command line parameter `--block=<block-spec>`
 where `<block-spec>` identifies a block by its color indices. E.g. in the case
-of the tetrahedral (rank-3) order, the non-trival block can be found be
+of the tetrahedral (rank-3) order, the non-trival block can be found by
 specifying:
 
     --block=[lmn:lmn]
@@ -223,9 +223,9 @@ are compatible with the symmetrization.
 The three panels in [Fig. 2 of the manuscript][1] can be reproduced by the
 following invocations:
 
-    ./gauge-coeffs -u Td.out.h5
-    ./gauge-coeffs --block=[lmn:lmn] -u Td.out.h5
-    ./gauge-coeffs --block=[lmn:lmn] -us Td.out.h5
+    $ ./gauge-coeffs -u Td.out.h5
+    $ ./gauge-coeffs --block=[lmn:lmn] -u Td.out.h5
+    $ ./gauge-coeffs --block=[lmn:lmn] -us Td.out.h5
 
 License
 -------
