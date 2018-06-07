@@ -83,8 +83,15 @@ with the flag `--recursive`; if the repository is already cloned, run
 
     $ git submodule update --init
 
-Six executables will be linked, three each for simulations of the Ising model
-and the gauge model for general orientational order. We focus here on the latter.
+Seven executables will be linked to *learn* an SVM model from Monte Carlo
+data, *test* the resulting model to obtain an order parameter curve, and to
+extract the *coeff*icient*s* for the Ising and orientational gauge model,
+respectievly. In the following, we'll focus on the latter.
+
+Additionally, the program `output-contractions` calculates and saves the "masks"
+for every contraction at a given rank. These masks correspond to columns in the
+contraction matrix that is used in the least-squares fit of the full coefficient
+matrix.
 
 
 Usage
@@ -160,22 +167,65 @@ are summarized in a text file `Td.test.txt` and full observables are stored in
     $ ./gauge-coeffs Td.out.h5
 
 reads the SVM model and contracts over the support vectors to extract the
-coefficient matrix (cf. our [paper][1]). A number of flags can be used to
-customize:
+coefficient matrix (cf. our [manuscript][1]), block structure, and performs
+miscellaneous analyses and processing steps, such as fitting and removing
+self-contractions or comparing to the exact result.
 
-* `--unsymmetrize`: coefficients involving redundant monomial
+The program has two major modes: extraction of the full coefficient matrix and
+*single-block mode* where a single block is targetted and extracted exclusively.
+This is done by specifying the command line parameter `--block=<block-spec>`
+where `<block-spec>` identifies a block by its color indices. E.g. in the case
+of the tetrahedral (rank-3) order, the non-trival block can be found be
+specifying:
+
+    --block=[lmn:lmn]
+
+A number of flags can be used to customize the behavior of the program:
+
+* `-v | --verbose`: print information on what happens.
+* `-u | --unsymmetrize`: coefficients involving redundant monomial
   (cf. [Supplementary Materials][1]) are reconstructed, i.e. the coefficient
   value of the corresponding non-redundant coefficient is copied.
-* `--raw`: the indicies are *not* rearranged. By default, the indices are
+* `-r | --raw`: the indicies are *not* rearranged. By default, the indices are
   reshuffled in the form `(α_1, ..., α_n, a_1, ..., a_n)` and lexicographically
   ordered such that the color-block structure becomes apparent. Specifying this
   flag disables this, and indices are arranged as `(α_1, a_1, ..., α_n, a_n)`.
-* `--exact`: also calculate and output the exact solution if availble (currently
-  only for `Dinfh` and `Td`). Requires `--unsymmetrize`.
-* `--diff`: calculate and output the difference of the coefficient matrix to the
-  exact solution if available. Requires `--unsymmetrize`.
-* `--blocks-only`: skip output of the full coefficient matrix and only output
-  block structure.
+* `-c | --contraction-weights`: for each block (or only the single block),
+  perform a least-squares fit of contraction "masks" to obtain the coefficients
+  with which each contraction contributes and output those.
+* `-s | --remove-self-contractions`: perform the same analysis as above, but
+  consequently isolate the contributions due to self-contractions and subtract
+  them from the full coefficient matrix.
+* `-e | --exact`: also calculate and output the exact solution if availble
+  (currently only for `Dinfh` and `Td`). Requires `--unsymmetrize`. Unavailable
+  in single-block mode.
+* `-d | --diff`: calculate and output the difference of the coefficient matrix to the
+  exact solution if available. Requires `--unsymmetrize`. Unavailable in
+  single-block mode.
+* `-b | --blocks-only`: skip output of the full coefficient matrix and only output
+  block structure. Unavailable (and pointless) in single-block mode.
+
+Short flags may be combined into one multi-flag, as is customary for
+POSIX-compatible programs.
+
+Note that "blocks" refers to the representation where indices have been
+reshuffled. When the full coefficient matrix is extracted, the contraction
+analysis (`-c`, `-s`) operates on the symmetrized representation where redundant
+element have not been reinstated and "blocks" are actually non-local. In
+single-block mode however, this would not work because the equivalents of
+redundant elements are actually part of different blocks. Thus, in single-block
+mode, the contraction-analysis is performed on the "unsymmetrized" (redundant)
+representation. Consequently, the contraction coefficients will be different
+from those obtained for the same block in full-matrix mode, as now equivalent
+contractions will contribute evenly, as opposed to only those contractions that
+are compatible with the symmetrization.
+
+The three panels in [Fig. 2 of the manuscript][1] can be reproduced by the
+following invocations:
+
+    ./gauge-coeffs -u Td.out.h5
+    ./gauge-coeffs --block=[lmn:lmn] -u Td.out.h5
+    ./gauge-coeffs --block=[lmn:lmn] -us Td.out.h5
 
 License
 -------

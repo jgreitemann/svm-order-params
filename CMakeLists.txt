@@ -62,7 +62,13 @@ add_executable(gauge-coeffs
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
+    gauge/contraction.cpp
     gauge/results.cpp
+    )
+
+add_executable(output-contractions
+    gauge/output_contractions.cpp
+    gauge/contraction.cpp
     )
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
@@ -73,3 +79,4 @@ target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(output-contractions svm stdc++fs)

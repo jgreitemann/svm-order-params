@@ -17,13 +17,17 @@
 #pragma once
 
 #include "combinatorics.hpp"
+#include "indices.hpp"
+#include "svm-wrapper.hpp"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <iterator>
 #include <limits>
+#include <map>
 #include <memory>
+#include <set>
 #include <stdexcept>
 #include <vector>
 
@@ -31,8 +35,6 @@
 
 #include <Eigen/Dense>
 
-
-using indices_t = std::vector<size_t>;
 
 namespace element_policy {
 
@@ -393,22 +395,28 @@ namespace block_reduction {
     };
 }
 
-
 struct config_policy {
     typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> local_state;
     typedef boost::multi_array<local_state, 1> config_array;
     typedef boost::multi_array<double, 2> matrix_t;
+
+    typedef svm::tensor_introspector<svm::kernel::polynomial<2>, 2> introspec_t;
 
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
     virtual size_t rank () const = 0;
     virtual std::vector<double> configuration (config_array const&) const = 0;
 
-    virtual matrix_t rearrange_by_component (matrix_t const& c) const = 0;
+    virtual matrix_t rearrange (matrix_t const& c) const = 0;
+    virtual matrix_t rearrange (introspec_t const& c,
+                                indices_t const& bi,
+                                indices_t const& bj) const = 0;
     virtual std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const = 0;
 
     virtual indices_t block_indices(indices_t const& ind) const = 0;
     virtual indices_t component_indices(indices_t const& ind) const = 0;
+
+    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const = 0;
 };
 
 template <typename LatticePolicy, typename SymmetryPolicy,
@@ -449,7 +457,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return v;
     }
 
-    virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
+    virtual matrix_t rearrange (matrix_t const& c) const override {
         symmetry_policy::none no_symm;
         size_t no_symm_size = no_symm.size(ElementPolicy::range, rank_);
         matrix_t out(boost::extents[no_symm_size][no_symm_size]);
@@ -465,6 +473,39 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
             } while (unsymmetrize && transform_ind(i_ind));
+        }
+        return out;
+    }
+
+    virtual matrix_t rearrange (introspec_t const& coeff,
+                                indices_t const& bi,
+                                indices_t const& bj) const override {
+        symmetry_policy::none no_symm;
+        size_t no_symm_size = no_symm.size(ElementPolicy::range / ElementPolicy::n_block, rank_);
+        matrix_t out(boost::extents[no_symm_size][no_symm_size]);
+
+        indices_t ind(rank_);
+        std::vector<size_t> i_ind_lookup(no_symm_size);
+        std::vector<size_t> j_ind_lookup(no_symm_size);
+        for (size_t i = 0; i < size(); ++i, advance_ind(ind)) {
+            do {
+                indices_t ind_block = block_indices(ind);
+                size_t out = ElementPolicy::rearranged_index(component_indices(ind));
+                if (std::equal(bi.begin(), bi.end(), ind_block.begin()))
+                    i_ind_lookup[out] = i;
+                if (std::equal(bj.begin(), bj.end(), ind_block.begin()))
+                    j_ind_lookup[out] = i;
+            } while (unsymmetrize && transform_ind(ind));
+        }
+
+#pragma omp parallel for
+        for (size_t i_out = 0; i_out < no_symm_size; ++i_out) {
+            size_t i = i_ind_lookup[i_out];
+            for (size_t j_out = 0; j_out < no_symm_size; ++j_out) {
+                size_t j = j_ind_lookup[j_out];
+                out[i_out][j_out] = coeff.tensor({i, j})
+                    / (weights[i] * weights[j]);
+            }
         }
         return out;
     }
@@ -525,6 +566,16 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return cind;
     }
 
+    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const override {
+        std::map<indices_t, index_assoc_vec> b;
+        indices_t i_ind(rank());
+        for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
+            auto it = b.insert({block_indices(i_ind), {}}).first;
+            it->second.push_back({i, component_indices(i_ind)});
+        }
+        return b;
+    }
+
 private:
     using ElementPolicy::color;
     using ElementPolicy::component;
@@ -559,7 +610,7 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         return v;
     }
 
-    virtual matrix_t rearrange_by_component (matrix_t const& c) const override {
+    virtual matrix_t rearrange (matrix_t const& c) const override {
         matrix_t out(boost::extents[size()][size()]);
         for (size_t i = 0; i < size(); ++i) {
             size_t i_out = (i % ElementPolicy::range) * n_sites + (i / ElementPolicy::range);
@@ -569,6 +620,13 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
             }
         }
         return out;
+    }
+
+    virtual matrix_t rearrange (introspec_t const& c,
+                                indices_t const& bi,
+                                indices_t const& bj) const override {
+        throw std::runtime_error("not implemented yet");
+        return matrix_t {};
     }
 
     std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {
@@ -619,6 +677,12 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
                        [this] (size_t a) { return component(a); });
         return cind;
+    }
+
+    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const override {
+        std::map<indices_t, index_assoc_vec> b;
+        throw std::runtime_error("not implemented yet");
+        return b;
     }
 
 private:
