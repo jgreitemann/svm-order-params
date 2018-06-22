@@ -32,8 +32,8 @@ inline double normalize_matrix (boost::multi_array<double,2> & mat) {
     double absmax = 0.;
     for (size_t i = 0; i < mat.shape()[0]; ++i)
         for (size_t j = 0; j < mat.shape()[0]; ++j)
-            if (absmax < std::abs(mat[i][j]))
-                absmax = std::abs(mat[i][j]);
+            if (std::abs(absmax) < std::abs(mat[i][j]))
+                absmax = mat[i][j];
     for (size_t i = 0; i < mat.shape()[0]; ++i)
         for (size_t j = 0; j < mat.shape()[0]; ++j)
             mat[i][j] /= absmax;
