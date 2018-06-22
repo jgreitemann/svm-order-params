@@ -90,7 +90,7 @@ int main(int argc, char** argv) {
             ar["model"] >> serial;
         }
 
-        svm::tensor_introspector<kernel_t, 2> coeff(model);
+        auto coeff = svm::tensor_introspect<2>(model.classifier());
 
         log_msg("Allocating coeffs...");
         boost::multi_array<double,2> coeffs(boost::extents[model.dim()][model.dim()]);
