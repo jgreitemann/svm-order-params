@@ -11,13 +11,40 @@
 #include "storage_type.hpp"
 #include "exp_beta.hpp"
 
+#include "label.hpp"
+
+SVM_LABEL_BEGIN(ising_phase_label, 2)
+SVM_LABEL_ADD(ORDERED)
+SVM_LABEL_ADD(Z2)
+SVM_LABEL_END()
+
 // Simulation class for 2D Ising model (square lattice).
 // Extends alps::mcbase, the base class of all Monte Carlo simulations.
 // Defines its state, calculation functions (update/measure) and
 // serialization functions (save/load)
 class ising_sim : public alps::mcbase {
-    // The internal state of our simulation
-  private:
+public:
+    typedef ising_phase_label::label phase_label;
+
+    struct phase_point {
+        static const size_t label_dim = 1;
+        phase_point(double temp) : temp(temp) {}
+        template <class Iterator>
+        phase_point(Iterator begin) : temp(*begin) {}
+        double const * begin() const { return &temp; }
+        double const * end() const { return &temp + 1; }
+
+        double const temp;
+    };
+
+    struct phase_classifier {
+        phase_classifier(alps::params const& params);
+        phase_label operator() (phase_point pp);
+    private:
+        double temp_crit;
+    };
+
+private:
     int length; // the same in both dimensions
     int sweeps;
     int thermalization_sweeps;

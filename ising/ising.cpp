@@ -185,3 +185,10 @@ void ising_sim::load(alps::hdf5::archive & ar) {
     ar["checkpoint/current_energy"] >> current_energy;
     ar["checkpoint/current_magnetization"] >> current_magnetization;
 }
+
+ising_sim::phase_classifier::phase_classifier(alps::params const& params)
+    : temp_crit(params["temp_crit"].as<double>()) {}
+
+ising_sim::phase_label ising_sim::phase_classifier::operator() (phase_point pp) {
+    return pp.temp < temp_crit ? ising_phase_label::ORDERED : ising_phase_label::Z2;
+}
