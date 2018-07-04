@@ -53,6 +53,9 @@ public:
                 if (dist_name == "gaussian")
                     return dynamic_cast<phase_sweep_policy_type*>(
                         new phase_space::sweep::gaussian_temperatures(parms));
+                if (dist_name == "uniform")
+                    return dynamic_cast<phase_sweep_policy_type*>(
+                        new phase_space::sweep::uniform_temperatures(parms));
                 return nullptr;
             }())
         , n_temp(0)

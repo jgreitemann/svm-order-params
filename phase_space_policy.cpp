@@ -62,3 +62,20 @@ bool sweep::gaussian_temperatures::yield (point_type & point, rng_type & rng) {
     return false;
 }
 
+sweep::uniform_temperatures::uniform_temperatures (alps::params const& params)
+    : temp_min(params["temp_min"].as<double>())
+    , temp_max(params["temp_max"].as<double>())
+    , temp_step(params["temp_step"].as<double>())
+{}
+
+bool sweep::uniform_temperatures::yield (point_type & point, rng_type & rng) {
+    using uniform_t = std::uniform_real_distribution<double>;
+
+    double delta_temp;
+    do {
+        delta_temp = uniform_t {-temp_step, temp_step} (rng);
+    } while (point.temp + delta_temp < temp_min || point.temp + delta_temp > temp_max);
+
+    point.temp += delta_temp;
+    return true;
+}

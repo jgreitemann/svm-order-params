@@ -87,6 +87,15 @@ namespace phase_space {
             double temp_step;
             double temp_sigma_sq;
         };
+
+        struct uniform_temperatures : public policy<point::temperature> {
+            uniform_temperatures (alps::params const& params);
+            virtual bool yield (point_type & point, rng_type & rng) final override;
+        private:
+            double temp_min;
+            double temp_max;
+            double temp_step;
+        };
         
     }
 
