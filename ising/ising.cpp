@@ -40,11 +40,11 @@ ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
     , sweeps(0)
     , thermalization_sweeps(int(parameters["thermalization"]))
     , total_sweeps(parameters["sweeps"])
-    , beta(1. / parameters["temperature"].as<double>())
+    , ppoint(parameters["temperature"].as<double>())
     , spins(length,length)
     , current_energy(0)
     , current_magnetization(0)
-    , iexp_(-beta)
+    , iexp_(-1. / ppoint.temp)
     , uniform(0., 1.)
     , random_site(0, length - 1)
 {
@@ -84,12 +84,6 @@ void ising_sim::reset_sweeps(bool skip_therm) {
         sweeps = 0;
 }
 
-void ising_sim::temperature(double new_temp) {
-    parameters["temperature"] = new_temp;
-    beta = 1. / new_temp;
-    iexp_ = exp_beta(-beta);
-}
-
 bool ising_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
 }
@@ -100,6 +94,19 @@ size_t ising_sim::configuration_size() const {
 
 std::vector<int> const& ising_sim::configuration() const {
     return spins.data();
+}
+
+ising_sim::phase_point ising_sim::phase_space_point () const {
+    return ppoint;
+}
+
+void ising_sim::update_phase_point (phase_sweep_policy_type & sweep_policy) {
+    bool changed = sweep_policy.yield(ppoint, rng);
+    reset_sweeps(!changed);
+    if (changed) {
+        parameters["temperature"] = ppoint.temp;
+        iexp_ = exp_beta(-1. / ppoint.temp);
+    }
 }
 
 // Performs the calculation at each MC step;
@@ -191,19 +198,12 @@ void ising_sim::load(alps::hdf5::archive & ar) {
     length = parameters["length"];
     thermalization_sweeps = parameters["thermalization"];
     // Note: `total_sweeps` is not restored here!
-    beta = 1. / parameters["temperature"].as<double>();
-    iexp_ = exp_beta(-beta);
+    ppoint.temp = parameters["temperature"].as<double>();
+    iexp_ = exp_beta(-1. / ppoint.temp);
 
     // Restore the rest of the state from the hdf5 file
     ar["checkpoint/spins"] >> spins;
     ar["checkpoint/sweeps"] >> sweeps;
     ar["checkpoint/current_energy"] >> current_energy;
     ar["checkpoint/current_magnetization"] >> current_magnetization;
-}
-
-ising_sim::phase_classifier::phase_classifier(alps::params const& params)
-    : temp_crit(params["temp_crit"].as<double>()) {}
-
-ising_sim::phase_label ising_sim::phase_classifier::operator() (phase_point pp) {
-    return pp.temp < temp_crit ? ising_phase_label::ORDERED : ising_phase_label::Z2;
 }

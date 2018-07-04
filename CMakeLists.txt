@@ -26,6 +26,7 @@ include_directories(colormap)
 include_directories(ising)
 add_executable(ising-learn
     learn.cpp
+    phase_space_policy.cpp
     checkpointing_stop_callback.cpp
     ising/ising.cpp
     )
@@ -45,6 +46,7 @@ add_executable(ising-coeffs
 include_directories(gauge)
 add_executable(gauge-learn
     learn.cpp
+    phase_space_policy.cpp
     checkpointing_stop_callback.cpp
     gauge/gauge.cpp
     gauge/nematicities.cpp

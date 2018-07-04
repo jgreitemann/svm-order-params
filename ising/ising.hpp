@@ -8,16 +8,12 @@
 
 #include "storage_type.hpp"
 #include "exp_beta.hpp"
+#include "phase_space_policy.hpp"
 
-#include "label.hpp"
 #include <random>
 
 #include <alps/mc/mcbase.hpp>
 
-SVM_LABEL_BEGIN(ising_phase_label, 2)
-SVM_LABEL_ADD(ORDERED)
-SVM_LABEL_ADD(Z2)
-SVM_LABEL_END()
 
 // Simulation class for 2D Ising model (square lattice).
 // Extends alps::mcbase, the base class of all Monte Carlo simulations.
@@ -25,31 +21,16 @@ SVM_LABEL_END()
 // serialization functions (save/load)
 class ising_sim : public alps::mcbase {
 public:
-    typedef ising_phase_label::label phase_label;
-
-    struct phase_point {
-        static const size_t label_dim = 1;
-        phase_point(double temp) : temp(temp) {}
-        template <class Iterator>
-        phase_point(Iterator begin) : temp(*begin) {}
-        double const * begin() const { return &temp; }
-        double const * end() const { return &temp + 1; }
-
-        double const temp;
-    };
-
-    struct phase_classifier {
-        phase_classifier(alps::params const& params);
-        phase_label operator() (phase_point pp);
-    private:
-        double temp_crit;
-    };
-
+    using phase_classifier = phase_space::classifier::critical_temperature;
+    using phase_label = phase_classifier::label_type;
+    using phase_point = phase_classifier::point_type;
+    using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
     int length; // the same in both dimensions
     int sweeps;
     int thermalization_sweeps;
     int total_sweeps;
+    phase_point ppoint;
     double beta;
     storage_type spins;
     double current_energy;
@@ -68,10 +49,11 @@ private:
     // SVM interface functions
     static constexpr const char * order_param_name = "Magnetization^2";
     void reset_sweeps(bool skip_therm = false);
-    void temperature(double new_temp);
     bool is_thermalized() const;
     size_t configuration_size() const;
     std::vector<int> const& configuration() const;
+    phase_point phase_space_point () const;
+    void update_phase_point (phase_sweep_policy_type & sweep_policy);
 
     virtual void update();
     virtual void measure();

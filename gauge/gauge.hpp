@@ -14,40 +14,18 @@
 #include "point_groups.hpp"
 
 #include "config_policy.hpp"
-#include "label.hpp"
-
-SVM_LABEL_BEGIN(gauge_phase_label, 2)
-SVM_LABEL_ADD(ORDERED)
-SVM_LABEL_ADD(O3)
-SVM_LABEL_END()
+#include "phase_space_policy.hpp"
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
 
 
 class gauge_sim : public alps::mcbase {
 public:
-    typedef gauge_phase_label::label phase_label;
-
-    struct phase_point {
-        static const size_t label_dim = 1;
-        phase_point(double temp) : temp(temp) {}
-        template <class Iterator>
-        phase_point(Iterator begin) : temp(*begin) {}
-        double const * begin() const { return &temp; }
-        double const * end() const { return &temp + 1; }
-
-        double const temp;
-    };
-
-    struct phase_classifier {
-        phase_classifier(alps::params const& params);
-        phase_label operator() (phase_point pp);
-    private:
-        double temp_crit;
-    };
-
+    using phase_classifier = phase_space::classifier::critical_temperature;
+    using phase_label = phase_classifier::label_type;
+    using phase_point = phase_classifier::point_type;
+    using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
-
     /** parameters **/
     int L;
     int L2;
@@ -65,7 +43,8 @@ private:
     double spacing_E;
     double spacing_nem;
 
-    double beta; // used in each updates, modified in warm_up()
+    phase_point ppoint;
+    double beta;
 
     double J1, J3; // define anisotropy of J matrix
 
@@ -157,10 +136,11 @@ public:
     // SVM interface functions
     static constexpr const char * order_param_name = "Nematicity";
     void reset_sweeps(bool skip_therm);
-    void temperature(double new_temp);
     bool is_thermalized() const;
     size_t configuration_size() const;
     std::vector<double> configuration() const;
+    phase_point phase_space_point () const;
+    void update_phase_point (phase_sweep_policy_type & sweep_policy);
 
 private:
     std::unique_ptr<config_policy> confpol;

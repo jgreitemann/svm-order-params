@@ -118,7 +118,8 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     , gauge_group(parameters["gauge_group"].as<std::string>())
     , group_size(parameters["group_size"])
     , O3(parameters["O3"].as<bool>())
-    , beta(1. / parameters["temperature"].as<double>())
+    , ppoint(parameters["temperature"].as<double>())
+    , beta(1. / ppoint.temp)
     , J1(parameters["J1"].as<double>())
     , J3(parameters["J3"].as<double>())
     , Eg(-9*L3)
@@ -626,11 +627,6 @@ void gauge_sim::reset_sweeps(bool skip_therm) {
         sweeps = 0;
 }
 
-void gauge_sim::temperature(double new_temp) {
-    parameters["temperature"] = new_temp;
-    beta = 1. / new_temp;
-}
-
 bool gauge_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
 }
@@ -643,9 +639,12 @@ std::vector<double> gauge_sim::configuration() const {
     return confpol->configuration(R);
 }
 
-gauge_sim::phase_classifier::phase_classifier(alps::params const& params)
-    : temp_crit(params["temp_crit"].as<double>()) {}
+gauge_sim::phase_point gauge_sim::phase_space_point () const {
+    return ppoint;
+}
 
-gauge_sim::phase_label gauge_sim::phase_classifier::operator() (phase_point pp) {
-    return pp.temp < temp_crit ? gauge_phase_label::ORDERED : gauge_phase_label::O3;
+void gauge_sim::update_phase_point (phase_sweep_policy_type & sweep_policy) {
+    reset_sweeps(!sweep_policy.yield(ppoint, rng));
+    parameters["temperature"] = ppoint.temp;
+    beta = 1. / ppoint.temp;
 }
