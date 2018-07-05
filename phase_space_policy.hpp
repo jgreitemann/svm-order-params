@@ -17,6 +17,7 @@
 #pragma once
 #include "label.hpp"
 
+#include <algorithm>
 #include <random>
 
 #include <alps/params.hpp>
@@ -48,6 +49,11 @@ namespace phase_space {
             
             double temp;
         };
+
+        template <typename Point>
+        bool operator== (Point const& lhs, Point const& rhs) {
+            return std::equal(lhs.begin(), lhs.end(), rhs.begin());
+        }
 
     }
 
@@ -105,6 +111,28 @@ namespace phase_space {
             double temp_max;
             double temp_step;
             bool cooling;
+        };
+
+        template <typename Point>
+        struct cycle : public policy<Point> {
+            using point_type = typename policy<Point>::point_type;
+            using rng_type = typename policy<Point>::rng_type;
+
+            cycle (std::initializer_list<point_type> il, size_t offset)
+                : n(offset)
+            {
+                for (auto p : il)
+                    points.push_back(p);
+            }
+
+            virtual bool yield (point_type & point, rng_type &) final override {
+                point = points[n];
+                n = (n + 1) % points.size();
+                return true;
+            }
+        private:
+            std::vector<point_type> points;
+            size_t n;
         };
         
     }
