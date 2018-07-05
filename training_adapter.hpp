@@ -56,6 +56,9 @@ public:
                 if (dist_name == "uniform")
                     return dynamic_cast<phase_sweep_policy_type*>(
                         new phase_space::sweep::uniform_temperatures(parms));
+                if (dist_name == "bimodal")
+                    return dynamic_cast<phase_sweep_policy_type*>(
+                        new phase_space::sweep::equidistant_temperatures(parms, 2, seed_offset));
                 return nullptr;
             }())
         , n_temp(0)

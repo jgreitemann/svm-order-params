@@ -79,3 +79,25 @@ bool sweep::uniform_temperatures::yield (point_type & point, rng_type & rng) {
     point.temp += delta_temp;
     return true;
 }
+
+sweep::equidistant_temperatures::equidistant_temperatures (alps::params const& params,
+                                                           size_t N, size_t offset)
+    : N(N)
+    , n((offset % N == 0) ? 0 : (offset % N - 1))
+    , temp_max(params["temp_max"].as<double>())
+    , temp_step((params["temp_max"].as<double>()
+                 - params["temp_min"].as<double>()) / (N-1))
+    , cooling(offset % N != 0)
+{}
+
+bool sweep::equidistant_temperatures::yield (point_type & point, rng_type &) {
+    if ((n == 0 && !cooling) || (n == N-1 && cooling)) {
+        cooling = !cooling;
+        point.temp = temp_max - n * temp_step;
+        return false;
+    } else {
+        n += cooling ? 1 : -1;
+        point.temp = temp_max - n * temp_step;
+        return true;
+    }
+}

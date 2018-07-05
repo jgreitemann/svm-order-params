@@ -96,6 +96,16 @@ namespace phase_space {
             double temp_max;
             double temp_step;
         };
+
+        struct equidistant_temperatures : public policy<point::temperature> {
+            equidistant_temperatures (alps::params const& params, size_t N, size_t n=0);
+            virtual bool yield (point_type & point, rng_type &) final override;
+        private:
+            size_t n, N;
+            double temp_max;
+            double temp_step;
+            bool cooling;
+        };
         
     }
 
