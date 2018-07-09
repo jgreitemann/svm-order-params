@@ -41,10 +41,10 @@ double gauge_sim::nematicity_Cinfv() {
 		Q[a] = A[a] + J3*B[a];
 
 	double Q2 = 0;
-	
+
 	for(int a=0; a<3; a++)
 		Q2 += Q[a]*Q[a];
-	
+
 	double norm = L3 * L3;
 
 	return Q2/norm;
@@ -72,6 +72,112 @@ double gauge_sim::nematicity_Dinfh() { // to or not to take the trace out?
 	double norm = 2./3 * L3 * L3;
 
 	return Q2/norm;
+}
+
+
+double gauge_sim::nematicity_D2hB() { 
+	/* Q_ab = l_a * l_b - 1/3 delta_ab 
+			= R[i](0,a) * R[i](0,b) - 1/3 delta_ab
+	*/
+
+	double Q[3][3] = {{0}};
+	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> delta;
+	delta = Eigen::MatrixXd::Identity(3,3);
+
+	for(int i = 0; i < L3; i++)
+		for(int a = 0; a < 3; a++)
+			for(int b = 0; b < 3; b++)
+				Q[a][b] += R[i](0,a) * R[i](0,b) - 1.0*delta(a,b)/3;
+
+	double Q2 = 0;
+	for(int a = 0; a < 3; a++)
+		for(int b = 0; b < 3; b++)
+			Q2 += Q[a][b]*Q[a][b];
+
+	double norm = 2./3 * L3 * L3;
+
+	return Q2/norm;
+}
+
+double gauge_sim::nematicity_D2hB2() { 
+	/* Q_ab = l_a * l_b - m_a*m_b
+			= R[i](0,a) * R[i](0,b) - R[i](1,a) * R[i](1,b)
+	*/
+
+	double Q[3][3] = {{0}};
+	Eigen::Matrix<double, 3, 3, Eigen::RowMajor> delta;
+	delta = Eigen::MatrixXd::Identity(3,3);
+
+	for(int i = 0; i < L3; i++)
+		for(int a = 0; a < 3; a++)
+			for(int b = 0; b < 3; b++)
+				Q[a][b] += R[i](0,a) * R[i](0,b) - R[i](1,a) * R[i](1,b);
+
+	double Q2 = 0;
+	for(int a = 0; a < 3; a++)
+		for(int b = 0; b < 3; b++)
+			Q2 += Q[a][b]*Q[a][b];
+
+	double norm = 2.*L3 * L3;
+
+	return Q2/norm;
+}
+
+double gauge_sim::nematicity_D2dB() {
+	 double Q[3][3][3] = {{{0}}};
+
+	 /* Q_abc = l_a m_b n_c  + m_a l_b n_c */
+	 // needed to take handedness 
+	 for(int i = 0; i < L3; i++)
+	 	for(int a = 0; a < 3; a++)
+	 		for(int b = 0; b < 3; b++)
+	 			for(int c = 0; c < 3; c++)
+                    // R[i] already O(3), no need of additional determinant
+	 				Q[a][b][c] += (R[i](0,a) * R[i](1,b) * R[i](2,c)
+                                   + R[i](1,a) * R[i](0,b) * R[i](2,c)); 
+
+	 /* compute the nematicity; Q2 =  2 at perfect order */	
+	 double Q2 = 0;
+
+	 for(int a = 0; a < 3; a++)
+	 	for(int b = 0; b < 3; b++)
+	 		for(int c = 0; c < 3; c++)
+	 			Q2 += Q[a][b][c]*Q[a][b][c];	
+
+	 double norm = 2. * L3 * L3;
+
+	 return Q2/norm;
+}
+
+double gauge_sim::nematicity_D3hB() {
+
+	 double Q[3][3][3] = {{{0}}};
+
+	 /* Q_abc = l_a l_b l_c  - l_a m_b m_c - m_a l_b m_c - m_a m_b l_c 
+	 		  = R[i](0, a) R[i](0, b) R[i](0, c) - R[i](0, a) R[i](1, b) R[i](1, c)
+	 		  	-R[i](1, a) R[i](0, b) R[i](1, c) - R[i](1, a) R[i](1, b) R[i](0, c)
+	 */
+	 // needed to take handedness 
+	 for(int i = 0; i < L3; i++)
+	 	for(int a = 0; a < 3; a++)
+	 		for(int b = 0; b < 3; b++)
+	 			for(int c = 0; c < 3; c++)
+	 				Q[a][b][c] += (R[i](0,a) * R[i](0,b) * R[i](0,c) 
+	 								- R[i](0,a) * R[i](1,b) * R[i](1,c) 
+	 								- R[i](1,a) * R[i](0,b) * R[i](1,c) 
+	 								- R[i](1,a) * R[i](1,b) * R[i](0,c)); //R[i] already O(3), no need of additional determinant 
+
+	 /* compute the nematicity; Q2 =  4 at perfect order */	
+	 double Q2 = 0;
+
+	 for(int a = 0; a < 3; a++)
+	 	for(int b = 0; b < 3; b++)
+	 		for(int c = 0; c < 3; c++)
+	 			Q2 += Q[a][b][c]*Q[a][b][c];	
+
+	 double norm = 4. * L3 * L3;
+
+	 return Q2/norm;
 }
 
 double gauge_sim::nematicity_T() 
@@ -109,7 +215,7 @@ double gauge_sim::nematicity_T()
 	 	for(int b = 0; b < 3; b++)
 	 		for(int c = 0; c < 3; c++)
 	 			Q2 += Q[a][b][c]*Q[a][b][c];	
-	 
+
 	 double norm = 1.5 * L3 * L3;
 
 	 return Q2/norm;
@@ -144,7 +250,7 @@ double gauge_sim::nematicity_Td()
 	 	for(int b = 0; b < 3; b++)
 	 	for(int c = 0; c < 3; c++)
 	 		Q2 += Q[a][b][c]*Q[a][b][c];	
-	 
+
 	 double norm = 6.0 * L3 * L3;
 
 	 return Q2/norm;
@@ -184,8 +290,8 @@ double gauge_sim::nematicity_Th()
 	 	for(int c = 0; c < 3; c++)
 	 	for(int d = 0; d < 3; d++)
 			Q2 += Q[a][b][c][d]*Q[a][b][c][d];	
-	
-	 
+
+
 	 double norm = 1.8 * L3 * L3;
 
 	 return Q2/norm;
@@ -232,8 +338,8 @@ double gauge_sim::nematicity_Oh()
 	 	for(int c = 0; c < 3; c++)
 	 	for(int d = 0; d < 3; d++)
 			Q2 += Q[a][b][c][d]*Q[a][b][c][d];	
-	
-	 
+
+
 	 double norm = 1.2 * L3 * L3;
 
 	 return Q2/norm;
@@ -243,7 +349,7 @@ double gauge_sim::nematicity_Oh()
 double gauge_sim::nematicity_Ih()
 {
 	 double Q[3][3][3][3][3][3] = {{{{{{0}}}}}};
-	 
+
 	 double trace_Ih[3][3][3][3][3][3] = {{{{{{0}}}}}};
 
 	 /* 2d delta, 3*3 to fit colors*/
@@ -394,7 +500,7 @@ double gauge_sim::nematicity_Ih()
 			Q[a][b][c][d][e][f] += v1+v2+v3+v4+v5+v6+v7+v8+v9+v10+v11+v12+v13+v14+v15 - trace_Ih[a][b][c][d][e][f];
 
 		}	
-	 				
+
 
 	double Q2 = 0;
 
@@ -405,7 +511,7 @@ double gauge_sim::nematicity_Ih()
 	 	for(int e = 0; e < 3; e++)
 	 	for(int f = 0; f < 3; f++)
 			Q2 += Q[a][b][c][d][e][f] * Q[a][b][c][d][e][f];	
-	
+
 	 double norm = L3 * L3 * 75.0/112;
 
 	 return Q2/norm;

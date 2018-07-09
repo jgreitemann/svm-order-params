@@ -1,5 +1,8 @@
 #include "gauge.hpp"
 #include "convenience_params.hpp"
+
+#include <iostream>
+
 #include <alps/hdf5/vector.hpp>
 #include <alps/hdf5/multi_array.hpp>
 
@@ -198,7 +201,31 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         nematicity = [this]() {
             return nematicity_Ih();
         };
-    else {
+    else if (gauge_group == "D2h") {
+        nematicity = [this]() {
+            return nematicity_Dinfh();
+        };
+        nematicityB = [this]() {
+            return nematicity_D2hB();
+        };
+        nematicityB2 = [this]() {
+            return nematicity_D2hB2();
+        };
+    } else if (gauge_group == "D2d") {
+        nematicity = [this]() {
+            return nematicity_Dinfh();
+        };
+        nematicityB = [this]() {
+            return nematicity_D2dB();
+        };
+    } else if (gauge_group == "D3" || gauge_group == "D3h") {
+        nematicity = [this]() {
+            return nematicity_Dinfh();
+        };
+        nematicityB = [this]() {
+            return nematicity_D3hB();
+        };
+    } else {
         std::cerr << "ERROR in the symmetry" << std::endl;
         return;
     }
@@ -212,8 +239,8 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     J(2,2) = J3;
 
     /* Set to uniform */
-    for(int i = 0; i < L3; i++)
-    { R[i] = Eigen::MatrixXd::Identity(3,3);
+    for(int i = 0; i < L3; i++) {
+        R[i] = Eigen::MatrixXd::Identity(3,3);
         Ux[i] = Eigen::MatrixXd::Identity(3,3);
         Uy[i] = Eigen::MatrixXd::Identity(3,3);
         Uz[i] = Eigen::MatrixXd::Identity(3,3);
@@ -227,8 +254,7 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 #endif
 
     /* Random Initialization */
-    for(int i = 0; i < L3; i++)
-    {
+    for(int i = 0; i < L3; i++) {
         random_R(R[i]); //change R[i] to a random matrix
         Ux[i] = gauge_bath[random_U(rng)];
         Uy[i] = gauge_bath[random_U(rng)];
@@ -242,9 +268,14 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 #ifdef DEBUGMODE
     std::cout << "Energy(normalized) at infinite temperature: \n "
               << current_energy/Eg << std::endl;
-
     std::cout << "Nematicity(normalized) at infinite temperature: \n "
               << sqrt(nematicity()) << std::endl;
+    if(nematicityB)
+        std::cout << "Biaxial nematicity(normalized) at infinite temperature: \n " 
+                  << sqrt(nematicityB()) << std::endl;	
+	if(nematicityB2)
+		std::cout << "Variant biaxial nematicity(normalized) at infinite temperature: \n " 
+                  << sqrt(nematicityB2()) << std::endl;	
 #endif
 
     // Adds the measurements
@@ -256,6 +287,12 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^2")
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^4")
         ;
+    if (nematicityB)
+        measurements
+            << alps::accumulators::FullBinningAccumulator<double>("NematicityB");
+    if (nematicityB2)
+        measurements
+            << alps::accumulators::FullBinningAccumulator<double>("NematicityB2");
 
     confpol = config_policy_from_parameters(parameters);
 }
@@ -517,6 +554,11 @@ void gauge_sim::measure() {
     measurements["Nematicity"] << nem;
     //measurements["Nematicity^2"] << nem2;
     //measurements["Nematicity^4"] << nem2 * nem2;
+
+    if (nematicityB)
+        measurements["NematicityB"] << sqrt(nematicityB());
+    if (nematicityB2)
+        measurements["NematicityB2"] << sqrt(nematicityB2());
 }
 
 // Returns a number between 0.0 and 1.0 with the completion percentage

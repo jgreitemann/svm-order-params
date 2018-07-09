@@ -1,20 +1,22 @@
 #pragma once
 
-#include <alps/mc/mcbase.hpp>
-#include <time.h>
-#include <random>
-#include <cmath>
-#include <memory>
-#include <string>
-#include <boost/math/constants/constants.hpp>
-#include <boost/multi_array.hpp>
-#include <boost/function.hpp>
-#include <alps/numeric/vector_functions.hpp>
-#include "Eigen/Dense"
 #include "point_groups.hpp"
-
 #include "config_policy.hpp"
 #include "phase_space_policy.hpp"
+
+#include <cmath>
+#include <memory>
+#include <random>
+#include <string>
+
+#include <alps/numeric/vector_functions.hpp>
+#include <alps/mc/mcbase.hpp>
+
+#include <boost/math/constants/constants.hpp>
+#include <boost/multi_array.hpp>
+
+#include <Eigen/Dense>
+
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
 
@@ -68,7 +70,9 @@ private:
     const bool O3;
 
     std::string gauge_group;
-    boost::function<double ()> nematicity;
+    std::function<double ()> nematicity;
+    std::function<double ()> nematicityB;  //biaxial nematicity
+    std::function<double ()> nematicityB2; // variant biaxial nematicity
     int group_size;
     point_groups pg; // defined in point_groups.hpp
 
@@ -121,6 +125,11 @@ public:
     double nematicity_Th();
     double nematicity_Oh();
     double nematicity_Ih();
+
+    double nematicity_D2hB();
+    double nematicity_D2hB2();
+    double nematicity_D2dB();
+    double nematicity_D3hB();
 
     /* compute succeeded flip ratio */
     void flip_ratio(double current_beta, int N);
