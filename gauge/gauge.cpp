@@ -533,6 +533,11 @@ void gauge_sim::save(alps::hdf5::archive & ar) const {
     // Most of the save logic is already implemented in the base class
     alps::mcbase::save(ar);
 
+    // random number engine
+    std::ostringstream engine_ss;
+    engine_ss << rng;
+    ar["checkpoint/random"] << engine_ss.str();
+
     /* Save the flip ratios */
     double trying_R = 0.01 * sweeps * sweep_unit * hits_R * L3;
     double trying_U = 0.01 * sweeps * sweep_unit * hits_U * L3;
@@ -579,6 +584,12 @@ void gauge_sim::save(alps::hdf5::archive & ar) const {
 void gauge_sim::load(alps::hdf5::archive & ar) {
     // Most of the load logic is already implemented in the base class
     alps::mcbase::load(ar);
+
+    // random number engine
+    std::string engine_str;
+    ar["checkpoint/random"] >> engine_str;
+    std::istringstream engine_ss(engine_str);
+    engine_ss >> rng;
 
     /*Load the configuration from checkpoint*/
     boost::multi_array<double, 2> R_data;

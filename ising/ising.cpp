@@ -5,8 +5,10 @@
  */
 
 #include "ising.hpp"
-
 #include "convenience_params.hpp"
+
+#include <sstream>
+
 
 // Defines the parameters for the ising simulation
 void ising_sim::define_parameters(parameters_type & parameters) {
@@ -159,6 +161,11 @@ double ising_sim::fraction_completed() const {
 void ising_sim::save(alps::hdf5::archive & ar) const {
     // Most of the save logic is already implemented in the base class
     alps::mcbase::save(ar);
+
+    // random number engine
+    std::ostringstream engine_ss;
+    engine_ss << rng;
+    ar["checkpoint/random"] << engine_ss.str();
     
     // We just need to add our own internal state
     ar["checkpoint/spins"] << spins;
@@ -173,6 +180,12 @@ void ising_sim::save(alps::hdf5::archive & ar) const {
 void ising_sim::load(alps::hdf5::archive & ar) {
     // Most of the load logic is already implemented in the base class
     alps::mcbase::load(ar);
+
+    // random number engine
+    std::string engine_str;
+    ar["checkpoint/random"] >> engine_str;
+    std::istringstream engine_ss(engine_str);
+    engine_ss >> rng;
 
     // Restore the internal state that came from parameters
     length = parameters["length"];
