@@ -24,8 +24,8 @@ void ising_sim::define_parameters(parameters_type & parameters) {
     define_convenience_parameters(parameters)
         .description("2D ising simulation")
         .define<int>("length", "size of the periodic box")
-        .define<int>("sweeps", 0, "maximum number of sweeps (0 means indefinite)")
-        .define<int>("thermalization", 10000, "number of sweeps for thermalization")
+        .define<int>("total_sweeps", 0, "maximum number of sweeps (0 means indefinite)")
+        .define<int>("thermalization_sweeps", 10000, "number of sweeps for thermalization")
         .define<double>("temperature", "temperature of the system");
 }
 
@@ -38,8 +38,8 @@ ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
     , rng(parameters["SEED"].as<size_t>() + seed_offset)
     , length(parameters["length"])
     , sweeps(0)
-    , thermalization_sweeps(int(parameters["thermalization"]))
-    , total_sweeps(parameters["sweeps"])
+    , thermalization_sweeps(int(parameters["thermalization_sweeps"]))
+    , total_sweeps(parameters["total_sweeps"])
     , ppoint(parameters["temperature"].as<double>())
     , spins(length,length)
     , current_energy(0)
