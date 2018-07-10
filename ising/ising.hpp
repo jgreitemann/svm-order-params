@@ -4,14 +4,15 @@
  * For use in publications, see ACKNOWLEDGE.TXT
  */
 
-#ifndef ALPS_TUTORIALS_MC_ISING2_ISING_HPP_2e5dd7c49f7f4f209a3d27964d231a5b
-#define ALPS_TUTORIALS_MC_ISING2_ISING_HPP_2e5dd7c49f7f4f209a3d27964d231a5b
+#pragma once
 
-#include <alps/mc/mcbase.hpp>
 #include "storage_type.hpp"
 #include "exp_beta.hpp"
 
 #include "label.hpp"
+#include <random>
+
+#include <alps/mc/mcbase.hpp>
 
 SVM_LABEL_BEGIN(ising_phase_label, 2)
 SVM_LABEL_ADD(ORDERED)
@@ -53,6 +54,9 @@ private:
     storage_type spins;
     double current_energy;
     double current_magnetization;
+    std::mt19937 rng;
+    std::uniform_real_distribution<double> uniform;
+    std::uniform_int_distribution<size_t> random_site;
 
     exp_beta iexp_; // function object to compute exponent
 
@@ -78,5 +82,3 @@ private:
     virtual void save(alps::hdf5::archive & ar) const;
     virtual void load(alps::hdf5::archive & ar);
 };
-
-#endif /* ALPS_TUTORIALS_MC_ISING2_ISING_HPP_2e5dd7c49f7f4f209a3d27964d231a5b */

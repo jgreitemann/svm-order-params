@@ -33,6 +33,7 @@ void ising_sim::define_parameters(parameters_type & parameters) {
 // mainly using values from the parameters.
 ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
     : alps::mcbase(parms, seed_offset)
+    , rng(parameters["SEED"].as<size_t>() + seed_offset)
     , length(parameters["length"])
     , sweeps(0)
     , thermalization_sweeps(int(parameters["thermalization"]))
@@ -42,6 +43,8 @@ ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
     , current_energy(0)
     , current_magnetization(0)
     , iexp_(-beta)
+    , uniform(0., 1.)
+    , random_site(0, length - 1)
 {
     // Initializes the spins
     for(int i=0; i<length; ++i) {
@@ -101,15 +104,14 @@ std::vector<int> const& ising_sim::configuration() const {
 // decides if the step is accepted.
 void ising_sim::update() {
     using std::exp;
-    typedef unsigned int uint;
     // Choose a spin to flip:
-    uint i = uint(length * random());
-    uint j = uint(length * random());
+    size_t i = random_site(rng);
+    size_t j = random_site(rng);
     // Find neighbors indices, with wrap over box boundaries:
-    uint i1 = (i+1) % length;            // right
-    uint i2 = (i-1+length) % length;     // left
-    uint j1 = (j+1) % length;            // up
-    uint j2 = (j-1+length) % length;     // down
+    size_t i1 = (i+1) % length;            // right
+    size_t i2 = (i-1+length) % length;     // left
+    size_t j1 = (j+1) % length;            // up
+    size_t j2 = (j-1+length) % length;     // down
     // Energy difference:
     double delta=2.*spins(i,j)*
                     (spins(i1,j)+  // right
@@ -118,7 +120,7 @@ void ising_sim::update() {
                      spins(i,j2)); // down
     
     // Step acceptance:
-    if (delta<=0. || random() < iexp_(delta)) {
+    if (delta<=0. || uniform(rng) < iexp_(delta)) {
         // update energy:
         current_energy += delta;
         // update magnetization:
