@@ -49,6 +49,10 @@ public:
         , N_temp(size_t(parameters["N_temp"]))
         , N_sample(size_t(parameters["N_sample"]))
         , sweep_policy([&] () -> phase_sweep_policy_type * {
+                return dynamic_cast<phase_sweep_policy_type*>(
+                    new phase_space::sweep::cycle<phase_point> ({
+                            {0.25, 2.0}, {5.0, 2.0}, {5.0, 0.25}, {0.25, 0.25}
+                        }, seed_offset));
                 std::string dist_name = parameters["temp_dist"];
                 if (dist_name == "gaussian")
                     return dynamic_cast<phase_sweep_policy_type*>(
