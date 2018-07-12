@@ -46,7 +46,7 @@ namespace phase_space {
 
             double const * begin() const { return &temp; }
             double const * end() const { return &temp + 1; }
-            
+
             double temp;
         };
 
@@ -58,7 +58,7 @@ namespace phase_space {
     }
 
     namespace classifier {
-        
+
         struct critical_temperature {
             using point_type = point::temperature;
             using label_type = label::binary::label;
@@ -134,7 +134,7 @@ namespace phase_space {
             std::vector<point_type> points;
             size_t n;
         };
-        
+
     }
 
 }
