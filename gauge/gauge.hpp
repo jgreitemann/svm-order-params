@@ -23,9 +23,9 @@ constexpr double pi2(boost::math::constants::two_pi<double>());
 
 class gauge_sim : public alps::mcbase {
 public:
-    using phase_classifier = phase_space::classifier::critical_temperature;
+    using phase_point = phase_space::point::J1J3;
+    using phase_classifier = phase_space::classifier::orthants<phase_point>;
     using phase_label = phase_classifier::label_type;
-    using phase_point = phase_classifier::point_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
     /** parameters **/

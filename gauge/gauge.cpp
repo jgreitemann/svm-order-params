@@ -121,10 +121,8 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     , gauge_group(parameters["gauge_group"].as<std::string>())
     , group_size(parameters["group_size"])
     , O3(parameters["O3"].as<bool>())
-    , ppoint(parameters["temperature"].as<double>())
-    , beta(1. / ppoint.temp)
-    , J1(parameters["J1"].as<double>())
-    , J3(parameters["J3"].as<double>())
+    , ppoint(parms)
+    , beta(1. / parameters["temperature"].as<double>())
     , Eg(-9*L3)
     , sweeps(0) //current sweeps
     , thermalization_sweeps(parameters["thermalization_sweeps"])
@@ -234,9 +232,9 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 
     /* define J */
     J = Eigen::MatrixXd::Identity(3,3);
-    J(0,0) = J1;
-    J(1,1) = J1;
-    J(2,2) = J3;
+    J(0,0) = ppoint.J1();
+    J(1,1) = ppoint.J1();
+    J(2,2) = ppoint.J3();
 
     /* Set to uniform */
     for(int i = 0; i < L3; i++) {
@@ -687,6 +685,11 @@ gauge_sim::phase_point gauge_sim::phase_space_point () const {
 
 void gauge_sim::update_phase_point (phase_sweep_policy_type & sweep_policy) {
     reset_sweeps(!sweep_policy.yield(ppoint, rng));
-    parameters["temperature"] = ppoint.temp;
-    beta = 1. / ppoint.temp;
+    parameters["J1"] = ppoint.J1();
+    parameters["J3"] = ppoint.J3();
+    J1 = ppoint.J1();
+    J3 = ppoint.J3();
+    J(0, 0) = J1;
+    J(1, 1) = J1;
+    J(2, 2) = J3;
 }

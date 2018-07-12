@@ -80,6 +80,26 @@ namespace phase_space {
             double temp;
         };
 
+        struct J1J3 {
+            static const size_t label_dim = 2;
+
+            J1J3(alps::params const& params)
+                : J {params["J1"].as<double>(), params["J3"].as<double>()} {}
+
+            J1J3(double J1, double J3) : J{J1, J3} {}
+
+            template <class Iterator>
+            J1J3(Iterator begin) : J {*begin, *(++begin)} {}
+
+            double const * begin() const { return J; }
+            double const * end() const { return J + 2; }
+
+            double J1() const { return J[0]; }
+            double J3() const { return J[1]; }
+
+            double J[2];
+        };
+
         template <typename Point>
         bool operator== (Point const& lhs, Point const& rhs) {
             return std::equal(lhs.begin(), lhs.end(), rhs.begin());
