@@ -31,7 +31,37 @@ namespace phase_space {
         SVM_LABEL_ADD(ORDERED)
         SVM_LABEL_ADD(DISORDERED)
         SVM_LABEL_END()
-        
+
+        namespace numeric_label {
+            template <size_t nr>
+            struct label {
+                static const size_t nr_labels = nr;
+                static const size_t label_dim = 1;
+                label () : val(0) {}
+                template <class Iterator,
+                          typename Tag = typename std::iterator_traits<Iterator>::value_type>
+                label (Iterator begin) : val (floor(*begin)) {
+                    if (val < 0 || val >= nr_labels)
+                        throw std::runtime_error("invalid label");
+                }
+                label (double x) : val (floor(x)) {
+                    if (val < 0. || val >= nr_labels)
+                        throw std::runtime_error("invalid label");
+                }
+                operator double() const { return val; }
+                double const * begin() const { return &val; }
+                double const * end() const { return &val + 1; }
+                friend bool operator== (label lhs, label rhs) {
+                    return lhs.val == rhs.val;
+                }
+                friend std::ostream & operator<< (std::ostream & os, label l) {
+                    return os << l.val;
+                }
+            private:
+                double val;
+            };
+        }
+
     };
 
     namespace point {
@@ -67,6 +97,28 @@ namespace phase_space {
             label_type operator() (point_type pp);
         private:
             double temp_crit;
+        };
+
+        template <typename Point>
+        struct orthants {
+            using point_type = Point;
+            using label_type = label::numeric_label::label<(1 << point_type::label_dim)>;
+
+            orthants(alps::params const& params)
+                : origin(params) {}
+            label_type operator() (point_type pp) {
+                size_t res = 0;
+                auto oit = origin.begin();
+                for (double x : pp) {
+                    res *= 2;
+                    if (x > *oit)
+                        res += 1;
+                    ++oit;
+                }
+                return label_type {double(res)};
+            }
+        private:
+            point_type origin;
         };
 
     }
