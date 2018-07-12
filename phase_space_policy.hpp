@@ -118,7 +118,7 @@ namespace phase_space {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
 
-            cycle (std::initializer_list<point_type> il, size_t offset)
+            cycle (std::initializer_list<point_type> il, size_t offset = 0)
                 : n(offset)
             {
                 for (auto p : il)
