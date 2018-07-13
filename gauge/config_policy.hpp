@@ -101,12 +101,12 @@ namespace element_policy {
             for (auto it = ind.begin(); it != ind.end(); ++it) {
                 sublats *= n_unitcell;
                 sublats += sublattice(*it);
-                shift *= n_unitcell;
+                shift *= BaseElementPolicy::range;
             }
             indices_t base_ind(ind);
             for (size_t & i : base_ind)
                 i = i % BaseElementPolicy::range;
-            return sublats + BaseElementPolicy::rearranged_index(base_ind) * shift;
+            return sublats * shift + BaseElementPolicy::rearranged_index(base_ind);
         }
     };
 
