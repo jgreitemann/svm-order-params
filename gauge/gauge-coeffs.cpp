@@ -58,7 +58,9 @@ void write_matrix (boost::multi_array<double,2> const& mat, std::string basename
 
 int main(int argc, char** argv) {
     try {
-        argh::parser cmdl(argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
+        argh::parser cmdl;
+        cmdl.add_params({"-t", "--transition"});
+        cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
                 return alps::params(argc, argv);
@@ -83,109 +85,136 @@ int main(int argc, char** argv) {
         };
 
         log_msg("Reading model...");
-        svm::model<kernel_t> model;
+        using model_t = svm::model<kernel_t, sim_type::phase_label>;
+        using classifier_t = typename model_t::classifier_type;
+        model_t model;
         {
             alps::hdf5::archive ar(arname, "r");
-            svm::model_serializer<svm::hdf5_tag, svm::model<kernel_t>> serial(model);
+            svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
             ar["model"] >> serial;
         }
 
-        auto coeff = svm::tensor_introspect<2>(model.classifier());
+        auto treat_transition = [&] (classifier_t const& classifier,
+                                     std::string const& basename)
+        {
+            auto coeff = svm::tensor_introspect<2>(classifier);
 
-        log_msg("Allocating coeffs...");
-        boost::multi_array<double,2> coeffs(boost::extents[model.dim()][model.dim()]);
-        log_msg("Filling coeffs...");
+            log_msg("Allocating coeffs...");
+            boost::multi_array<double,2> coeffs(boost::extents[model.dim()][model.dim()]);
+            log_msg("Filling coeffs...");
 #pragma omp parallel for
-        for (size_t i = 0; i < model.dim(); ++i) {
-            for (size_t j = 0; j < model.dim(); ++j) {
-                coeffs[i][j] = coeff.tensor({i, j});
-            }
-        }
-
-        std::unique_ptr<config_policy> confpol =
-            sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
-        if (!cmdl[{"-b", "--blocks-only"}] && !cmdl[{"-r", "--raw"}]) {
-            log_msg("Rearranging coeffs...");
-            auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
-            log_msg("Normalizing coeffs...");
-            normalize_matrix(rearranged_coeffs);
-            log_msg("Writing coeffs...");
-            write_matrix(rearranged_coeffs,
-                         replace_extension(arname, ".coeffs"),
-                         color::palettes.at("rdbu").rescale(-1, 1));
-            if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
-                parameters["symmetrized"] = false;
-                auto cpol = sim_type::config_policy_from_parameters(parameters, false);
-                try {
-                    auto exact = cpol->rearrange_by_component(
-                        exact_tensor.at(parameters["gauge_group"]).get(cpol));
-                    normalize_matrix(exact);
-                    if (cmdl[{"-e", "--exact"}]) {
-                        write_matrix(exact,
-                                     replace_extension(arname, ".exact"),
-                                     color::palettes.at("rdbu").rescale(-1, 1));
-                    }
-
-                    if (cmdl[{"-d", "--diff"}]) {
-                        block_reduction::norm<2> norm_diff, norm_exact;
-                        auto it_row_exact = exact.begin();
-                        for (auto row : rearranged_coeffs) {
-                            auto it_elem_exact = it_row_exact->begin();
-                            for (auto & elem : row) {
-                                elem -= *it_elem_exact;
-                                norm_diff += elem;
-                                norm_exact += *it_elem_exact;
-                                ++it_elem_exact;
-                            }
-                            ++it_row_exact;
-                        }
-                        std::cout << "relative scale of difference tensor: "
-                                  << normalize_matrix(rearranged_coeffs)
-                                  << std::endl;
-                        write_matrix(rearranged_coeffs,
-                                     replace_extension(arname, ".diff"),
-                                     color::palettes.at("rdbu").rescale(-1, 1));
-                        std::cout << "deviation metric: " << double(norm_diff) << '\n'
-                                  << "total Frobenius norm: " << double(norm_exact) << '\n'
-                                  << "relative deviation: " << double(norm_diff)/double(norm_exact)
-                                  << std::endl;
-                        auto nSV = model.nSV();
-                        std::ofstream os (replace_extension(arname, ".dev.txt"));
-                        os << parameters["length"].as<size_t>() << '\t'
-                           << parameters["temp_crit"].as<double>() << '\t'
-                           << (parameters["sweep_unit"].as<size_t>()
-                               * parameters["total_sweeps"].as<size_t>()
-                               / parameters["N_sample"].as<size_t>()) << '\t'
-                           << (parameters["sweep_unit"].as<size_t>()
-                               * parameters["thermalization_sweeps"].as<size_t>()) << '\t'
-                           << parameters["nu"].as<double>() << '\t'
-                           << nSV.first << '\t' << nSV.second << '\t'
-                           << double(norm_diff) << '\t'
-                           << double(norm_exact) << '\t'
-                           << double(norm_diff) / double(norm_exact) << '\n';
-                    }
-                } catch (std::out_of_range const& e) {
-                    std::cerr << "No exact solution know for symmetry \""
-                              << parameters["gauge_group"]
-                              << "\" despite --exact flag given."
-                              << std::endl;
+            for (size_t i = 0; i < model.dim(); ++i) {
+                for (size_t j = 0; j < model.dim(); ++j) {
+                    coeffs[i][j] = coeff.tensor({i, j});
                 }
             }
-        } else if (cmdl[{"-r", "--raw"}]) {
-            log_msg("Normalizing coeffs...");
-            normalize_matrix(coeffs);
-            log_msg("Writing coeffs...");
-            write_matrix(coeffs,
-                         replace_extension(arname, ".coeffs"),
-                         color::palettes.at("rdbu").rescale(-1, 1));
-        }
-        {
-            log_msg("Block structure...");
-            auto block_structure = confpol->block_structure(coeffs);
-            normalize_matrix(block_structure);
-            write_matrix(block_structure,
-                         replace_extension(arname, ".blocks"),
-                         color::palettes.at("parula"));
+
+            std::unique_ptr<config_policy> confpol =
+            sim_type::config_policy_from_parameters(parameters, cmdl[{"-u", "--unsymmetrize"}]);
+            if (!cmdl[{"-b", "--blocks-only"}] && !cmdl[{"-r", "--raw"}]) {
+                log_msg("Rearranging coeffs...");
+                auto rearranged_coeffs = confpol->rearrange_by_component(coeffs);
+                log_msg("Normalizing coeffs...");
+                normalize_matrix(rearranged_coeffs);
+                log_msg("Writing coeffs...");
+                write_matrix(rearranged_coeffs,
+                             replace_extension(basename, ".coeffs"),
+                             color::palettes.at("rdbu").rescale(-1, 1));
+                if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
+                    parameters["symmetrized"] = false;
+                    auto cpol = sim_type::config_policy_from_parameters(parameters, false);
+                    try {
+                        auto exact = cpol->rearrange_by_component(
+                            exact_tensor.at(parameters["gauge_group"]).get(cpol));
+                        normalize_matrix(exact);
+                        if (cmdl[{"-e", "--exact"}]) {
+                            write_matrix(exact,
+                                         replace_extension(basename, ".exact"),
+                                         color::palettes.at("rdbu").rescale(-1, 1));
+                        }
+
+                        if (cmdl[{"-d", "--diff"}]) {
+                            block_reduction::norm<2> norm_diff, norm_exact;
+                            auto it_row_exact = exact.begin();
+                            for (auto row : rearranged_coeffs) {
+                                auto it_elem_exact = it_row_exact->begin();
+                                for (auto & elem : row) {
+                                    elem -= *it_elem_exact;
+                                    norm_diff += elem;
+                                    norm_exact += *it_elem_exact;
+                                    ++it_elem_exact;
+                                }
+                                ++it_row_exact;
+                            }
+                            std::cout << "relative scale of difference tensor: "
+                                      << normalize_matrix(rearranged_coeffs)
+                                      << std::endl;
+                            write_matrix(rearranged_coeffs,
+                                         replace_extension(basename, ".diff"),
+                                         color::palettes.at("rdbu").rescale(-1, 1));
+                            std::cout << "deviation metric: "
+                                      << double(norm_diff) << '\n'
+                                      << "total Frobenius norm: "
+                                      << double(norm_exact) << '\n'
+                                      << "relative deviation: "
+                                      << double(norm_diff)/double(norm_exact)
+                                      << std::endl;
+                            std::ofstream os (replace_extension(basename, ".dev.txt"));
+                            os << parameters["length"].as<size_t>() << '\t'
+                               << parameters["temp_crit"].as<double>() << '\t'
+                               << (parameters["sweep_unit"].as<size_t>()
+                                   * parameters["total_sweeps"].as<size_t>()
+                                   / parameters["N_sample"].as<size_t>()) << '\t'
+                               << (parameters["sweep_unit"].as<size_t>()
+                                   * parameters["thermalization_sweeps"].as<size_t>()) << '\t'
+                               << parameters["nu"].as<double>() << '\t'
+                               << double(norm_diff) << '\t'
+                               << double(norm_exact) << '\t'
+                               << double(norm_diff) / double(norm_exact) << '\n';
+                        }
+                    } catch (std::out_of_range const& e) {
+                        std::cerr << "No exact solution know for symmetry \""
+                                  << parameters["gauge_group"]
+                                  << "\" despite --exact flag given."
+                                  << std::endl;
+                    }
+                }
+            } else if (cmdl[{"-r", "--raw"}]) {
+                log_msg("Normalizing coeffs...");
+                normalize_matrix(coeffs);
+                log_msg("Writing coeffs...");
+                write_matrix(coeffs,
+                             replace_extension(basename, ".coeffs"),
+                             color::palettes.at("rdbu").rescale(-1, 1));
+            }
+            {
+                log_msg("Block structure...");
+                auto block_structure = confpol->block_structure(coeffs);
+                normalize_matrix(block_structure);
+                write_matrix(block_structure,
+                             replace_extension(basename, ".blocks"),
+                             color::palettes.at("parula"));
+            }
+        };
+
+        // Determine requested transitions
+        auto labels = model.labels();
+        std::sort(labels.begin(), labels.end());
+        size_t i = 0, t;
+        bool exclusive = bool(cmdl({"-t", "--transition"}) >> t);
+        for (size_t k1 = 0; k1 < labels.size() - 1; ++k1) {
+            for (size_t k2 = k1 + 1; k2 < labels.size(); ++k2, ++i) {
+                if (exclusive && t != i)
+                    continue;
+                std::cout << i << ":   " << labels[k1] << " -- "
+                          << labels[k2] << std::endl;
+                std::stringstream ss;
+                ss << replace_extension(arname, "")
+                   << '-' << labels[k1] << '-' << labels[k2];
+                if (!cmdl[{"-l", "--list"}])
+                    treat_transition(model.classifier(labels[k1], labels[k2]),
+                                     ss.str());
+            }
         }
 
         return 0;
