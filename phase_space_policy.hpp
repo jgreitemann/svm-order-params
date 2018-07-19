@@ -68,34 +68,47 @@ namespace phase_space {
 
         struct temperature {
             static const size_t label_dim = 1;
+            using iterator = double *;
+            using const_iterator = double const *;
 
+            temperature() : temp(-1) {}
             temperature(double temp) : temp(temp) {}
 
             template <class Iterator>
             temperature(Iterator begin) : temp(*begin) {}
 
-            double const * begin() const { return &temp; }
-            double const * end() const { return &temp + 1; }
+            const_iterator begin() const { return &temp; }
+            iterator begin() { return &temp; }
+            const_iterator end() const { return &temp + 1; }
+            iterator end() { return &temp + 1; }
 
             double temp;
         };
 
         struct J1J3 {
             static const size_t label_dim = 2;
+            using iterator = double *;
+            using const_iterator = double const *;
 
-            J1J3(alps::params const& params)
-                : J {params["J1"].as<double>(), params["J3"].as<double>()} {}
+            J1J3(alps::params const& params, std::string prefix="")
+                : J{params[prefix + "J1"].as<double>(),
+                    params[prefix + "J3"].as<double>()} {}
 
+            J1J3() : J{-1, -1} {}
             J1J3(double J1, double J3) : J{J1, J3} {}
 
             template <class Iterator>
             J1J3(Iterator begin) : J {*begin, *(++begin)} {}
 
-            double const * begin() const { return J; }
-            double const * end() const { return J + 2; }
+            const_iterator begin() const { return J; }
+            iterator begin() { return J; }
+            const_iterator end() const { return J + 2; }
+            iterator end() { return J + 2; }
 
-            double J1() const { return J[0]; }
-            double J3() const { return J[1]; }
+            double const& J1() const { return J[0]; }
+            double & J1() { return J[0]; }
+            double const& J3() const { return J[1]; }
+            double & J3() { return J[1]; }
 
             double J[2];
         };
