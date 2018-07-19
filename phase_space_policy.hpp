@@ -229,6 +229,36 @@ namespace phase_space {
             size_t n;
         };
 
+        template <typename Point>
+        struct line_scan : public policy<Point> {
+            using point_type = typename policy<Point>::point_type;
+            using rng_type = typename policy<Point>::rng_type;
+
+            line_scan (point_type const& a, point_type const& b, size_t N)
+                : a(a), b(b), n(0), N(N) {}
+
+            virtual bool yield (point_type & point, rng_type &) final override {
+                return yield(point);
+            }
+
+            bool yield (point_type & point) {
+                if (n == N)
+                    return false;
+                auto it_a = a.begin();
+                auto it_b = b.begin();
+                double x = 1. * n / (N - 1);
+                for (auto & c : point) {
+                    c = *it_b * x + *it_a * (1. - x);
+                    ++it_a, ++it_b;
+                }
+                ++n;
+                return true;
+            }
+        private:
+            const point_type a, b;
+            size_t n, N;
+        };
+
     }
 
 }
