@@ -47,7 +47,9 @@ private:
     static void define_parameters(parameters_type & parameters);
 
     // SVM interface functions
-    static constexpr const char * order_param_name = "Magnetization^2";
+    std::vector<std::string> order_param_names() const {
+        return {"Magnetization^2"};
+    }
     void reset_sweeps(bool skip_therm = false);
     bool is_thermalized() const;
     size_t configuration_size() const;

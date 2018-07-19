@@ -6,9 +6,11 @@
 
 #include <omp.h>
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -17,6 +19,9 @@
 #include <alps/mc/api.hpp>
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
+#include <alps/hdf5/multi_array.hpp>
+
+#include <boost/multi_array.hpp>
 
 #ifdef ISING
     #include "ising.hpp"
@@ -42,8 +47,8 @@ int main(int argc, char** argv)
         std::cout << "Initializing parameters..." << std::endl;
 
         argh::parser cmdl({ "timelimit", "total_sweeps", "thermalization_sweeps",
-                    "sweep_unit", "test.temp_min", "test.temp_max", "test.N_temp",
-                    "test.filename", "test.txtname", "SEED" });
+                    "sweep_unit", "test.N_scan", "test.filename", "test.txtname",
+                    "SEED" });
         cmdl.parse(argc, argv);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
@@ -76,63 +81,71 @@ int main(int argc, char** argv)
             override_parameter<size_t>("sweep_unit", parameters, cmdl);
             override_parameter<long>("SEED", parameters, cmdl);
 
-            override_parameter<double>("test.temp_min", parameters, cmdl);
-            override_parameter<double>("test.temp_max", parameters, cmdl);
-            override_parameter<size_t>("test.N_temp", parameters, cmdl);
+            override_parameter<size_t>("test.N_scan", parameters, cmdl);
+            override_parameter<double>("test.a.J1", parameters, cmdl);
+            override_parameter<double>("test.a.J3", parameters, cmdl);
+            override_parameter<double>("test.b.J1", parameters, cmdl);
+            override_parameter<double>("test.b.J3", parameters, cmdl);
             override_parameter<std::string>("test.filename", parameters, cmdl);
             override_parameter<std::string>("test.txtname", parameters, cmdl);
         }
 
-        std::vector<double> temps(parameters["test.N_temp"].as<size_t>());
-        using pair_t = std::pair<double,double>;
-        std::vector<pair_t> mag(temps.size());
-        std::vector<pair_t> svm(temps.size());
-        std::vector<pair_t> ordered(temps.size());
-        for (size_t i = 0; i < temps.size(); ++i) {
-            double x = 1. * i / (temps.size() - 1);
-            temps[i] = (x * parameters["test.temp_max"].as<double>()
-                        + (1-x) * parameters["test.temp_min"].as<double>());
-        }
-
-        std::string order_param_name = sim_type::order_param_name;
-        bool cmp_true = !order_param_name.empty();
+        using phase_point = sim_base::phase_point;
+        auto points = [&parameters] {
+            std::vector<phase_point> ps;
+            phase_point p;
+            ps.reserve(parameters["test.N_scan"].as<size_t>());
+            using scan_t = phase_space::sweep::line_scan<phase_point>;
+            scan_t scan(phase_point(parameters, "test.a."),
+                        phase_point(parameters, "test.b."),
+                        parameters["test.N_scan"].as<size_t>());
+            while (scan.yield(p)) {
+                ps.push_back(p);
+            }
+            return ps;
+        } ();
+        using pair_t = std::pair<double, double>;
+        using vecpair_t = std::pair<std::vector<double>, std::vector<double>>;
+        std::vector<pair_t> label(points.size());
+        std::vector<vecpair_t> svm(points.size());
+        std::vector<vecpair_t> mag(points.size());
 
         alps::hdf5::archive ar(parameters["test.filename"].as<std::string>(), "w");
         ar["parameters"] << parameters;
-        ar["temperatures"] << temps;
+
+        boost::multi_array<double, 2> phase_points(boost::extents[points.size()][phase_point::label_dim]);
+        for (size_t i = 0; i < points.size(); ++i)
+            std::copy(points[i].begin(), points[i].end(), phase_points[i].begin());
+        ar["phase_points"] << phase_points;
 
         size_t done = 0;
-        std::vector<double> current_temps;
+        std::vector<phase_point> current_points;
 #pragma omp parallel
         {
 #pragma omp single
-            current_temps.resize(omp_get_num_threads(), -1.);
+            current_points.resize(omp_get_num_threads());
             size_t tid = omp_get_thread_num();
             auto progress_report = [&] {
                 size_t now_done;
-#pragma omp atomic read
                 now_done = done;
-                std::cout << '[' << now_done << '/' << temps.size() << "] T = ";
-                for (size_t j = 0; j < current_temps.size(); ++j) {
-                    double now_temp;
-#pragma omp atomic read
-                    now_temp = current_temps[j];
+                std::cout << '[' << now_done << '/' << points.size() << "] ";
+                for (size_t j = 0; j < current_points.size(); ++j) {
+                    phase_point now_point;
+                    now_point = current_points[j];
                     std::cout << std::setw(8) << std::setprecision(4)
-                              << now_temp << ',';
+                              << now_point << ',';
                 }
                 std::cout << "           \r" << std::flush;
             };
 #pragma omp for schedule(dynamic)
-            for (size_t i = 0; i < temps.size(); ++i) {
-#pragma omp atomic write
-                current_temps[tid] = temps[i];
+            for (size_t i = 0; i < points.size(); ++i) {
+                current_points[tid] = points[i];
 #pragma omp critical
                 progress_report();
 
-                alps::params local_params(parameters);
-                local_params["temperature"] = temps[i];
-
-                sim_type sim(local_params);
+                sim_type sim(parameters);
+                phase_space::sweep::cycle<phase_point> one_point {{points[i]}};
+                sim.update_phase_point(one_point);
                 sim.run(alps::stop_callback(size_t(parameters["timelimit"])));
 
                 alps::results_type<sim_type>::type results = alps::collect_results(sim);
@@ -143,15 +156,14 @@ int main(int argc, char** argv)
                     ar[ss.str()] << results;
                 }
 
-                if (cmp_true) {
-                    mag[i] = {results[order_param_name].mean<double>(),
-                              results[order_param_name].error<double>()};
+                for (std::string const& opname : sim.order_param_names()) {
+                    mag[i].first.push_back(results[opname].mean<double>());
+                    mag[i].second.push_back(results[opname].error<double>());
                 }
-                svm[i] = {results["SVM"].mean<double>(),
-                          results["SVM"].error<double>()};
-                ordered[i] = {results["ordered"].mean<double>(),
-                              results["ordered"].error<double>()};
-
+                svm[i] = {results["SVM"].mean<std::vector<double>>(),
+                          results["SVM"].error<std::vector<double>>()};
+                label[i] = {results["label"].mean<double>(),
+                            results["label"].error<double>()};
 #pragma omp atomic
                 ++done;
             }
@@ -160,27 +172,41 @@ int main(int argc, char** argv)
         }
         std::cout << std::endl;
 
-        // rescale the SVM order parameter to match magnetization at end points
-        if (cmp_true) {
-            double fac = ((pow(mag.front().first, 2)- pow(mag.back().first, 2))
-                          / (svm.front().first - svm.back().first));
-            double offset = pow(mag.front().first, 2) - fac * svm.front().first;
-            for (size_t i = 0; i < temps.size(); ++i) {
-                svm[i].first = fac * svm[i].first + offset;
-                svm[i].second = std::abs(fac) * svm[i].second;
+        // rescale the SVM decision function to unit interval
+        for (size_t j = 0; j < svm.front().first.size(); ++j) {
+            double min = std::numeric_limits<double>::max();
+            double max = std::numeric_limits<double>::min();
+            for (size_t i = 0; i < points.size(); ++i) {
+                double x = svm[i].first[j];
+                if (x < min)
+                    min = x;
+                if (x > max)
+                    max = x;
+            }
+            double fac = 1. / (max - min);
+            for (size_t i = 0; i < points.size(); ++i) {
+                // svm[i].first[j] = fac * (svm[i].first[j] - min);
+                svm[i].first[j] *= fac;
+                svm[i].second[j] *= fac;
             }
         }
 
         // output
         std::ofstream os(parameters["test.txtname"].as<std::string>());
-        for (size_t i = 0; i < temps.size(); ++i) {
-            os << temps[i] << '\t'
-               << ordered[i].first << '\t'
-               << ordered[i].second << '\t'
-               << sqrt(svm[i].first) << '\t'
-               << svm[i].second / 2. / sqrt(svm[i].first) << '\t'
-               << mag[i].first << '\t'
-               << mag[i].second << '\n';
+        for (size_t i = 0; i < points.size(); ++i) {
+            std::copy(points[i].begin(), points[i].end(),
+                      std::ostream_iterator<double> {os, "\t"});
+            os << label[i].first << '\t'
+               << label[i].second << '\t';
+            for (size_t j = 0; j < svm[i].first.size(); ++j)
+                os << svm[i].first[j] << '\t'
+                   << svm[i].second[j] << '\t';
+                // os << sqrt(svm[i].first[j]) << '\t'
+                //    << svm[i].second[j] / 2. / sqrt(svm[i].first[j]) << '\t';
+            for (size_t j = 0; j < mag[i].first.size(); ++j)
+                os << mag[i].first[j] << '\t'
+                   << mag[i].second[j] << '\t';
+            os << '\n';
         }
 
         return 0;

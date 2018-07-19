@@ -143,7 +143,14 @@ public:
     virtual void load(alps::hdf5::archive & ar);
 
     // SVM interface functions
-    static constexpr const char * order_param_name = "Nematicity";
+    std::vector<std::string> order_param_names() const {
+        std::vector<std::string> names = {"Nematicity"};
+        if (nematicityB)
+            names.push_back("NematicityB");
+        if (nematicityB2)
+            names.push_back("NematicityB2");
+        return names;
+    }
     void reset_sweeps(bool skip_therm);
     bool is_thermalized() const;
     size_t configuration_size() const;
