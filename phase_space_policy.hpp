@@ -118,6 +118,15 @@ namespace phase_space {
             return std::equal(lhs.begin(), lhs.end(), rhs.begin());
         }
 
+        template <typename Point, typename = typename std::enable_if_t<(Point::label_dim > 0)>>
+        std::ostream& operator<< (std::ostream & os, Point const& p) {
+            auto it = p.begin();
+            os << '(' << *(it++);
+            for (; it != p.end(); ++it)
+                os << ", " << *it;
+            return os << ')';
+        }
+
     }
 
     namespace classifier {
