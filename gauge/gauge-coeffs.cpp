@@ -198,23 +198,21 @@ int main(int argc, char** argv) {
         };
 
         // Determine requested transitions
-        auto labels = model.labels();
-        std::sort(labels.begin(), labels.end());
-        size_t i = 0, t;
+        auto transitions = model.classifiers();
+        size_t t;
         bool exclusive = bool(cmdl({"-t", "--transition"}) >> t);
-        for (size_t k1 = 0; k1 < labels.size() - 1; ++k1) {
-            for (size_t k2 = k1 + 1; k2 < labels.size(); ++k2, ++i) {
-                if (exclusive && t != i)
-                    continue;
-                std::cout << i << ":   " << labels[k1] << " -- "
-                          << labels[k2] << std::endl;
-                std::stringstream ss;
-                ss << replace_extension(arname, "")
-                   << '-' << labels[k1] << '-' << labels[k2];
-                if (!cmdl[{"-l", "--list"}])
-                    treat_transition(model.classifier(labels[k1], labels[k2]),
-                                     ss.str());
-            }
+        for (size_t k = 0; k < transitions.size(); ++k) {
+            if (exclusive && t != k)
+                continue;
+            auto const& cl = transitions[k];
+            std::cout << k << ":   " << cl.labels().first << " -- "
+                      << cl.labels().second << std::endl;
+            std::stringstream ss;
+            ss << replace_extension(arname, "")
+               << '-' << cl.labels().first
+               << '-' << cl.labels().second;
+            if (!cmdl[{"-l", "--list"}])
+                treat_transition(cl, ss.str());
         }
 
         return 0;
