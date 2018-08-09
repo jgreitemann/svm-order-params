@@ -25,8 +25,6 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<int>("group_size", "specify the order of the group")
         .define<bool>("O3", 0, "determine symmetry of matter fields")
         .define<double>("temperature", 1., "actual temperature to simulate")
-        .define<double>("J1", 0., "elements of J matrix")
-        .define<double>("J3", 1., "elements of J matrix")
         .define<int>("total_sweeps", 0, "maximum number of sweeps")
         .define<int>("thermalization_sweeps", 10000, "number of sweeps for thermalization")
         .define<int>("hits_R", 1, "number of hits in each flip of R")
@@ -35,6 +33,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<int>("sweep_unit", 10, "scale a sweep")
         .define<double>("spacing_E", 0.001, "spacing of normalized energy")
         .define<double>("spacing_nem", 0.001, "spacing of nematicity");
+    phase_point::define_parameters(parameters);
 
     parameters
         .define<bool>("resolve_sites", false, "do not average over sites (rank 1 only)")

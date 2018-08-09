@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <random>
+#include <type_traits>
 
 #include <alps/params.hpp>
 
@@ -71,8 +72,18 @@ namespace phase_space {
             using iterator = double *;
             using const_iterator = double const *;
 
+            static void define_parameters(alps::params & params, std::string prefix="") {
+                params.define<double>(prefix + "temp", 1., "temperature");
+            }
+
+            static bool supplied(alps::params const& params, std::string prefix="") {
+                return params.supplied(prefix + "temp");
+            }
+
             temperature() : temp(-1) {}
             temperature(double temp) : temp(temp) {}
+            temperature(alps::params const& params, std::string prefix="")
+                : temp(params[prefix + "temp"].as<double>()) {}
 
             template <class Iterator>
             temperature(Iterator begin) : temp(*begin) {}
@@ -89,6 +100,17 @@ namespace phase_space {
             static const size_t label_dim = 2;
             using iterator = double *;
             using const_iterator = double const *;
+
+            static void define_parameters(alps::params & params, std::string prefix="") {
+                params
+                    .define<double>(prefix + "J1", 0., "J1 coupling")
+                    .define<double>(prefix + "J3", 0., "J3 coupling");
+            }
+
+            static bool supplied(alps::params const& params, std::string prefix="") {
+                return params.supplied(prefix + "J1")
+                    && params.supplied(prefix + "J3");
+            }
 
             J1J3(alps::params const& params, std::string prefix="")
                 : J{params[prefix + "J1"].as<double>(),
@@ -135,6 +157,8 @@ namespace phase_space {
             using point_type = point::temperature;
             using label_type = label::binary::label;
 
+            static void define_parameters(alps::params & params);
+
             critical_temperature(alps::params const& params);
             label_type operator() (point_type pp);
         private:
@@ -145,6 +169,10 @@ namespace phase_space {
         struct orthants {
             using point_type = Point;
             using label_type = label::numeric_label::label<(1 << point_type::label_dim)>;
+
+            static void define_parameters(alps::params & params) {
+                point_type::define_parameters(params, "classifier.orthants.");
+            }
 
             orthants(alps::params const& params)
                 : origin(params) {}
@@ -167,8 +195,6 @@ namespace phase_space {
 
     namespace sweep {
 
-        void define_parameters (alps::params & params);
-
         template <typename Point, typename RNG = std::mt19937>
         struct policy {
             using point_type = Point;
@@ -178,6 +204,7 @@ namespace phase_space {
         };
 
         struct gaussian_temperatures : public policy<point::temperature> {
+            static void define_parameters(alps::params & params);
             gaussian_temperatures (alps::params const& params);
             virtual bool yield (point_type & point, rng_type & rng) final override;
         private:
@@ -189,6 +216,7 @@ namespace phase_space {
         };
 
         struct uniform_temperatures : public policy<point::temperature> {
+            static void define_parameters(alps::params & params);
             uniform_temperatures (alps::params const& params);
             virtual bool yield (point_type & point, rng_type & rng) final override;
         private:
@@ -198,6 +226,7 @@ namespace phase_space {
         };
 
         struct equidistant_temperatures : public policy<point::temperature> {
+            static void define_parameters(alps::params & params);
             equidistant_temperatures (alps::params const& params, size_t N, size_t n=0);
             virtual bool yield (point_type & point, rng_type &) final override;
         private:
@@ -211,6 +240,12 @@ namespace phase_space {
         struct cycle : public policy<Point> {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
+            static const size_t MAX_CYCLE = 8;
+
+            static void define_parameters(alps::params & params) {
+                for (size_t i = 1; i <= MAX_CYCLE; ++i)
+                    point_type::define_parameters(params, format_prefix(i));
+            }
 
             cycle (std::initializer_list<point_type> il, size_t offset = 0)
                 : n(offset)
@@ -219,12 +254,25 @@ namespace phase_space {
                     points.push_back(p);
             }
 
+            cycle (alps::params const& params, size_t offset = 0)
+                : n(offset)
+            {
+                for (size_t i = 1; i <= MAX_CYCLE && point_type::supplied(params, format_prefix(i)); ++i) {
+                    points.emplace_back(params, format_prefix(i));
+                }
+            }
+
             virtual bool yield (point_type & point, rng_type &) final override {
                 point = points[n];
                 n = (n + 1) % points.size();
                 return true;
             }
         private:
+            static std::string format_prefix(size_t i) {
+                std::stringstream ss;
+                ss << "sweep.cycle.P" << i << '.';
+                return ss.str();
+            }
             std::vector<point_type> points;
             size_t n;
         };
@@ -258,6 +306,16 @@ namespace phase_space {
             const point_type a, b;
             size_t n, N;
         };
+
+        template <typename Point>
+        void define_parameters (alps::params & params) {
+            if (std::is_same<Point, point::temperature>::value) {
+                gaussian_temperatures::define_parameters(params);
+                uniform_temperatures::define_parameters(params);
+                equidistant_temperatures::define_parameters(params);
+            }
+            cycle<Point>::define_parameters(params);
+        }
 
     }
 

@@ -9,6 +9,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <type_traits>
 
 #include <alps/mc/mcbase.hpp>
 
@@ -19,6 +20,7 @@ public:
     typedef alps::mcbase::parameters_type parameters_type;
 
     using phase_point = typename Simulation::phase_point;
+    using phase_classifier = typename Simulation::phase_classifier;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 
     using kernel_t = svm::kernel::polynomial<2>;
@@ -32,12 +34,15 @@ public:
         
         // Adds the parameters of the base class
         Simulation::define_parameters(parameters);
-        phase_space::sweep::define_parameters(parameters);
+        phase_classifier::define_parameters(parameters);
+        phase_space::sweep::define_parameters<phase_point>(parameters);
         parameters
-            .define<std::string>("temp_dist", "gaussian", "temperature distribution")
-            .define<size_t>("N_temp", 1000, "number of attempted temperature updates")
-            .define<size_t>("N_sample", 1000, "number of configuration samples taken"
-                            " at each temperature")
+            .define<std::string>("sweep.dist", "cycle",
+                                 "phase space point distribution")
+            .define<size_t>("sweep.N", 1000, "number of attempted phase point updates")
+            .define<size_t>("sweep.samples", 1000,
+                            "number of configuration samples taken"
+                            " at each phase point")
             ;
     }
 
@@ -46,23 +51,25 @@ public:
                       std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
         , global_progress(global_progress)
-        , N_temp(size_t(parameters["N_temp"]))
-        , N_sample(size_t(parameters["N_sample"]))
+        , N_phase(size_t(parameters["sweep.N"]))
+        , N_sample(size_t(parameters["sweep.samples"]))
         , sweep_policy([&] () -> phase_sweep_policy_type * {
-                return dynamic_cast<phase_sweep_policy_type*>(
-                    new phase_space::sweep::cycle<phase_point> ({
-                            {0.25, 2.0}, {5.0, 2.0}, {5.0, 0.25}, {0.25, 0.25}
-                        }, seed_offset));
-                std::string dist_name = parameters["temp_dist"];
-                if (dist_name == "gaussian")
+                std::string dist_name = parameters["sweep.dist"];
+                if (std::is_same<phase_point, phase_space::point::temperature>::value) {
+                    if (dist_name == "gaussian")
+                        return dynamic_cast<phase_sweep_policy_type*>(
+                            new phase_space::sweep::gaussian_temperatures(parms));
+                    if (dist_name == "uniform")
+                        return dynamic_cast<phase_sweep_policy_type*>(
+                            new phase_space::sweep::uniform_temperatures(parms));
+                    if (dist_name == "bimodal")
+                        return dynamic_cast<phase_sweep_policy_type*>(
+                            new phase_space::sweep::equidistant_temperatures(parms, 2, seed_offset));
+                }
+                if (dist_name == "cycle")
                     return dynamic_cast<phase_sweep_policy_type*>(
-                        new phase_space::sweep::gaussian_temperatures(parms));
-                if (dist_name == "uniform")
-                    return dynamic_cast<phase_sweep_policy_type*>(
-                        new phase_space::sweep::uniform_temperatures(parms));
-                if (dist_name == "bimodal")
-                    return dynamic_cast<phase_sweep_policy_type*>(
-                        new phase_space::sweep::equidistant_temperatures(parms, 2, seed_offset));
+                        new phase_space::sweep::cycle<phase_point> (parms, seed_offset));
+                throw std::runtime_error("Invalid sweep policy \"" + dist_name + "\"");
                 return nullptr;
             }())
         , n_temp(0)
@@ -76,7 +83,7 @@ public:
     }
 
     double local_fraction_completed() const {
-        return (n_temp + Simulation::fraction_completed()) / N_temp;
+        return (n_temp + Simulation::fraction_completed()) / N_phase;
     }
 
     virtual double fraction_completed() const {
@@ -155,7 +162,7 @@ private:
 
     double const& global_progress;
 
-    size_t N_temp;
+    size_t N_phase;
     size_t N_sample;
 
     size_t n_temp;

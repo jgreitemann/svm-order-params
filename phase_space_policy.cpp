@@ -20,18 +20,13 @@
 
 using namespace phase_space;
 
-void sweep::define_parameters (alps::params & params) {
-    params
-        .define<double>("temp_step", 0.25, "maximum change of temperature")
-        .define<double>("temp_crit", 2.269185, "critical temperature")
-        .define<double>("temp_sigma", 1.0, "std. deviation of temperature")
-        .define<double>("temp_min", 0.0, "minimum value of temperature")
-        .define<double>("temp_max", std::numeric_limits<double>::max(),
-                        "maximum value of temperature");
+void classifier::critical_temperature::define_parameters(alps::params & params) {
+    params.define<double>("classifier.critical_temperature.temp_crit",
+                          1., "decriminatory temperature");
 }
 
 classifier::critical_temperature::critical_temperature (alps::params const& params)
-    : temp_crit(params["temp_crit"].as<double>()) {}
+    : temp_crit(params["classifier.critical_temperature.temp_crit"].as<double>()) {}
 
 classifier::critical_temperature::label_type classifier::critical_temperature::operator() (point_type pp) {
     return (pp.temp < temp_crit
@@ -39,12 +34,23 @@ classifier::critical_temperature::label_type classifier::critical_temperature::o
             : label::binary::DISORDERED);
 }
 
+void sweep::gaussian_temperatures::define_parameters(alps::params & params) {
+    const std::string prefix = "sweep.gaussian_temperatures.";
+    params
+        .define<double>(prefix + "temp_step", 1., "maximum change of temperature")
+        .define<double>(prefix + "temp_center", 1., "center temperature")
+        .define<double>(prefix + "temp_sigma", 1., "std. deviation of temperature")
+        .define<double>(prefix + "temp_min", 0.0, "minimum value of temperature")
+        .define<double>(prefix + "temp_max", std::numeric_limits<double>::max(),
+                        "maximum value of temperature");
+}
+
 sweep::gaussian_temperatures::gaussian_temperatures (alps::params const& params)
-    : temp_center(params["temp_crit"].as<double>())
-    , temp_min(params["temp_min"].as<double>())
-    , temp_max(params["temp_max"].as<double>())
-    , temp_step(params["temp_step"].as<double>())
-    , temp_sigma_sq(pow(params["temp_sigma"].as<double>(), 2))
+    : temp_center(params["sweep.gaussian_temperatures.temp_center"].as<double>())
+    , temp_min(params["sweep.gaussian_temperatures.temp_min"].as<double>())
+    , temp_max(params["sweep.gaussian_temperatures.temp_max"].as<double>())
+    , temp_step(params["sweep.gaussian_temperatures.temp_step"].as<double>())
+    , temp_sigma_sq(pow(params["sweep.gaussian_temperatures.temp_sigma"].as<double>(), 2))
 {}
 
 bool sweep::gaussian_temperatures::yield (point_type & point, rng_type & rng) {
@@ -62,10 +68,19 @@ bool sweep::gaussian_temperatures::yield (point_type & point, rng_type & rng) {
     return false;
 }
 
+void sweep::uniform_temperatures::define_parameters(alps::params & params) {
+    const std::string prefix = "sweep.uniform_temperatures.";
+    params
+        .define<double>(prefix + "temp_step", 1., "maximum change of temperature")
+        .define<double>(prefix + "temp_min", 0.0, "minimum value of temperature")
+        .define<double>(prefix + "temp_max", std::numeric_limits<double>::max(),
+                        "maximum value of temperature");
+}
+
 sweep::uniform_temperatures::uniform_temperatures (alps::params const& params)
-    : temp_min(params["temp_min"].as<double>())
-    , temp_max(params["temp_max"].as<double>())
-    , temp_step(params["temp_step"].as<double>())
+    : temp_min(params["sweep.uniform_temperatures.temp_min"].as<double>())
+    , temp_max(params["sweep.uniform_temperatures.temp_max"].as<double>())
+    , temp_step(params["sweep.uniform_temperatures.temp_step"].as<double>())
 {}
 
 bool sweep::uniform_temperatures::yield (point_type & point, rng_type & rng) {
@@ -80,13 +95,21 @@ bool sweep::uniform_temperatures::yield (point_type & point, rng_type & rng) {
     return true;
 }
 
+void sweep::equidistant_temperatures::define_parameters(alps::params & params) {
+    const std::string prefix = "sweep.equidistant_temperatures.";
+    params
+        .define<double>(prefix + "temp_min", 0.0, "minimum value of temperature")
+        .define<double>(prefix + "temp_max", std::numeric_limits<double>::max(),
+                        "maximum value of temperature");
+}
+
 sweep::equidistant_temperatures::equidistant_temperatures (alps::params const& params,
                                                            size_t N, size_t offset)
     : N(N)
     , n((offset % N == 0) ? 0 : (offset % N - 1))
-    , temp_max(params["temp_max"].as<double>())
-    , temp_step((params["temp_max"].as<double>()
-                 - params["temp_min"].as<double>()) / (N-1))
+    , temp_max(params["sweep.equidistant_temperatures.temp_max"].as<double>())
+    , temp_step((params["sweep.equidistant_temperatures.temp_max"].as<double>()
+                 - params["sweep.equidistant_temperatures.temp_min"].as<double>()) / (N-1))
     , cooling(offset % N != 0)
 {}
 
