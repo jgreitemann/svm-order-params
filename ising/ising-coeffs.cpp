@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
         svm::model_serializer<svm::hdf5_tag, svm::model<kernel_t>> serial(model);
         ar["model"] >> serial;
 
-        svm::tensor_introspector<kernel_t, 2> coeff(model);
+        auto coeff = svm::tensor_introspect<2>(model.classifier());
 
         boost::multi_array<double,2> C(boost::extents[length * length][1]);
         // C[0][0] = -model.rho();

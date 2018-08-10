@@ -15,7 +15,11 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "gauge.hpp"
+#include "config_policy.hpp"
 #include "convenience_params.hpp"
+
+#include <iostream>
+
 #include <alps/hdf5/vector.hpp>
 #include <alps/hdf5/multi_array.hpp>
 
@@ -38,8 +42,6 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<int>("group_size", "specify the order of the group")
         .define<bool>("O3", 0, "determine symmetry of matter fields")
         .define<double>("temperature", 1., "actual temperature to simulate")
-        .define<double>("J1", 0., "elements of J matrix")
-        .define<double>("J3", 1., "elements of J matrix")
         .define<int>("total_sweeps", 0, "maximum number of sweeps")
         .define<int>("thermalization_sweeps", 10000, "number of sweeps for thermalization")
         .define<int>("hits_R", 1, "number of hits in each flip of R")
@@ -48,6 +50,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<int>("sweep_unit", 10, "scale a sweep")
         .define<double>("spacing_E", 0.001, "spacing of normalized energy")
         .define<double>("spacing_nem", 0.001, "spacing of nematicity");
+    phase_point::define_parameters(parameters);
 
     parameters
         .define<bool>("resolve_sites", false, "do not average over sites (rank 1 only)")
@@ -134,9 +137,8 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     , gauge_group(parameters["gauge_group"].as<std::string>())
     , group_size(parameters["group_size"])
     , O3(parameters["O3"].as<bool>())
+    , ppoint(parms)
     , beta(1. / parameters["temperature"].as<double>())
-    , J1(parameters["J1"].as<double>())
-    , J3(parameters["J3"].as<double>())
     , Eg(-9*L3)
     , sweeps(0) //current sweeps
     , thermalization_sweeps(parameters["thermalization_sweeps"])
@@ -213,7 +215,31 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         nematicity = [this]() {
             return nematicity_Ih();
         };
-    else {
+    else if (gauge_group == "D2h") {
+        nematicity = [this]() {
+            return nematicity_Dinfh();
+        };
+        nematicityB = [this]() {
+            return nematicity_D2hB();
+        };
+        nematicityB2 = [this]() {
+            return nematicity_D2hB2();
+        };
+    } else if (gauge_group == "D2d") {
+        nematicity = [this]() {
+            return nematicity_Dinfh();
+        };
+        nematicityB = [this]() {
+            return nematicity_D2dB();
+        };
+    } else if (gauge_group == "D3" || gauge_group == "D3h") {
+        nematicity = [this]() {
+            return nematicity_Dinfh();
+        };
+        nematicityB = [this]() {
+            return nematicity_D3hB();
+        };
+    } else {
         std::cerr << "ERROR in the symmetry" << std::endl;
         return;
     }
@@ -222,13 +248,13 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 
     /* define J */
     J = Eigen::MatrixXd::Identity(3,3);
-    J(0,0) = J1;
-    J(1,1) = J1;
-    J(2,2) = J3;
+    J(0,0) = ppoint.J1();
+    J(1,1) = ppoint.J1();
+    J(2,2) = ppoint.J3();
 
     /* Set to uniform */
-    for(int i = 0; i < L3; i++)
-    { R[i] = Eigen::MatrixXd::Identity(3,3);
+    for(int i = 0; i < L3; i++) {
+        R[i] = Eigen::MatrixXd::Identity(3,3);
         Ux[i] = Eigen::MatrixXd::Identity(3,3);
         Uy[i] = Eigen::MatrixXd::Identity(3,3);
         Uz[i] = Eigen::MatrixXd::Identity(3,3);
@@ -242,8 +268,7 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 #endif
 
     /* Random Initialization */
-    for(int i = 0; i < L3; i++)
-    {
+    for(int i = 0; i < L3; i++) {
         random_R(R[i]); //change R[i] to a random matrix
         Ux[i] = gauge_bath[random_U(rng)];
         Uy[i] = gauge_bath[random_U(rng)];
@@ -257,9 +282,14 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 #ifdef DEBUGMODE
     std::cout << "Energy(normalized) at infinite temperature: \n "
               << current_energy/Eg << std::endl;
-
     std::cout << "Nematicity(normalized) at infinite temperature: \n "
               << sqrt(nematicity()) << std::endl;
+    if(nematicityB)
+        std::cout << "Biaxial nematicity(normalized) at infinite temperature: \n " 
+                  << sqrt(nematicityB()) << std::endl;	
+	if(nematicityB2)
+		std::cout << "Variant biaxial nematicity(normalized) at infinite temperature: \n " 
+                  << sqrt(nematicityB2()) << std::endl;	
 #endif
 
     // Adds the measurements
@@ -271,9 +301,22 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^2")
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^4")
         ;
+    if (nematicityB)
+        measurements
+            << alps::accumulators::FullBinningAccumulator<double>("NematicityB");
+    if (nematicityB2)
+        measurements
+            << alps::accumulators::FullBinningAccumulator<double>("NematicityB2");
 
     confpol = config_policy_from_parameters(parameters);
 }
+
+/* Note: explicitly defaulting destructor here, *after* type config_policy
+ * has been completed. Otherwise, the implicitly defined default destructor
+ * fails because config_policy is incomplete type upon definition of
+ * struct gauge_sim. Cf.: https://stackoverflow.com/a/9954553/2788450
+ */
+gauge_sim::~gauge_sim() = default;
 
 /** Define member functions **/
 
@@ -532,6 +575,11 @@ void gauge_sim::measure() {
     measurements["Nematicity"] << nem;
     //measurements["Nematicity^2"] << nem2;
     //measurements["Nematicity^4"] << nem2 * nem2;
+
+    if (nematicityB)
+        measurements["NematicityB"] << sqrt(nematicityB());
+    if (nematicityB2)
+        measurements["NematicityB2"] << sqrt(nematicityB2());
 }
 
 // Returns a number between 0.0 and 1.0 with the completion percentage
@@ -548,6 +596,11 @@ double gauge_sim::fraction_completed() const {
 void gauge_sim::save(alps::hdf5::archive & ar) const {
     // Most of the save logic is already implemented in the base class
     alps::mcbase::save(ar);
+
+    // random number engine
+    std::ostringstream engine_ss;
+    engine_ss << rng;
+    ar["checkpoint/random"] << engine_ss.str();
 
     /* Save the flip ratios */
     double trying_R = 0.01 * sweeps * sweep_unit * hits_R * L3;
@@ -596,6 +649,12 @@ void gauge_sim::load(alps::hdf5::archive & ar) {
     // Most of the load logic is already implemented in the base class
     alps::mcbase::load(ar);
 
+    // random number engine
+    std::string engine_str;
+    ar["checkpoint/random"] >> engine_str;
+    std::istringstream engine_ss(engine_str);
+    engine_ss >> rng;
+
     /*Load the configuration from checkpoint*/
     boost::multi_array<double, 2> R_data;
     boost::multi_array<double, 2> Ux_data;
@@ -631,11 +690,6 @@ void gauge_sim::reset_sweeps(bool skip_therm) {
         sweeps = 0;
 }
 
-void gauge_sim::temperature(double new_temp) {
-    parameters["temperature"] = new_temp;
-    beta = 1. / new_temp;
-}
-
 bool gauge_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
 }
@@ -646,4 +700,19 @@ size_t gauge_sim::configuration_size() const {
 
 std::vector<double> gauge_sim::configuration() const {
     return confpol->configuration(R);
+}
+
+gauge_sim::phase_point gauge_sim::phase_space_point () const {
+    return ppoint;
+}
+
+void gauge_sim::update_phase_point (phase_sweep_policy_type & sweep_policy) {
+    reset_sweeps(!sweep_policy.yield(ppoint, rng));
+    parameters["J1"] = ppoint.J1();
+    parameters["J3"] = ppoint.J3();
+    J1 = ppoint.J1();
+    J3 = ppoint.J3();
+    J(0, 0) = J1;
+    J(1, 1) = J1;
+    J(2, 2) = J3;
 }

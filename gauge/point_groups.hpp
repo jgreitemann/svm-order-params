@@ -32,6 +32,10 @@ class point_groups {
     typedef boost::multi_array<Rt3, 1> Rt_array;
     
     Rt_array D2_bath;
+    Rt_array D2h_bath;
+    Rt_array D2d_bath;
+    Rt_array D3_bath;
+    Rt_array D3h_bath;
     Rt_array Cinfv_bath;
     Rt_array Dinfh_bath;
     Rt_array T_bath;
@@ -45,6 +49,10 @@ class point_groups {
 	public:
 	
 	inline void generate_D2();
+	inline void generate_D2h();
+	inline void generate_D2d();
+	inline void generate_D3();
+	inline void generate_D3h();
 	inline void generate_Cinfv();
 	inline void generate_Dinfh();
 	inline void generate_T();

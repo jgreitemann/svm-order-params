@@ -47,7 +47,10 @@
 
 using sim_type = training_adapter<sim_base>;
 using kernel_t = typename sim_type::kernel_t;
-using model_t = svm::model<kernel_t>;
+using label_t = typename sim_type::phase_label;
+using classifier_t = typename sim_type::phase_classifier;
+using model_t = svm::model<kernel_t, label_t>;
+using problem_t = typename model_t::problem_t;
 
 int main(int argc, char** argv)
 {
@@ -90,7 +93,9 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        svm::problem<kernel_t> prob(0);
+        problem_t prob(0);
+        classifier_t classifier(parameters);
+
         std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
 
         int n_clones;
@@ -165,9 +170,9 @@ int main(int argc, char** argv)
 #pragma omp critical
                 {
                     if (prob.dim() == 0) {
-                        prob = sim.surrender_problem();
+                        prob = problem_t(sim.surrender_problem(), classifier);
                     } else {
-                        prob.append_problem(sim.surrender_problem());
+                        prob.append_problem(sim.surrender_problem(), classifier);
                     }
                 }
             }
@@ -177,14 +182,6 @@ int main(int argc, char** argv)
             alps::hdf5::archive cp(checkpoint_file, "w");
             cp["simulation/n_clones"] << n_clones;
         }
-
-        // relabel problem data based on crit. temperature
-        double temp_crit = parameters["temp_crit"].as<double>();
-        std::cout << "Label samples relative to crit. temperature Tc = "
-                  << temp_crit << std::endl;
-        prob.map_labels([temp_crit] (double temp) {
-                return temp < temp_crit ? 1. : -1.;
-            });
 
         {
             // create the model

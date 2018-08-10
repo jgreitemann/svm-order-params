@@ -18,12 +18,14 @@
 
 #include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
+#include "phase_space_policy.hpp"
 
 #include <cmath>
 #include <functional>
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <type_traits>
 
 #include <alps/mc/mcbase.hpp>
 
@@ -33,8 +35,12 @@ class training_adapter : public Simulation {
 public:
     typedef alps::mcbase::parameters_type parameters_type;
 
+    using phase_point = typename Simulation::phase_point;
+    using phase_classifier = typename Simulation::phase_classifier;
+    using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
+
     using kernel_t = svm::kernel::polynomial<2>;
-    using problem_t = svm::problem<kernel_t>;
+    using problem_t = svm::problem<kernel_t, phase_point>;
 
     static void define_parameters(parameters_type & parameters) {
         // If the parameters are restored, they are already defined
@@ -44,17 +50,15 @@ public:
         
         // Adds the parameters of the base class
         Simulation::define_parameters(parameters);
+        phase_classifier::define_parameters(parameters);
+        phase_space::sweep::define_parameters<phase_point>(parameters);
         parameters
-            .define<double>("temp_step", 0.25, "maximum change of temperature")
-            .define<double>("temp_crit", 2.269185, "critical temperature")
-            .define<double>("temp_sigma", 1.0, "std. deviation of temperature")
-            .define<double>("temp_min", 0.0, "minimum value of temperature")
-            .define<double>("temp_max", std::numeric_limits<double>::max(),
-                            "maximum value of temperature")
-            .define<std::string>("temp_dist", "gaussian", "temperature distribution")
-            .define<size_t>("N_temp", 1000, "number of attempted temperature updates")
-            .define<size_t>("N_sample", 1000, "number of configuration samples taken"
-                            " at each temperature")
+            .define<std::string>("sweep.dist", "cycle",
+                                 "phase space point distribution")
+            .define<size_t>("sweep.N", 1000, "number of attempted phase point updates")
+            .define<size_t>("sweep.samples", 1000,
+                            "number of configuration samples taken"
+                            " at each phase point")
             ;
     }
 
@@ -63,25 +67,39 @@ public:
                       std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
         , global_progress(global_progress)
-        , temp_step(double(parameters["temp_step"]))
-        , temp_crit(double(parameters["temp_crit"]))
-        , temp_sigma_sq(pow(double(parameters["temp_sigma"]), 2))
-        , temp_min(double(parameters["temp_min"]))
-        , temp_max(double(parameters["temp_max"]))
-        , N_temp(size_t(parameters["N_temp"]))
-        , N_sample(size_t(parameters["N_sample"]))
-        , gaussian(parameters["temp_dist"] == "gaussian")
-        , temp(temp_crit)
+        , N_phase(size_t(parameters["sweep.N"]))
+        , N_sample(size_t(parameters["sweep.samples"]))
+        , sweep_policy([&] () -> phase_sweep_policy_type * {
+                std::string dist_name = parameters["sweep.dist"];
+                if (std::is_same<phase_point, phase_space::point::temperature>::value) {
+                    if (dist_name == "gaussian")
+                        return dynamic_cast<phase_sweep_policy_type*>(
+                            new phase_space::sweep::gaussian_temperatures(parms));
+                    if (dist_name == "uniform")
+                        return dynamic_cast<phase_sweep_policy_type*>(
+                            new phase_space::sweep::uniform_temperatures(parms));
+                    if (dist_name == "bimodal")
+                        return dynamic_cast<phase_sweep_policy_type*>(
+                            new phase_space::sweep::equidistant_temperatures(parms, 2, seed_offset));
+                }
+                if (dist_name == "cycle")
+                    return dynamic_cast<phase_sweep_policy_type*>(
+                        new phase_space::sweep::cycle<phase_point> (parms, seed_offset));
+                throw std::runtime_error("Invalid sweep policy \"" + dist_name + "\"");
+                return nullptr;
+            }())
         , n_temp(0)
         , i_temp(0)
         , problem(Simulation::configuration_size())
         , prob_serializer(problem)
     {
-        update_temperature();
+        if (!sweep_policy)
+            throw std::runtime_error("temperature distribution not implemented");
+        Simulation::update_phase_point(*sweep_policy);
     }
 
     double local_fraction_completed() const {
-        return (n_temp + Simulation::fraction_completed()) / N_temp;
+        return (n_temp + Simulation::fraction_completed()) / N_phase;
     }
 
     virtual double fraction_completed() const {
@@ -93,8 +111,7 @@ public:
 
     virtual void update () override {
         if (Simulation::fraction_completed() >= 1.) {
-            bool changed = update_temperature();
-            Simulation::reset_sweeps(!changed);
+            Simulation::update_phase_point(*sweep_policy);
             i_temp = 0;
             ++n_temp;
         }
@@ -106,7 +123,8 @@ public:
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            problem.add_sample(Simulation::configuration(), temp);
+            problem.add_sample(Simulation::configuration(),
+                               Simulation::phase_space_point());
             ++i_temp;
         }
     }
@@ -116,11 +134,9 @@ public:
         Simulation::save(ar);
 
         // non-overridable parameters
-        ar["training/temp_crit"] << temp_crit;
         ar["training/N_sample"] << N_sample;
 
         // state
-        ar["training/temp"] << temp;
         ar["training/i_temp"] << i_temp;
         ar["training/n_temp"] << n_temp;
 
@@ -132,11 +148,9 @@ public:
         Simulation::load(ar);
 
         // non-overridable parameters
-        ar["training/temp_crit"] >> temp_crit;
         ar["training/N_sample"] >> N_sample;
 
         // state
-        ar["training/temp"] >> temp;
         ar["training/i_temp"] >> i_temp;
         ar["training/n_temp"] >> n_temp;
 
@@ -146,8 +160,7 @@ public:
 
         // flatten
         if (i_temp == N_sample) {
-            bool changed = update_temperature();
-            Simulation::reset_sweeps(!changed);
+            Simulation::update_phase_point(*sweep_policy);
             i_temp = 0;
         }
     }
@@ -159,41 +172,20 @@ public:
     }
 
 private:
-    bool update_temperature () {
-        double delta_temp = (2. * random() - 1.) * temp_step;
-        if (temp + delta_temp < temp_min || temp + delta_temp > temp_max)
-            return false;
-        double ratio = 1.;
-        if (gaussian) {
-            ratio = exp(-(2. * (temp-temp_crit) + delta_temp) * delta_temp
-                        / 2. / temp_sigma_sq);
-        }
-        if (ratio > 1 || random() < ratio) {
-            temp += delta_temp;
-            Simulation::temperature(temp);
-            return true;
-        }
-        return false;
-    }
 
     using Simulation::parameters;
     using Simulation::random;
 
     double const& global_progress;
 
-    double temp_step;
-    double temp_crit;
-    double temp_sigma_sq;
-    double temp_min;
-    double temp_max;
-    bool gaussian;
-    size_t N_temp;
+    size_t N_phase;
     size_t N_sample;
 
     size_t n_temp;
     size_t i_temp;
-    double temp;
 
     problem_t problem;
     svm::problem_serializer<svm::hdf5_tag, problem_t> prob_serializer;
+
+    std::unique_ptr<phase_sweep_policy_type> sweep_policy;
 };

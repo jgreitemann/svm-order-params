@@ -23,6 +23,7 @@ include_directories(colormap)
 include_directories(ising)
 add_executable(ising-learn
     learn.cpp
+    phase_space_policy.cpp
     checkpointing_stop_callback.cpp
     ising/ising.cpp
     )
@@ -42,6 +43,7 @@ add_executable(ising-coeffs
 include_directories(gauge)
 add_executable(gauge-learn
     learn.cpp
+    phase_space_policy.cpp
     checkpointing_stop_callback.cpp
     gauge/gauge.cpp
     gauge/nematicities.cpp
@@ -79,4 +81,4 @@ target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
-target_link_libraries(output-contractions svm stdc++fs)
+target_link_libraries(output-contractions ${ALPSCore_LIBRARIES} svm stdc++fs)

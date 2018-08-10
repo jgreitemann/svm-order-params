@@ -17,6 +17,7 @@
 #pragma once
 
 #include "combinatorics.hpp"
+#include "gauge.hpp"
 #include "indices.hpp"
 #include "svm-wrapper.hpp"
 
@@ -400,7 +401,9 @@ struct config_policy {
     typedef boost::multi_array<local_state, 1> config_array;
     typedef boost::multi_array<double, 2> matrix_t;
 
-    typedef svm::tensor_introspector<svm::kernel::polynomial<2>, 2> introspec_t;
+    typedef svm::model<svm::kernel::polynomial<2>,
+                       gauge_sim::phase_label> model_t;
+    typedef svm::tensor_introspector<typename model_t::classifier_type, 2> introspec_t;
 
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
@@ -527,8 +530,10 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                 for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
-                        block_2norms[i_out / block_size][j_out / block_size] += c[i][j];
-                        block_sums[i_out / block_size][j_out / block_size] += c[i][j];
+                        block_2norms[i_out / block_size][j_out / block_size]
+                            += c[i][j] / (weights[i] * weights[j]);
+                        block_sums[i_out / block_size][j_out / block_size]
+                            += c[i][j] / (weights[i] * weights[j]);
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
             } while (unsymmetrize && transform_ind(i_ind));

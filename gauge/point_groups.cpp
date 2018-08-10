@@ -18,7 +18,7 @@
 
 void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_array& arr1) 
 {
-	
+
 	if(str1 == "T" && size == 12)
 	{ 
 		generate_T();
@@ -50,7 +50,7 @@ void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_a
 			arr1 = Td_bath;
 			return;
 		 }
-	
+
 	else if(str1 == "Th" && size == 24 && hds) 
 		 { 
 			generate_Th();
@@ -91,39 +91,167 @@ void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_a
 			return;
 		 }
 
-			else 
-			{
-				std::cout << " \n UNKNOWN symmetry or ERROR in its size or handedness \n" << std::endl;
-				return;
-			}
+		 else if (str1 == "D2h" && size == 8 && hds)
+		 {
+             generate_D2h();
+             arr1.resize(boost::extents[size]);
+             arr1 = D2h_bath;
+		 }
 
+		 else if (str1 == "D2d" && size == 8 && hds)
+		 {
+             generate_D2d();
+             arr1.resize(boost::extents[size]);
+             arr1 = D2d_bath;
+		 }	
+		 else if(str1 == "D3" && size == 6)
+		 {
+             generate_D3();
+             arr1.resize(boost::extents[size]);
+             arr1=D3_bath;
+		 }
+
+		 else if(str1 == "D3h" && size == 12 && hds)
+		 {
+             generate_D3h();
+             arr1.resize(boost::extents[size]);
+             arr1=D3h_bath;
+		 }
+
+         else 
+         {
+             std::cout << " \n UNKNOWN symmetry or ERROR in its size or handedness \n" << std::endl;
+             return;
+         }
 }
 
 
 void point_groups::generate_D2() {
-	
+
 	D2_bath.resize(boost::extents[4]);
-	
-	
+
+
 	D2_bath[1] << -1, 0, 0,
 				0, -1, 0,
 				0, 0, 1;
-	
+
 	D2_bath[2] << -1, 0, 0,
 				0, 1, 0,
 				0, 0, -1;
-	
+
 	D2_bath[3] = D2_bath[1] * D2_bath[2];
-					
+
 	D2_bath[0] = D2_bath[1] * D2_bath[1];
-	
+}
+
+void point_groups::generate_D2h()
+{
+	generate_D2();
+
+	D2h_bath.resize(boost::extents[8]);
+
+	Rt_array sg_h; //sigma_h
+	sg_h.resize(boost::extents[2]);
+
+	sg_h[0] << 1, 0, 0,
+			 0, 1, 0,
+			 0, 0, 1;
+
+	sg_h[1] << 1, 0, 0, 
+  			 0, 1, 0,  
+  			 0, 0, -1; 
+
+	int k = 0;
+	for(int j = 0; j < sg_h.size(); j++)
+		for(int i = 0; i < D2_bath.size(); i++)
+		{
+			D2h_bath[k] = sg_h[j] * D2_bath[i];
+			k++;
+		}
+}
+
+void point_groups::generate_D2d()
+{
+	generate_D2();
+
+	D2d_bath.resize(boost::extents[8]);
+
+	Rt_array sg_d; //sigma_d
+	sg_d.resize(boost::extents[2]);
+
+	sg_d[0] << 1, 0, 0,
+			 0, 1, 0,
+			 0, 0, 1;
+
+	sg_d[1] << 0, 1, 0, 
+  			 1, 0, 0,  
+			 0, 0, 1; 
+
+	int k = 0;
+	for(int j = 0; j < sg_d.size(); j++)
+		for(int i = 0; i < D2_bath.size(); i++)
+		{
+			D2d_bath[k] = sg_d[j] * D2_bath[i];
+			k++;
+		}
+}
+
+void point_groups::generate_D3() {
+
+	double a = -0.5; // cos(120)
+	double b = sqrt(3)/2; //sin(120)
+
+	D3_bath.resize(boost::extents[6]);
+
+
+	D3_bath[1] << a, -b, 0,
+				b, a, 0,
+				0, 0, 1; //c3z
+
+	D3_bath[2] = D3_bath[1] * D3_bath[1];
+
+	D3_bath[3] << 1, 0, 0,
+				0, -1, 0,
+				0, 0, -1; //c2x				
+
+
+	D3_bath[4] = D3_bath[3]*D3_bath[1]; 
+	D3_bath[5] = D3_bath[3]*D3_bath[2]; 		
+	D3_bath[0] = D3_bath[3] * D3_bath[3];
+
 	}
+
+void point_groups::generate_D3h()
+{
+	generate_D3();
+
+	D3h_bath.resize(boost::extents[12]);
+
+	Rt_array sg_h; //sigma_h
+	sg_h.resize(boost::extents[2]);
+
+	sg_h[0] << 1, 0, 0,
+			 0, 1, 0,
+			 0, 0, 1;
+
+	sg_h[1] << 1, 0, 0, 
+  			 0, 1, 0,  
+  			 0, 0, -1; 
+
+	int k = 0;
+	for(int j = 0; j < sg_h.size(); j++)
+		for(int i = 0; i < D3_bath.size(); i++)
+		{
+			D3h_bath[k] = sg_h[j] * D3_bath[i];
+			k++;
+		}
+}
 
 void point_groups::generate_Cinfv() { // ignore the inplange elements, only works when J1 = 0
 	Cinfv_bath.resize(boost::extents[1]);
 	Cinfv_bath[0] = Eigen::MatrixXd::Identity(3,3); 
 }	
-	
+
 void point_groups::generate_Dinfh() { // as Cinfv
 	Dinfh_bath.resize(boost::extents[2]);
 	Dinfh_bath[0] = Eigen::MatrixXd::Identity(3,3);
@@ -132,7 +260,7 @@ void point_groups::generate_Dinfh() { // as Cinfv
 
 void point_groups::generate_T() 
 {
-	
+
 	/* use D2 and c3 as generating groups */
 	generate_D2();
 	int len_D2 = D2_bath.shape()[0];
@@ -141,18 +269,18 @@ void point_groups::generate_T()
 	Rt_array c3;
 	c3.resize(boost::extents[3]);
 	int len_c3 = c3.shape()[0];
-	
+
 	c3[1] << 0, 0, 1,
 			 1, 0, 0,
 			 0, 1, 0;
-	
+
 	c3[2] = c3[1] * c3[1];	
 	c3[0] = c3[1] * c3[2];
-	
+
 
 	int len_T = 12;
 	T_bath.resize(boost::extents[len_T]);
-	
+
 	/* generate T by coset decomposition;
 	 * checked */
 	int k = 0;
@@ -162,7 +290,7 @@ void point_groups::generate_T()
 				T_bath[k] = c3[j] * D2_bath[i]; 
 				k++; 
 			}		
-	
+
 }
 
 void point_groups::generate_Td()
@@ -336,7 +464,7 @@ void point_groups::generate_Ih()
 	Z2[0] << 1, 0, 0,
 			 0, 1, 0,
 			 0, 0, 1;
-	 
+
 	Z2[1] << -1, 0, 0, 
   			 0, -1, 0,  
   			 0, 0, -1; 

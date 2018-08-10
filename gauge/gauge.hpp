@@ -16,28 +16,35 @@
 
 #pragma once
 
-#include <alps/mc/mcbase.hpp>
-#include <time.h>
-#include <random>
+#include "point_groups.hpp"
+#include "phase_space_policy.hpp"
+
 #include <cmath>
 #include <memory>
+#include <random>
 #include <string>
+
+#include <alps/numeric/vector_functions.hpp>
+#include <alps/mc/mcbase.hpp>
+
 #include <boost/math/constants/constants.hpp>
 #include <boost/multi_array.hpp>
-#include <boost/function.hpp>
-#include <alps/numeric/vector_functions.hpp>
-#include "Eigen/Dense"
-#include "point_groups.hpp"
 
-#include "config_policy.hpp"
+#include <Eigen/Dense>
 
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
 
+// forward declaration
+struct config_policy;
 
 class gauge_sim : public alps::mcbase {
+public:
+    using phase_point = phase_space::point::J1J3;
+    using phase_classifier = phase_space::classifier::orthants<phase_point>;
+    using phase_label = phase_classifier::label_type;
+    using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
-
     /** parameters **/
     int L;
     int L2;
@@ -55,7 +62,8 @@ private:
     double spacing_E;
     double spacing_nem;
 
-    double beta; // used in each updates, modified in warm_up()
+    phase_point ppoint;
+    double beta;
 
     double J1, J3; // define anisotropy of J matrix
 
@@ -79,7 +87,9 @@ private:
     const bool O3;
 
     std::string gauge_group;
-    boost::function<double ()> nematicity;
+    std::function<double ()> nematicity;
+    std::function<double ()> nematicityB;  //biaxial nematicity
+    std::function<double ()> nematicityB2; // variant biaxial nematicity
     int group_size;
     point_groups pg; // defined in point_groups.hpp
 
@@ -102,6 +112,7 @@ private:
 
 public:
     gauge_sim(parameters_type const & parms, std::size_t seed_offset = 0);
+    virtual ~gauge_sim();
 
     static void define_parameters(parameters_type & parameters);
 
@@ -133,6 +144,11 @@ public:
     double nematicity_Oh();
     double nematicity_Ih();
 
+    double nematicity_D2hB();
+    double nematicity_D2hB2();
+    double nematicity_D2dB();
+    double nematicity_D3hB();
+
     /* compute succeeded flip ratio */
     void flip_ratio(double current_beta, int N);
 
@@ -145,12 +161,20 @@ public:
     virtual void load(alps::hdf5::archive & ar);
 
     // SVM interface functions
-    static constexpr const char * order_param_name = "Nematicity";
+    std::vector<std::string> order_param_names() const {
+        std::vector<std::string> names = {"Nematicity"};
+        if (nematicityB)
+            names.push_back("NematicityB");
+        if (nematicityB2)
+            names.push_back("NematicityB2");
+        return names;
+    }
     void reset_sweeps(bool skip_therm);
-    void temperature(double new_temp);
     bool is_thermalized() const;
     size_t configuration_size() const;
     std::vector<double> configuration() const;
+    phase_point phase_space_point () const;
+    void update_phase_point (phase_sweep_policy_type & sweep_policy);
 
 private:
     std::unique_ptr<config_policy> confpol;

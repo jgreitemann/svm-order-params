@@ -5,8 +5,10 @@
  */
 
 #include "ising.hpp"
-
 #include "convenience_params.hpp"
+
+#include <sstream>
+
 
 // Defines the parameters for the ising simulation
 void ising_sim::define_parameters(parameters_type & parameters) {
@@ -22,8 +24,8 @@ void ising_sim::define_parameters(parameters_type & parameters) {
     define_convenience_parameters(parameters)
         .description("2D ising simulation")
         .define<int>("length", "size of the periodic box")
-        .define<int>("sweeps", 0, "maximum number of sweeps (0 means indefinite)")
-        .define<int>("thermalization", 10000, "number of sweeps for thermalization")
+        .define<int>("total_sweeps", 0, "maximum number of sweeps (0 means indefinite)")
+        .define<int>("thermalization_sweeps", 10000, "number of sweeps for thermalization")
         .define<double>("temperature", "temperature of the system");
 }
 
@@ -33,15 +35,18 @@ void ising_sim::define_parameters(parameters_type & parameters) {
 // mainly using values from the parameters.
 ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
     : alps::mcbase(parms, seed_offset)
+    , rng(parameters["SEED"].as<size_t>() + seed_offset)
     , length(parameters["length"])
     , sweeps(0)
-    , thermalization_sweeps(int(parameters["thermalization"]))
-    , total_sweeps(parameters["sweeps"])
-    , beta(1. / parameters["temperature"].as<double>())
+    , thermalization_sweeps(int(parameters["thermalization_sweeps"]))
+    , total_sweeps(parameters["total_sweeps"])
+    , ppoint(parameters["temperature"].as<double>())
     , spins(length,length)
     , current_energy(0)
     , current_magnetization(0)
-    , iexp_(-beta)
+    , iexp_(-1. / ppoint.temp)
+    , uniform(0., 1.)
+    , random_site(0, length - 1)
 {
     // Initializes the spins
     for(int i=0; i<length; ++i) {
@@ -79,12 +84,6 @@ void ising_sim::reset_sweeps(bool skip_therm) {
         sweeps = 0;
 }
 
-void ising_sim::temperature(double new_temp) {
-    parameters["temperature"] = new_temp;
-    beta = 1. / new_temp;
-    iexp_ = exp_beta(-beta);
-}
-
 bool ising_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
 }
@@ -97,19 +96,31 @@ std::vector<int> const& ising_sim::configuration() const {
     return spins.data();
 }
 
+ising_sim::phase_point ising_sim::phase_space_point () const {
+    return ppoint;
+}
+
+void ising_sim::update_phase_point (phase_sweep_policy_type & sweep_policy) {
+    bool changed = sweep_policy.yield(ppoint, rng);
+    reset_sweeps(!changed);
+    if (changed) {
+        parameters["temperature"] = ppoint.temp;
+        iexp_ = exp_beta(-1. / ppoint.temp);
+    }
+}
+
 // Performs the calculation at each MC step;
 // decides if the step is accepted.
 void ising_sim::update() {
     using std::exp;
-    typedef unsigned int uint;
     // Choose a spin to flip:
-    uint i = uint(length * random());
-    uint j = uint(length * random());
+    size_t i = random_site(rng);
+    size_t j = random_site(rng);
     // Find neighbors indices, with wrap over box boundaries:
-    uint i1 = (i+1) % length;            // right
-    uint i2 = (i-1+length) % length;     // left
-    uint j1 = (j+1) % length;            // up
-    uint j2 = (j-1+length) % length;     // down
+    size_t i1 = (i+1) % length;            // right
+    size_t i2 = (i-1+length) % length;     // left
+    size_t j1 = (j+1) % length;            // up
+    size_t j2 = (j-1+length) % length;     // down
     // Energy difference:
     double delta=2.*spins(i,j)*
                     (spins(i1,j)+  // right
@@ -118,7 +129,7 @@ void ising_sim::update() {
                      spins(i,j2)); // down
     
     // Step acceptance:
-    if (delta<=0. || random() < iexp_(delta)) {
+    if (delta<=0. || uniform(rng) < iexp_(delta)) {
         // update energy:
         current_energy += delta;
         // update magnetization:
@@ -157,6 +168,11 @@ double ising_sim::fraction_completed() const {
 void ising_sim::save(alps::hdf5::archive & ar) const {
     // Most of the save logic is already implemented in the base class
     alps::mcbase::save(ar);
+
+    // random number engine
+    std::ostringstream engine_ss;
+    engine_ss << rng;
+    ar["checkpoint/random"] << engine_ss.str();
     
     // We just need to add our own internal state
     ar["checkpoint/spins"] << spins;
@@ -172,12 +188,18 @@ void ising_sim::load(alps::hdf5::archive & ar) {
     // Most of the load logic is already implemented in the base class
     alps::mcbase::load(ar);
 
+    // random number engine
+    std::string engine_str;
+    ar["checkpoint/random"] >> engine_str;
+    std::istringstream engine_ss(engine_str);
+    engine_ss >> rng;
+
     // Restore the internal state that came from parameters
     length = parameters["length"];
     thermalization_sweeps = parameters["thermalization"];
     // Note: `total_sweeps` is not restored here!
-    beta = 1. / parameters["temperature"].as<double>();
-    iexp_ = exp_beta(-beta);
+    ppoint.temp = parameters["temperature"].as<double>();
+    iexp_ = exp_beta(-1. / ppoint.temp);
 
     // Restore the rest of the state from the hdf5 file
     ar["checkpoint/spins"] >> spins;
