@@ -207,6 +207,31 @@ namespace phase_space {
             point_type origin;
         };
 
+        template <typename Point>
+        struct hyperplane {
+            using point_type = Point;
+            using label_type = label::binary::label;
+
+            static void define_parameters(alps::params & params) {
+                point_type::define_parameters(params, "classifier.hyperplane.support.");
+                point_type::define_parameters(params, "classifier.hyperplane.normal.");
+            }
+
+            hyperplane(alps::params const& params)
+                : support(params, "classifier.hyperplane.support.")
+                , normal(params, "classifier.hyperplane.normal.") {}
+
+            label_type operator() (point_type pp) {
+                std::transform(pp.begin(), pp.end(), support.begin(), pp.begin(),
+                               std::minus<>{});
+                double res = std::inner_product(pp.begin(), pp.end(),
+                                                normal.begin(), 0.);
+                return res > 0 ? label::binary::ORDERED : label::binary::DISORDERED;
+            }
+        private:
+            point_type support, normal;
+        };
+
     }
 
     namespace sweep {
@@ -298,6 +323,38 @@ namespace phase_space {
         };
 
         template <typename Point>
+        struct uniform_line : public policy<Point> {
+            using point_type = typename policy<Point>::point_type;
+            using rng_type = typename policy<Point>::rng_type;
+
+            static void define_parameters(alps::params & params) {
+                point_type::define_parameters(params, "sweep.uniform_line.a.");
+                point_type::define_parameters(params, "sweep.uniform_line.b.");
+            }
+
+            uniform_line (point_type a, point_type b)
+                : a(a), b(b) {}
+
+            uniform_line (alps::params const& params)
+                : a(params, "sweep.uniform_line.a.")
+                , b(params, "sweep.uniform_line.b.") {}
+
+            virtual bool yield (point_type & point, rng_type & rng) final override {
+                double x = std::uniform_real_distribution<double>{}(rng);
+                auto ita = a.begin();
+                auto itb = b.begin();
+                for (auto & c : point) {
+                    c = (1. - x) * (*ita) + x * (*itb);
+                    ++ita, ++itb;
+                }
+                return true;
+            }
+
+        private:
+            point_type a, b;
+        };
+
+        template <typename Point>
         struct line_scan : public policy<Point> {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
@@ -335,6 +392,7 @@ namespace phase_space {
                 equidistant_temperatures::define_parameters(params);
             }
             cycle<Point>::define_parameters(params);
+            uniform_line<Point>::define_parameters(params);
         }
 
     }
