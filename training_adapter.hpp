@@ -93,8 +93,6 @@ public:
         , problem(Simulation::configuration_size())
         , prob_serializer(problem)
     {
-        if (!sweep_policy)
-            throw std::runtime_error("temperature distribution not implemented");
         Simulation::update_phase_point(*sweep_policy);
     }
 

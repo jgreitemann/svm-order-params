@@ -18,6 +18,8 @@
 #include "label.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 #include <random>
 #include <sstream>
 #include <type_traits>
@@ -150,6 +152,19 @@ namespace phase_space {
             return os << ')';
         }
 
+        template <typename Point>
+        struct distance {
+            double operator() (Point const& lhs, Point const& rhs) const {
+                double d = 0.;
+                auto itl = lhs.begin();
+                auto itr = rhs.begin();
+                for (; itl != lhs.end(); ++itl, ++itr) {
+                    d += pow(*itl - *itr, 2);
+                }
+                return sqrt(d);
+            }
+        };
+
     }
 
     namespace classifier {
@@ -270,12 +285,14 @@ namespace phase_space {
                 n = (n + 1) % points.size();
                 return true;
             }
-        private:
+
             static std::string format_prefix(size_t i) {
                 std::stringstream ss;
                 ss << "sweep.cycle.P" << i << '.';
                 return ss.str();
             }
+
+        private:
             std::vector<point_type> points;
             size_t n;
         };
@@ -319,6 +336,43 @@ namespace phase_space {
             }
             cycle<Point>::define_parameters(params);
         }
+
+    }
+
+    namespace classifier {
+
+        template <typename Point, size_t M>
+        struct fixed_from_cycle {
+            using point_type = Point;
+            using label_type = label::numeric_label::label<M>;
+
+            static void define_parameters(alps::params & params) {
+            }
+
+            fixed_from_cycle(alps::params const& params) {
+                for (size_t i = 1; i <= M; ++i) {
+                    points.emplace_back(params, sweep::cycle<point_type>::format_prefix(i));
+                }
+            }
+            label_type operator() (point_type pp) {
+                auto it = pp.begin();
+                if (*it > 5 || *(++it) > 5)
+                    std::cout << "buh!" << std::endl;
+                size_t i;
+                double d = std::numeric_limits<double>::max();
+                point::distance<point_type> dist{};
+                for (size_t j = 0; j < M; ++j) {
+                    double dd = dist(points[j], pp);
+                    if (dd < d) {
+                        i = j;
+                        d = dd;
+                    }
+                }
+                return i;
+            }
+        private:
+            std::vector<point_type> points;
+        };
 
     }
 
