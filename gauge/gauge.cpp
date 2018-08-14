@@ -708,8 +708,6 @@ gauge_sim::phase_point gauge_sim::phase_space_point () const {
 
 void gauge_sim::update_phase_point (phase_sweep_policy_type & sweep_policy) {
     reset_sweeps(!sweep_policy.yield(ppoint, rng));
-    parameters["J1"] = ppoint.J1();
-    parameters["J3"] = ppoint.J3();
     J1 = ppoint.J1();
     J3 = ppoint.J3();
     J(0, 0) = J1;

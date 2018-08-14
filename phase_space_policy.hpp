@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <random>
+#include <sstream>
 #include <type_traits>
 
 #include <alps/params.hpp>
@@ -43,11 +44,11 @@ namespace phase_space {
                           typename Tag = typename std::iterator_traits<Iterator>::value_type>
                 label (Iterator begin) : val (floor(*begin)) {
                     if (val < 0 || val >= nr_labels)
-                        throw std::runtime_error("invalid label");
+                        throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
                 }
                 label (double x) : val (floor(x)) {
                     if (val < 0. || val >= nr_labels)
-                        throw std::runtime_error("invalid label");
+                        throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
                 }
                 operator double() const { return val; }
                 double const * begin() const { return &val; }
@@ -252,6 +253,7 @@ namespace phase_space {
             {
                 for (auto p : il)
                     points.push_back(p);
+                n = n % points.size();
             }
 
             cycle (alps::params const& params, size_t offset = 0)
@@ -260,6 +262,7 @@ namespace phase_space {
                 for (size_t i = 1; i <= MAX_CYCLE && point_type::supplied(params, format_prefix(i)); ++i) {
                     points.emplace_back(params, format_prefix(i));
                 }
+                n = n % points.size();
             }
 
             virtual bool yield (point_type & point, rng_type &) final override {
