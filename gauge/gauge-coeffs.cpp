@@ -318,8 +318,9 @@ int main(int argc, char** argv) {
                                  replace_extension(basename, ".coeffs"),
                                  color::palettes.at("rdwhbu").rescale(-1, 1));
                     if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
-                        parameters["symmetrized"] = false;
-                        auto cpol = sim_type::config_policy_from_parameters(parameters, false);
+                        alps::params nosymm_params(parameters);
+                        nosymm_params["symmetrized"] = false;
+                        auto cpol = sim_type::config_policy_from_parameters(nosymm_params, false);
                         try {
                             auto exact = cpol->rearrange(
                                 results::exact_tensor.at(parameters["gauge_group"]).get(cpol));
