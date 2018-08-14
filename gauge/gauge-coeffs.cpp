@@ -358,10 +358,9 @@ int main(int argc, char** argv) {
                                           << std::endl;
                                 std::ofstream os (replace_extension(basename, ".dev.txt"));
                                 os << parameters["length"].as<size_t>() << '\t'
-                                   << parameters["temp_crit"].as<double>() << '\t'
                                    << (parameters["sweep_unit"].as<size_t>()
                                        * parameters["total_sweeps"].as<size_t>()
-                                       / parameters["N_sample"].as<size_t>()) << '\t'
+                                       / parameters["sweep.samples"].as<size_t>()) << '\t'
                                    << (parameters["sweep_unit"].as<size_t>()
                                        * parameters["thermalization_sweeps"].as<size_t>()) << '\t'
                                    << parameters["nu"].as<double>() << '\t'
