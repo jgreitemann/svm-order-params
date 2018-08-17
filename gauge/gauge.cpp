@@ -637,6 +637,8 @@ void gauge_sim::save(alps::hdf5::archive & ar) const {
         }
 
 
+    ar["checkpoint/J1"] << ppoint.J1();
+    ar["checkpoint/J3"] << ppoint.J3();
     ar["checkpoint/configuration/R"] << R_data;
     ar["checkpoint/configuration/Ux"] << Ux_data;
     ar["checkpoint/configuration/Uy"] << Uy_data;
@@ -665,6 +667,12 @@ void gauge_sim::load(alps::hdf5::archive & ar) {
     Ux_data.resize(boost::extents[L3][9]);
     Uy_data.resize(boost::extents[L3][9]);
     Uz_data.resize(boost::extents[L3][9]);
+
+    ar["checkpoint/J1"] >> ppoint.J1();
+    ar["checkpoint/J3"] >> ppoint.J3();
+    J(0, 0) = ppoint.J1();
+    J(1, 1) = ppoint.J1();
+    J(2, 2) = ppoint.J3();
 
     ar["checkpoint/configuration/R"] >> R_data;
     ar["checkpoint/configuration/Ux"] >> Ux_data;
@@ -708,9 +716,7 @@ gauge_sim::phase_point gauge_sim::phase_space_point () const {
 
 void gauge_sim::update_phase_point (phase_sweep_policy_type & sweep_policy) {
     reset_sweeps(!sweep_policy.yield(ppoint, rng));
-    J1 = ppoint.J1();
-    J3 = ppoint.J3();
-    J(0, 0) = J1;
-    J(1, 1) = J1;
-    J(2, 2) = J3;
+    J(0, 0) = ppoint.J1();
+    J(1, 1) = ppoint.J1();
+    J(2, 2) = ppoint.J3();
 }
