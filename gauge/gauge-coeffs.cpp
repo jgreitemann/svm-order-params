@@ -408,7 +408,8 @@ int main(int argc, char** argv) {
                 continue;
             auto const& cl = transitions[k];
             std::cout << k << ":   " << cl.labels().first << " -- "
-                      << cl.labels().second << std::endl;
+                      << cl.labels().second
+                      << "\t rho = " << cl.rho() << std::endl;
             std::stringstream ss;
             ss << replace_extension(arname, "")
                << '-' << cl.labels().first
