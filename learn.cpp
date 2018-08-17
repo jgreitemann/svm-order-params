@@ -60,7 +60,8 @@ int main(int argc, char** argv)
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
 
-        argh::parser cmdl({"--nu", "--outputfile", "--timelimit", "--temp_crit"});
+        argh::parser cmdl({"--nu", "--outputfile", "--timelimit", "--sweep.N",
+                           "--sweep.samples"});
         cmdl.parse(argc, argv);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
@@ -84,7 +85,8 @@ int main(int argc, char** argv)
             override_parameter<double>("nu", parameters, cmdl);
             override_parameter<std::string>("outputfile", parameters, cmdl);
             override_parameter<size_t>("timelimit", parameters, cmdl);
-            override_parameter<double>("temp_crit", parameters, cmdl);
+            override_parameter<size_t>("sweep.N", parameters, cmdl);
+            override_parameter<size_t>("sweep.samples", parameters, cmdl);
         }
         bool skip_sampling = cmdl[{"-s", "--skip-sampling"}];
 

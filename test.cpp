@@ -98,10 +98,6 @@ int main(int argc, char** argv)
             override_parameter<long>("SEED", parameters, cmdl);
 
             override_parameter<size_t>("test.N_scan", parameters, cmdl);
-            override_parameter<double>("test.a.J1", parameters, cmdl);
-            override_parameter<double>("test.a.J3", parameters, cmdl);
-            override_parameter<double>("test.b.J1", parameters, cmdl);
-            override_parameter<double>("test.b.J3", parameters, cmdl);
             override_parameter<std::string>("test.filename", parameters, cmdl);
             override_parameter<std::string>("test.txtname", parameters, cmdl);
         }
