@@ -62,10 +62,7 @@ int main(int argc, char** argv)
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
 
-        argh::parser cmdl({ "timelimit", "total_sweeps", "thermalization_sweeps",
-                    "sweep_unit", "test.N_scan", "test.filename", "test.txtname",
-                    "SEED" });
-        cmdl.parse(argc, argv);
+        argh::parser cmdl(argc, argv, argh::parser::PREFER_PARAM_FOR_UNREG_OPTION);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
                 return alps::params(argc, argv);
@@ -91,15 +88,20 @@ int main(int argc, char** argv)
         }
 
         /* WORKAROUND: override parameters from CL args manually */ {
-            override_parameter<size_t>("timelimit", parameters, cmdl);
-            override_parameter<size_t>("total_sweeps", parameters, cmdl);
-            override_parameter<size_t>("thermalization_sweeps", parameters, cmdl);
-            override_parameter<size_t>("sweep_unit", parameters, cmdl);
-            override_parameter<long>("SEED", parameters, cmdl);
-
-            override_parameter<size_t>("test.N_scan", parameters, cmdl);
-            override_parameter<std::string>("test.filename", parameters, cmdl);
-            override_parameter<std::string>("test.txtname", parameters, cmdl);
+            for (auto const& p : parameters) {
+                if (p.second.isType<int>())
+                    override_parameter<int>(p.first, parameters, cmdl);
+                if (p.second.isType<long>())
+                    override_parameter<long>(p.first, parameters, cmdl);
+                if (p.second.isType<size_t>())
+                    override_parameter<size_t>(p.first, parameters, cmdl);
+                if (p.second.isType<float>())
+                    override_parameter<float>(p.first, parameters, cmdl);
+                if (p.second.isType<double>())
+                    override_parameter<double>(p.first, parameters, cmdl);
+                if (p.second.isType<std::string>())
+                    override_parameter<std::string>(p.first, parameters, cmdl);
+            }
         }
 
         using phase_point = sim_base::phase_point;
