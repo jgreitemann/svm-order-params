@@ -16,13 +16,18 @@
 
 #pragma once
 #include "label.hpp"
+#include "polygon.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <map>
 #include <random>
 #include <sstream>
+#include <stdexcept>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <alps/params.hpp>
 
@@ -34,6 +39,18 @@ namespace phase_space {
         SVM_LABEL_BEGIN(binary, 2)
         SVM_LABEL_ADD(ORDERED)
         SVM_LABEL_ADD(DISORDERED)
+        SVM_LABEL_END()
+
+        SVM_LABEL_BEGIN(D2h, 3)
+        SVM_LABEL_ADD(O3)
+        SVM_LABEL_ADD(Dinfh)
+        SVM_LABEL_ADD(D2h)
+        SVM_LABEL_END()
+
+        SVM_LABEL_BEGIN(D3h, 3)
+        SVM_LABEL_ADD(O3)
+        SVM_LABEL_ADD(Dinfh)
+        SVM_LABEL_ADD(D3h)
         SVM_LABEL_END()
 
         namespace numeric_label {
@@ -231,6 +248,60 @@ namespace phase_space {
         private:
             point_type support, normal;
         };
+
+        template <typename Point, typename Label>
+        struct phase_diagram {
+            using point_type = Point;
+            using label_type = Label;
+            using map_type = std::map<std::string, phase_diagram>;
+            using pair_type = std::pair<label_type, polygon<point_type>>;
+
+            static void define_parameters(alps::params & params) {
+                params.define<std::string>("classifier.phase_diagram.name",
+                                           "key of the phase diagram map entry");
+            }
+
+            static auto get_map();
+
+            phase_diagram(alps::params const& params)
+                : phase_diagram([&] {
+                        try {
+                            return get_map().at(params["classifier.phase_diagram.name"]);
+                        } catch (...) {
+                            std::stringstream ss;
+                            ss << "unknown phase diagram \""
+                               << params["classifier.phase_diagram.name"].as<std::string>()
+                               << "\"";
+                            throw std::runtime_error(ss.str());
+                        }
+                    }()) {}
+
+            phase_diagram(std::initializer_list<pair_type> il) {
+                pairs.reserve(il.size());
+                for (auto const& p : il)
+                    pairs.push_back(p);
+            }
+
+            label_type operator() (point_type pp) {
+                for (auto const& p : pairs) {
+                    if (p.second.is_inside(pp))
+                        return p.first;
+                }
+                throw std::runtime_error("phase diagram point not contained in "
+                                         "any polygon");
+                return label_type();
+            }
+        private:
+            std::vector<pair_type> pairs;
+        };
+
+        using D2h_phase_diagram = phase_diagram<point::J1J3, label::D2h::label>;
+        extern typename D2h_phase_diagram::map_type D2h_map;
+
+        template <typename Point, typename Label>
+        auto phase_diagram<Point, Label>::get_map() {
+            return D2h_map;
+        }
 
     }
 

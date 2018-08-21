@@ -124,3 +124,27 @@ bool sweep::equidistant_temperatures::yield (point_type & point, rng_type &) {
         return true;
     }
 }
+
+typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
+    {"D2h_Ke", {
+            {label::D2h::O3, {
+                    {0.0, 0.0},
+                    {0.0, 1.8},
+                    {1.0, 1.3},
+                    {1.4, 0.0}
+                }},
+            {label::D2h::Dinfh, {
+                    {0.0, 1.8},
+                    {0.0, 3.0},
+                    {0.7, 3.0},
+                    {1.0, 1.3}
+                }},
+            {label::D2h::D2h, {
+                    {1.0, 1.3},
+                    {0.7, 3.0},
+                    {3.0, 3.0},
+                    {3.0, 0.0},
+                    {1.4, 0.0}
+                }}
+        }}
+};
