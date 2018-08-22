@@ -485,8 +485,6 @@ namespace phase_space {
             }
             label_type operator() (point_type pp) {
                 auto it = pp.begin();
-                if (*it > 5 || *(++it) > 5)
-                    std::cout << "buh!" << std::endl;
                 size_t i;
                 double d = std::numeric_limits<double>::max();
                 point::distance<point_type> dist{};
