@@ -60,6 +60,7 @@ public:
             svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
             ar["model"] >> serial;
         }
+        rhos = model.rho();
 
         measurements << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
                      << alps::accumulators::FullBinningAccumulator<double>("label");
@@ -71,10 +72,10 @@ public:
             auto res = model(svm::dataset(Simulation::configuration()));
             measurements["label"] << double(res.first);
 
-            std::vector<double> decs(model_t::nr_classifiers);
-            std::copy((double*)&(res.second),
-                      (double*)&(res.second) + model_t::nr_classifiers,
-                      decs.begin());
+            std::vector<double> decs((double*)&rhos,
+                                     (double*)&rhos + model_t::nr_classifiers);
+            std::transform(decs.begin(), decs.end(), (double*)&(res.second),
+                           decs.begin(), std::plus<>());
             measurements["SVM"] << decs;
         }
     }
@@ -82,4 +83,5 @@ public:
 private:
     using Simulation::measurements;
     model_t model;
+    typename model_t::decision_type rhos;
 };
