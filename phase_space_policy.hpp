@@ -394,6 +394,37 @@ namespace phase_space {
         };
 
         template <typename Point>
+        struct uniform : public policy<Point> {
+            using point_type = typename policy<Point>::point_type;
+            using rng_type = typename policy<Point>::rng_type;
+
+            static void define_parameters(alps::params & params) {
+                point_type::define_parameters(params, "sweep.uniform.a.");
+                point_type::define_parameters(params, "sweep.uniform.b.");
+            }
+
+            uniform (point_type a, point_type b)
+                : a(a), b(b) {}
+
+            uniform (alps::params const& params)
+                : a(params, "sweep.uniform.a.")
+                , b(params, "sweep.uniform.b.") {}
+
+            virtual bool yield (point_type & point, rng_type & rng) final override {
+                auto ita = a.begin();
+                auto itb = b.begin();
+                for (auto & c : point) {
+                    c = std::uniform_real_distribution<double>{*ita, *itb}(rng);
+                    ++ita, ++itb;
+                }
+                return true;
+            }
+
+        private:
+            point_type a, b;
+        };
+
+        template <typename Point>
         struct uniform_line : public policy<Point> {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
@@ -463,6 +494,7 @@ namespace phase_space {
                 equidistant_temperatures::define_parameters(params);
             }
             cycle<Point>::define_parameters(params);
+            uniform<Point>::define_parameters(params);
             uniform_line<Point>::define_parameters(params);
         }
 
