@@ -261,7 +261,7 @@ namespace phase_space {
                                            "key of the phase diagram map entry");
             }
 
-            static auto get_map();
+            static inline auto get_map();
 
             phase_diagram(alps::params const& params)
                 : phase_diagram([&] {
@@ -298,9 +298,17 @@ namespace phase_space {
         using D2h_phase_diagram = phase_diagram<point::J1J3, label::D2h::label>;
         extern typename D2h_phase_diagram::map_type D2h_map;
 
-        template <typename Point, typename Label>
-        auto phase_diagram<Point, Label>::get_map() {
+        using D3h_phase_diagram = phase_diagram<point::J1J3, label::D3h::label>;
+        extern typename D3h_phase_diagram::map_type D3h_map;
+
+        template <>
+        inline auto phase_diagram<point::J1J3, label::D2h::label>::get_map() {
             return D2h_map;
+        }
+
+        template <>
+        inline auto phase_diagram<point::J1J3, label::D3h::label>::get_map() {
+            return D3h_map;
         }
 
     }
