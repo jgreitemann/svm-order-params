@@ -24,7 +24,7 @@ struct polygon {
             auto c1 = p1->begin();
             auto c2 = p2->begin();
             auto ctest = test.begin();
-            if ((*ctest < *c1 && *ctest < *c2) || (*ctest > *c1 && *ctest > *c2))
+            if ((*ctest <= *c1 && *ctest < *c2) || (*ctest >= *c1 && *ctest > *c2))
                 continue;
             double x = (*ctest - *c1) / (*c2 - *c1);
             ++c1, ++c2, ++ctest;
