@@ -82,12 +82,22 @@ int main(int argc, char** argv)
         }
 
         /* WORKAROUND: override parameters from CL args manually */ {
-            override_parameter<double>("nu", parameters, cmdl);
-            override_parameter<std::string>("outputfile", parameters, cmdl);
-            override_parameter<size_t>("timelimit", parameters, cmdl);
-            override_parameter<size_t>("sweep.N", parameters, cmdl);
-            override_parameter<size_t>("sweep.samples", parameters, cmdl);
+            for (auto const& p : parameters) {
+                if (p.second.isType<int>())
+                    override_parameter<int>(p.first, parameters, cmdl);
+                if (p.second.isType<long>())
+                    override_parameter<long>(p.first, parameters, cmdl);
+                if (p.second.isType<size_t>())
+                    override_parameter<size_t>(p.first, parameters, cmdl);
+                if (p.second.isType<float>())
+                    override_parameter<float>(p.first, parameters, cmdl);
+                if (p.second.isType<double>())
+                    override_parameter<double>(p.first, parameters, cmdl);
+                if (p.second.isType<std::string>())
+                    override_parameter<std::string>(p.first, parameters, cmdl);
+            }
         }
+
         bool skip_sampling = cmdl[{"-s", "--skip-sampling"}];
 
         if (parameters.help_requested(std::cout) ||
