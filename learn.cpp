@@ -180,6 +180,24 @@ int main(int argc, char** argv)
             }
         }
 
+        /* print label statistics */ {
+            std::map<label_t, size_t> label_stat;
+            label_t l;
+            for (size_t i = 0; i < prob.size(); ++i) {
+                std::tie(std::ignore, l) = prob[i];
+                auto it = label_stat.find(l);
+                if (it != label_stat.end())
+                    ++(it->second);
+                else
+                    label_stat.insert({l, 1});
+            }
+            std::cout << "\nLabel statistics:\n";
+            for (auto const& p : label_stat) {
+                std::cout << p.first << ": " << p.second << '\n';
+            }
+            std::cout << std::endl;
+        }
+
         if (!skip_sampling) {
             alps::hdf5::archive cp(checkpoint_file, "w");
             cp["simulation/n_clones"] << n_clones;
