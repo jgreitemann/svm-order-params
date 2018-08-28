@@ -20,8 +20,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <limits>
 #include <map>
+#include <numeric>
 #include <random>
 #include <sstream>
 #include <stdexcept>
@@ -402,6 +404,67 @@ namespace phase_space {
         };
 
         template <typename Point>
+        struct grid : public policy<Point> {
+            using point_type = typename policy<Point>::point_type;
+            using rng_type = typename policy<Point>::rng_type;
+
+            static const size_t dim = point_type::label_dim;
+
+            static void define_parameters(alps::params & params) {
+                point_type::define_parameters(params, "sweep.grid.a.");
+                point_type::define_parameters(params, "sweep.grid.b.");
+                for (size_t i = 1; i <= dim; ++i)
+                    params.define<size_t>(format_subdiv(i), 1,
+                                          "number of grid subdivisions");
+            }
+
+            grid (alps::params const& params, size_t offset = 0)
+                : a(params, "sweep.grid.a.")
+                , b(params, "sweep.grid.b.")
+                , n(offset)
+            {
+                size_t oo = offset;
+                for (size_t i = 1; i <= dim; ++i)
+                    subdivs[i-1] = params[format_subdiv(i)].as<size_t>();
+
+                double frac = 0.;
+                for (double p = 0.5; offset != 0; offset >>= 1, p /= 2)
+                    if (offset & 1)
+                        frac += p;
+                n = size() * frac;
+            }
+
+            size_t size() const {
+                return std::accumulate(subdivs.begin(), subdivs.end(),
+                                       1, std::multiplies<>{});
+            }
+
+            virtual bool yield (point_type & point, rng_type &) final override {
+                size_t x = n;
+                auto it = point.begin();
+                auto ita = a.begin();
+                auto itb = b.begin();
+                for (size_t i = 0; i < dim; ++i, ++it, ++ita, ++itb) {
+                    *it = *ita + (*itb - *ita) / (subdivs[i] - 1) * (x % subdivs[i]);
+                    x /= subdivs[i];
+                }
+                n = (n + 1) % size();
+                return true;
+            }
+
+            static std::string format_subdiv(size_t i) {
+                std::stringstream ss;
+                ss << "sweep.grid.N" << i;
+                return ss.str();
+            }
+
+        private:
+            std::array<size_t, dim> subdivs;
+            point_type a, b;
+            size_t n;
+        };
+
+        template <typename Point>
         struct uniform : public policy<Point> {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
@@ -502,6 +565,7 @@ namespace phase_space {
                 equidistant_temperatures::define_parameters(params);
             }
             cycle<Point>::define_parameters(params);
+            grid<Point>::define_parameters(params);
             uniform<Point>::define_parameters(params);
             uniform_line<Point>::define_parameters(params);
         }
@@ -539,6 +603,64 @@ namespace phase_space {
             }
         private:
             std::vector<point_type> points;
+        };
+
+        template <typename Point, size_t M>
+        struct fixed_from_grid {
+            using point_type = Point;
+            using grid_type = sweep::grid<point_type>;
+            using label_type = label::numeric_label::label<M>;
+
+            static const size_t dim = point_type::label_dim;
+
+            static void define_parameters(alps::params & params) {
+            }
+
+            fixed_from_grid (alps::params const& params)
+                : a(params, "sweep.grid.a.")
+                , b(params, "sweep.grid.b.")
+            {
+                for (size_t i = 1; i <= dim; ++i)
+                    subdivs[i-1] = params[grid_type::format_subdiv(i)];
+                size_t size = std::accumulate(subdivs.begin(), subdivs.end(),
+                                              1, std::multiplies<>());
+                if (size != M)
+                    throw std::runtime_error("grid size does not match label range "
+                                             "used by fixed_from_grid classifier");
+            }
+
+            label_type operator() (point_type pp) {
+                std::cout << "classify: " << pp.J1() << ", " << pp.J3() << " |--> ";
+                std::array<long, dim> coords;
+                auto ita = a.begin(), itb = b.begin(), itp = pp.begin();
+                for (auto itc = coords.begin(), its = subdivs.begin();
+                     itc != coords.end();
+                     ++itc, ++its, ++ita, ++itb, ++itp)
+                {
+                    *itc = (*itp - *ita) / (*itb - *ita) * (*its - 1) + 0.5;
+                }
+
+                long tot = 0;
+                for (auto itc = coords.rbegin(), its = subdivs.rbegin();
+                     itc != coords.rend();
+                     ++itc, ++its)
+                {
+                    tot = *itc + *its * tot;
+                }
+
+                std::cout << tot << std::endl;
+                if (tot < 0 || M <= tot)
+                    throw std::runtime_error([&pp] {
+                            std::stringstream ss;
+                            ss << "phase point " << pp
+                               << " exceeds limits of grid";
+                            return ss.str();
+                        }());
+                return tot;
+            }
+        private:
+            std::array<size_t, dim> subdivs;
+            point_type a, b;
         };
 
     }

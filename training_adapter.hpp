@@ -85,6 +85,9 @@ public:
                 if (dist_name == "cycle")
                     return dynamic_cast<phase_sweep_policy_type*>(
                         new phase_space::sweep::cycle<phase_point> (parms, seed_offset));
+                if (dist_name == "grid")
+                    return dynamic_cast<phase_sweep_policy_type*>(
+                        new phase_space::sweep::grid<phase_point> (parms, seed_offset));
                 if (dist_name == "uniform")
                     return dynamic_cast<phase_sweep_policy_type*>(
                         new phase_space::sweep::uniform<phase_point> (parms));
