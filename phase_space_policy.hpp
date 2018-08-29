@@ -439,7 +439,7 @@ namespace phase_space {
                                        1, std::multiplies<>{});
             }
 
-            virtual bool yield (point_type & point, rng_type &) final override {
+            bool yield (point_type & point) {
                 size_t x = n;
                 auto it = point.begin();
                 auto ita = a.begin();
@@ -450,6 +450,10 @@ namespace phase_space {
                 }
                 n = (n + 1) % size();
                 return true;
+            }
+
+            virtual bool yield (point_type & point, rng_type &) final override {
+                return yield(point);
             }
 
             static std::string format_subdiv(size_t i) {
@@ -630,7 +634,6 @@ namespace phase_space {
             }
 
             label_type operator() (point_type pp) {
-                std::cout << "classify: " << pp.J1() << ", " << pp.J3() << " |--> ";
                 std::array<long, dim> coords;
                 auto ita = a.begin(), itb = b.begin(), itp = pp.begin();
                 for (auto itc = coords.begin(), its = subdivs.begin();
@@ -648,7 +651,6 @@ namespace phase_space {
                     tot = *itc + *its * tot;
                 }
 
-                std::cout << tot << std::endl;
                 if (tot < 0 || M <= tot)
                     throw std::runtime_error([&pp] {
                             std::stringstream ss;
