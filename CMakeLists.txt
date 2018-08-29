@@ -68,6 +68,16 @@ add_executable(gauge-coeffs
     gauge/results.cpp
     )
 
+add_executable(gauge-segregate-phases
+    segregate_phases.cpp
+    phase_space_policy.cpp
+    gauge/gauge.cpp
+    gauge/nematicities.cpp
+    gauge/point_groups.cpp
+    )
+
+target_compile_definitions(gauge-segregate-phases PUBLIC -DGAUGE)
+
 add_executable(output-contractions
     gauge/output_contractions.cpp
     gauge/contraction.cpp
@@ -81,4 +91,5 @@ target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(gauge-segregate-phases ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(output-contractions ${ALPSCore_LIBRARIES} svm stdc++fs)
