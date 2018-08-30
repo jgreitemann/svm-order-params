@@ -25,6 +25,8 @@
 #include <iostream>
 #include <iterator>
 #include <map>
+#include <sstream>
+#include <string>
 #include <type_traits>
 
 #include <Eigen/LU>
@@ -49,7 +51,7 @@ using model_t = svm::model<kernel_t, label_t>;
 
 int main(int argc, char** argv)
 {
-    argh::parser cmdl({"r", "rhoc"});
+    argh::parser cmdl({"r", "rhoc", "p", "phase"});
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
     alps::params parameters = [&] {
         if (cmdl[1].empty())
@@ -125,22 +127,35 @@ int main(int argc, char** argv)
         }
     }
 
-    Eigen::FullPivLU<matrix_t> LU_decomp(A);
-    matrix_t LU = LU_decomp.matrixLU() * LU_decomp.permutationQ().inverse();
+    auto svd = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-    std::cout << LU_decomp.rank() << " phases found! (rhoc = " << rhoc
+    std::cout << svd.rank() << " phases found! (rhoc = " << rhoc
               << ")" << std::endl;
 
+    auto const& S = svd.singularValues();
+    auto const& U = svd.matrixU();
+    auto const& V = svd.matrixV();
+
+    size_t p;
+    bool exclusive = bool(cmdl({"-p", "--phase"}) >> p);
     {
-        std::ofstream os("phases.txt");
-        for (size_t i = 0; i < LU_decomp.rank(); ++i) {
-            for (size_t j = i; j < phase_points.size(); ++j) {
-                if (std::abs(LU(i,j)) > 1e-10) {
-                    auto const& pp = phase_points[labels[j]];
-                    std::copy(pp.begin(), pp.end(),
-                              std::ostream_iterator<double>{os, "\t"});
-                    os << LU(i,j) << '\n';
-                }
+        std::ofstream os([&]() -> std::string {
+                if (!exclusive)
+                    return "phases.txt";
+                std::stringstream ss;
+                ss << "phase_" << p << ".txt";
+                return ss.str();
+            }());
+        for (size_t i = 0; i < svd.rank(); ++i) {
+            if (exclusive && i != p)
+                continue;
+            os << "# S = " << S(i) << '\n';
+            for (size_t j = 0; j < phase_points.size(); ++j) {
+                double val = U(j,i) * S(i) * V(j,i);
+                auto const& pp = phase_points[labels[j]];
+                std::copy(pp.begin(), pp.end(),
+                          std::ostream_iterator<double>{os, "\t"});
+                os << val << '\n';
             }
             os << "\n\n";
         }
