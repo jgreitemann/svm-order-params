@@ -125,6 +125,14 @@ bool sweep::equidistant_temperatures::yield (point_type & point, rng_type &) {
     }
 }
 
+void sweep::equidistant_temperatures::save (alps::hdf5::archive & ar) const {
+    ar["n"] << n;
+}
+
+void sweep::equidistant_temperatures::load (alps::hdf5::archive & ar) {
+    ar["n"] >> n;
+}
+
 typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
     {"D2h_Ke", {
             {label::D2h::O3, {

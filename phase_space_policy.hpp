@@ -32,6 +32,7 @@
 #include <vector>
 
 #include <alps/params.hpp>
+#include <alps/hdf5.hpp>
 
 
 namespace phase_space {
@@ -323,6 +324,8 @@ namespace phase_space {
             using rng_type = RNG;
 
             virtual bool yield (point_type & point, rng_type & rng) = 0;
+            virtual void save (alps::hdf5::archive & ar) const {}
+            virtual void load (alps::hdf5::archive & ar) {}
         };
 
         struct gaussian_temperatures : public policy<point::temperature> {
@@ -351,6 +354,9 @@ namespace phase_space {
             static void define_parameters(alps::params & params);
             equidistant_temperatures (alps::params const& params, size_t N, size_t n=0);
             virtual bool yield (point_type & point, rng_type &) final override;
+            virtual void save (alps::hdf5::archive & ar) const final override;
+            virtual void load (alps::hdf5::archive & ar) final override;
+
         private:
             size_t n, N;
             double temp_max;
@@ -390,6 +396,14 @@ namespace phase_space {
                 point = points[n];
                 n = (n + 1) % points.size();
                 return true;
+            }
+
+            virtual void save (alps::hdf5::archive & ar) const final override {
+                ar["n"] << n;
+            }
+
+            virtual void load (alps::hdf5::archive & ar) final override {
+                ar["n"] >> n;
             }
 
             static std::string format_prefix(size_t i) {
@@ -454,6 +468,14 @@ namespace phase_space {
 
             virtual bool yield (point_type & point, rng_type &) final override {
                 return yield(point);
+            }
+
+            virtual void save (alps::hdf5::archive & ar) const final override {
+                ar["n"] << n;
+            }
+
+            virtual void load (alps::hdf5::archive & ar) final override {
+                ar["n"] >> n;
             }
 
             static std::string format_subdiv(size_t i) {
@@ -556,6 +578,15 @@ namespace phase_space {
                 ++n;
                 return true;
             }
+
+            virtual void save (alps::hdf5::archive & ar) const final override {
+                ar["n"] << n;
+            }
+
+            virtual void load (alps::hdf5::archive & ar) final override {
+                ar["n"] >> n;
+            }
+
         private:
             const point_type a, b;
             size_t n, N;

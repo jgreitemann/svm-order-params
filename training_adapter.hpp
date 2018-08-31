@@ -146,6 +146,7 @@ public:
         // state
         ar["training/i_temp"] << i_temp;
         ar["training/n_temp"] << n_temp;
+        ar["training/sweep"] << *sweep_policy;
 
         ar["training/problem"] << prob_serializer;
     }
@@ -160,6 +161,7 @@ public:
         // state
         ar["training/i_temp"] >> i_temp;
         ar["training/n_temp"] >> n_temp;
+        ar["training/sweep"] >> *sweep_policy;
 
         ar["training/problem"] >> prob_serializer;
         if (problem.dim() != Simulation::configuration_size())
