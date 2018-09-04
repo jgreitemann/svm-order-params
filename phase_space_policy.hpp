@@ -56,35 +56,33 @@ namespace phase_space {
         SVM_LABEL_ADD(D3h)
         SVM_LABEL_END()
 
-        namespace numeric_label {
-            template <size_t nr>
-            struct label {
-                static const size_t nr_labels = nr;
-                static const size_t label_dim = 1;
-                label () : val(0) {}
-                template <class Iterator,
-                          typename Tag = typename std::iterator_traits<Iterator>::value_type>
-                label (Iterator begin) : val (floor(*begin)) {
-                    if (val < 0 || val >= nr_labels)
-                        throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
-                }
-                label (double x) : val (floor(x)) {
-                    if (val < 0. || val >= nr_labels)
-                        throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
-                }
-                operator double() const { return val; }
-                double const * begin() const { return &val; }
-                double const * end() const { return &val + 1; }
-                friend bool operator== (label lhs, label rhs) {
-                    return lhs.val == rhs.val;
-                }
-                friend std::ostream & operator<< (std::ostream & os, label l) {
-                    return os << l.val;
-                }
-            private:
-                double val;
-            };
-        }
+        template <size_t nr = svm::DYNAMIC>
+        struct numeric_label {
+            static const size_t nr_labels = nr;
+            static const size_t label_dim = 1;
+            numeric_label () : val(0) {}
+            template <class Iterator,
+                      typename Tag = typename std::iterator_traits<Iterator>::value_type>
+            numeric_label (Iterator begin) : val (floor(*begin)) {
+                if (val < 0 || val >= nr_labels)
+                    throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
+            }
+            numeric_label (double x) : val (floor(x)) {
+                if (val < 0. || val >= nr_labels)
+                    throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
+            }
+            operator double() const { return val; }
+            double const * begin() const { return &val; }
+            double const * end() const { return &val + 1; }
+            friend bool operator== (numeric_label lhs, numeric_label rhs) {
+                return lhs.val == rhs.val;
+            }
+            friend std::ostream & operator<< (std::ostream & os, numeric_label l) {
+                return os << l.val;
+            }
+        private:
+            double val;
+        };
 
     };
 
@@ -204,7 +202,7 @@ namespace phase_space {
         template <typename Point>
         struct orthants {
             using point_type = Point;
-            using label_type = label::numeric_label::label<(1 << point_type::label_dim)>;
+            using label_type = label::numeric_label<(1 << point_type::label_dim)>;
 
             static void define_parameters(alps::params & params) {
                 point_type::define_parameters(params, "classifier.orthants.");
@@ -609,17 +607,18 @@ namespace phase_space {
 
     namespace classifier {
 
-        template <typename Point, size_t M>
+        template <typename Point>
         struct fixed_from_cycle {
             using point_type = Point;
-            using label_type = label::numeric_label::label<M>;
+            using label_type = label::numeric_label<svm::DYNAMIC>;
 
             static void define_parameters(alps::params & params) {
             }
 
             fixed_from_cycle(alps::params const& params) {
-                for (size_t i = 1; i <= M; ++i) {
-                    points.emplace_back(params, sweep::cycle<point_type>::format_prefix(i));
+                using cycs = sweep::cycle<point_type>;
+                for (size_t i = 1; i <= cycs::MAX_CYCLE && point_type::supplied(params, cycs::format_prefix(i)); ++i) {
+                    points.emplace_back(params, cycs::format_prefix(i));
                 }
             }
             label_type operator() (point_type pp) {
@@ -627,7 +626,7 @@ namespace phase_space {
                 size_t i;
                 double d = std::numeric_limits<double>::max();
                 point::distance<point_type> dist{};
-                for (size_t j = 0; j < M; ++j) {
+                for (size_t j = 0; j < points.size(); ++j) {
                     double dd = dist(points[j], pp);
                     if (dd < d) {
                         i = j;
@@ -640,11 +639,11 @@ namespace phase_space {
             std::vector<point_type> points;
         };
 
-        template <typename Point, size_t M>
+        template <typename Point>
         struct fixed_from_grid {
             using point_type = Point;
             using grid_type = sweep::grid<point_type>;
-            using label_type = label::numeric_label::label<M>;
+            using label_type = label::numeric_label<svm::DYNAMIC>;
 
             static const size_t dim = point_type::label_dim;
 
@@ -657,11 +656,8 @@ namespace phase_space {
             {
                 for (size_t i = 1; i <= dim; ++i)
                     subdivs[i-1] = params[grid_type::format_subdiv(i)];
-                size_t size = std::accumulate(subdivs.begin(), subdivs.end(),
-                                              1, std::multiplies<>());
-                if (size != M)
-                    throw std::runtime_error("grid size does not match label range "
-                                             "used by fixed_from_grid classifier");
+                size = std::accumulate(subdivs.begin(), subdivs.end(),
+                                       1, std::multiplies<>());
             }
 
             label_type operator() (point_type pp) {
@@ -682,7 +678,7 @@ namespace phase_space {
                     tot = *itc + *its * tot;
                 }
 
-                if (tot < 0 || M <= tot)
+                if (tot < 0 || size <= tot)
                     throw std::runtime_error([&pp] {
                             std::stringstream ss;
                             ss << "phase point " << pp
@@ -694,6 +690,7 @@ namespace phase_space {
         private:
             std::array<size_t, dim> subdivs;
             point_type a, b;
+            size_t size;
         };
 
     }

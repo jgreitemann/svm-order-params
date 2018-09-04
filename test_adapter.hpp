@@ -72,8 +72,11 @@ public:
             auto res = model(svm::dataset(Simulation::configuration()));
             measurements["label"] << double(res.first);
 
-            std::vector<double> decs((double*)&rhos,
-                                     (double*)&rhos + model_t::nr_classifiers);
+            std::vector<double> decs(
+                svm::detail::container_factory<decltype(rhos)>::ptr(rhos),
+                svm::detail::container_factory<decltype(rhos)>::ptr(rhos)
+                    + model.nr_classifiers()
+            );
             std::transform(decs.begin(), decs.end(), (double*)&(res.second),
                            decs.begin(), std::plus<>());
             measurements["SVM"] << decs;

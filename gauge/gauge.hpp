@@ -42,9 +42,9 @@ class gauge_sim : public alps::mcbase {
 public:
     using phase_point = phase_space::point::J1J3;
     // using phase_classifier = phase_space::classifier::hyperplane<phase_point>;
-    // using phase_classifier = phase_space::classifier::fixed_from_cycle<phase_point, 4>;
+    // using phase_classifier = phase_space::classifier::fixed_from_cycle<phase_point>;
     // using phase_classifier = phase_space::classifier::D2h_phase_diagram;
-    using phase_classifier = phase_space::classifier::fixed_from_grid<phase_point, 16>;
+    using phase_classifier = phase_space::classifier::fixed_from_grid<phase_point>;
     using phase_label = phase_classifier::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
