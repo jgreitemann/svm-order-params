@@ -96,12 +96,16 @@ int main(int argc, char** argv)
         phase_space::sweep::grid<phase_point> grid_sweep(parameters);
         classifier_t classifier(parameters);
         phase_point p;
+        std::ofstream os("vertices.txt");
         for (size_t i = 0; i < grid_sweep.size(); ++i) {
             grid_sweep.yield(p);
             auto l = classifier(p);
             phase_points[l] = p;
             index_map[l] = i;
             labels.push_back(l);
+            os << l << '\t';
+            std::copy(p.begin(), p.end(), std::ostream_iterator<double>{os, "\t"});
+            os << '\n';
         }
     }
 
