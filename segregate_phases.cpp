@@ -112,11 +112,23 @@ int main(int argc, char** argv)
     }
     {
         std::ofstream os("rho.txt");
+        std::ofstream os2("edges.txt");
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
             size_t i = index_map[labels.first], j = index_map[labels.second];
             double rho = std::abs(transition.rho());
             double val = (rho > rhoc) ? 1. : 0.;
+
+            if (rho > rhoc) {
+                std::copy(phase_points[labels.first].begin(),
+                          phase_points[labels.first].end(),
+                          std::ostream_iterator<double> {os2, "\t"});
+                os2 << '\n';
+                std::copy(phase_points[labels.second].begin(),
+                          phase_points[labels.second].end(),
+                          std::ostream_iterator<double> {os2, "\t"});
+                os2 << "\n\n";
+            }
 
             auto diag = phase_space::classifier::D2h_map.at("D2h");
             bool is_transition = diag(phase_points[labels.first]) == diag(phase_points[labels.second]);
