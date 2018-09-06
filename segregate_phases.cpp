@@ -110,10 +110,7 @@ int main(int argc, char** argv)
     }
 
     using matrix_t = Eigen::MatrixXd;
-    matrix_t A(phase_points.size(), phase_points.size());
-    for (auto p : index_map) {
-        A(p.second, p.second) = 1.;
-    }
+    matrix_t L(phase_points.size(), phase_points.size());
     {
         std::ofstream os("rho.txt");
         std::ofstream os2("edges.txt");
@@ -132,50 +129,38 @@ int main(int argc, char** argv)
                           phase_points[labels.second].end(),
                           std::ostream_iterator<double> {os2, "\t"});
                 os2 << "\n\n";
+
+                L(i,j) = -1;
+                L(j,i) = -1;
+                L(i,i) += 1;
+                L(j,j) += 1;
             }
 
             auto diag = phase_space::classifier::D2h_map.at("D2h");
             bool is_transition = diag(phase_points[labels.first]) == diag(phase_points[labels.second]);
             os << is_transition << '\t' << rho << std::endl;
-
-            A(i, j) = val;
-            A(j, i) = val;
         }
     }
 
-    auto svd = A.bdcSvd(Eigen::ComputeThinU | Eigen::ComputeThinV);
+    auto eigen = Eigen::SelfAdjointEigenSolver<matrix_t>(L);
 
-    std::cout << svd.rank() << " phases found! (rhoc = " << rhoc
-              << ")" << std::endl;
+    std::vector<std::pair<size_t, double>> evals;
+    evals.reserve(phase_points.size());
+    for (size_t i = 0; i < phase_points.size(); ++i)
+        evals.emplace_back(i, eigen.eigenvalues()(i));
+    std::sort(evals.begin(), evals.end(),
+              [](auto const& lhs, auto const& rhs) { return lhs.second < rhs.second; });
 
-    auto const& S = svd.singularValues();
-    auto const& U = svd.matrixU();
-    auto const& V = svd.matrixV();
-
-    size_t p;
-    bool exclusive = bool(cmdl({"-p", "--phase"}) >> p);
-    {
-        std::ofstream os([&]() -> std::string {
-                if (!exclusive)
-                    return "phases.txt";
-                std::stringstream ss;
-                ss << "phase_" << p << ".txt";
-                return ss.str();
-            }());
-        for (size_t i = 0; i < svd.rank(); ++i) {
-            if (exclusive && i != p)
-                continue;
-            os << "# S = " << S(i) << '\n';
-            for (size_t j = 0; j < phase_points.size(); ++j) {
-                double val = U(j,i) * S(i) * V(j,i);
-                auto const& pp = phase_points[labels[j]];
-                std::copy(pp.begin(), pp.end(),
-                          std::ostream_iterator<double>{os, "\t"});
-                os << val << '\n';
-            }
-            os << "\n\n";
+    std::ofstream os("phases.txt");
+    auto const& evecs = eigen.eigenvectors();
+    for (size_t i = 0; i < phase_points.size(); ++i) {
+        os << "# eval = " << evals[i].second << '\n';
+        for (size_t j = 0; j < phase_points.size(); ++j) {
+            auto const& p = phase_points[labels[j]];
+            std::copy(p.begin(), p.end(),
+                      std::ostream_iterator<double>{os, "\t"});
+            os << evecs(j, evals[i].first) << '\n';
         }
+        os << "\n\n";
     }
-
-
 }
