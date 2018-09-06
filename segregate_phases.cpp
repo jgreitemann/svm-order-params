@@ -29,7 +29,7 @@
 #include <string>
 #include <type_traits>
 
-#include <Eigen/LU>
+#include <Eigen/Eigenvalues>
 
 #ifdef ISING
 #include "ising.hpp"
