@@ -44,7 +44,7 @@ using kernel_t = svm::kernel::polynomial<2>;
 int main(int argc, char** argv) {
     try {
         argh::parser cmdl;
-        cmdl.add_params({"block", "-t", "--transition"});
+        cmdl.add_params({"block", "t", "transition", "result"});
         cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
         alps::params parameters = [&] {
             if (cmdl[1].empty())
@@ -321,9 +321,11 @@ int main(int argc, char** argv) {
                         alps::params nosymm_params(parameters);
                         nosymm_params["symmetrized"] = false;
                         auto cpol = sim_type::config_policy_from_parameters(nosymm_params, false);
+                        std::string result_name = parameters["gauge_group"];
+                        cmdl("--result") >> result_name;
                         try {
                             auto exact = cpol->rearrange(
-                                results::exact_tensor.at(parameters["gauge_group"]).get(cpol));
+                                results::exact_tensor.at(result_name).get(cpol));
                             normalize_matrix(exact);
                             if (cmdl[{"-e", "--exact"}]) {
                                 write_matrix(exact,
@@ -371,9 +373,8 @@ int main(int argc, char** argv) {
                             }
                         } catch (std::out_of_range const& e) {
                             std::cerr << "No exact solution know for symmetry \""
-                                    << parameters["gauge_group"]
-                                    << "\" despite --exact flag given."
-                                    << std::endl;
+                                      << result_name
+                                      << std::endl;
                         }
                     }
                 } else if (cmdl[{"-r", "--raw"}]) {
