@@ -151,10 +151,13 @@ int main(int argc, char** argv)
     std::sort(evals.begin(), evals.end(),
               [](auto const& lhs, auto const& rhs) { return lhs.second < rhs.second; });
 
+    size_t degen = 0;
     std::ofstream os("phases.txt");
     auto const& evecs = eigen.eigenvectors();
     for (size_t i = 0; i < phase_points.size(); ++i) {
         os << "# eval = " << evals[i].second << '\n';
+        if (evals[i].second < 1e-10)
+            ++degen;
         for (size_t j = 0; j < phase_points.size(); ++j) {
             auto const& p = phase_points[labels[j]];
             std::copy(p.begin(), p.end(),
@@ -163,4 +166,6 @@ int main(int argc, char** argv)
         }
         os << "\n\n";
     }
+
+    std::cout << "Degeneracy of smallest eval: " << degen << std::endl;
 }
