@@ -124,6 +124,21 @@ int main(int argc, char** argv)
         std::vector<vecpair_t> svm(points.size());
         std::vector<vecpair_t> mag(points.size());
 
+        // get the bias parameters
+        auto rhos = [&] {
+            using kernel_t = svm::kernel::polynomial<2>;
+            using phase_label = sim_base::phase_label;
+            using model_t = svm::model<kernel_t, phase_label>;
+
+            std::string arname = parameters.get_archive_name();
+            alps::hdf5::archive ar(arname, "r");
+
+            model_t model;
+            svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+            ar["model"] >> serial;
+            return svm::detail::container_factory<std::vector<double>>::copy(model.rho());
+        }();
+
         alps::hdf5::archive ar(parameters["test.filename"].as<std::string>(), "w");
         ar["parameters"] << parameters;
 
@@ -187,21 +202,23 @@ int main(int argc, char** argv)
         std::cout << std::endl;
 
         // rescale the SVM decision function to unit interval
-        for (size_t j = 0; j < svm.front().first.size(); ++j) {
-            double min = std::numeric_limits<double>::max();
-            double max = std::numeric_limits<double>::min();
-            for (size_t i = 0; i < points.size(); ++i) {
-                double x = svm[i].first[j];
-                if (x < min)
-                    min = x;
-                if (x > max)
-                    max = x;
-            }
-            double fac = 1. / (max - min);
-            for (size_t i = 0; i < points.size(); ++i) {
-                // svm[i].first[j] = fac * (svm[i].first[j] - min);
-                svm[i].first[j] *= fac;
-                svm[i].second[j] *= fac;
+        if (cmdl[{"-r", "--rescale"}]) {
+            for (size_t j = 0; j < svm.front().first.size(); ++j) {
+                double min = std::numeric_limits<double>::max();
+                double max = std::numeric_limits<double>::min();
+                for (size_t i = 0; i < points.size(); ++i) {
+                    double x = svm[i].first[j];
+                    if (x < min)
+                        min = x;
+                    if (x > max)
+                        max = x;
+                }
+                double fac = 1. / (max - min);
+                for (size_t i = 0; i < points.size(); ++i) {
+                    svm[i].first[j] += rhos[j];
+                    svm[i].first[j] *= fac;
+                    svm[i].second[j] *= fac;
+                }
             }
         }
 
