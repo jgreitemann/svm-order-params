@@ -41,10 +41,19 @@ struct config_policy;
 class gauge_sim : public alps::mcbase {
 public:
     using phase_point = phase_space::point::J1J3;
-    // using phase_classifier = phase_space::classifier::hyperplane<phase_point>;
-    // using phase_classifier = phase_space::classifier::fixed_from_cycle<phase_point>;
-    // using phase_classifier = phase_space::classifier::D2h_phase_diagram;
+#if defined(GAUGE_CLASSIFIER_HYPERPLANE)
+    using phase_classifier = phase_space::classifier::hyperplane<phase_point>;
+#elif defined(GAUGE_CLASSIFIER_CYCLE)
+    using phase_classifier = phase_space::classifier::fixed_from_cycle<phase_point>;
+#elif defined(GAUGE_CLASSIFIER_D2H)
+    using phase_classifier = phase_space::classifier::D2h_phase_diagram;
+#elif defined(GAUGE_CLASSIFIER_D3H)
+    using phase_classifier = phase_space::classifier::D3h_phase_diagram;
+#elif defined(GAUGE_CLASSIFIER_GRID)
     using phase_classifier = phase_space::classifier::fixed_from_grid<phase_point>;
+#else
+    #error unknown / missing gauge classifier
+#endif
     using phase_label = phase_classifier::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
