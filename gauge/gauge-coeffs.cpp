@@ -149,10 +149,12 @@ int main(int argc, char** argv) {
                         log_msg("Analyzing contractions...");
 
                         using Container = typename config_policy::config_array;
-                        using confpol_t = gauge_config_policy<lattice::uniform<element_policy::uniaxial,
-                                                                               Container>,
+                        using ElementPolicy = element_policy::uniaxial;
+                        using LatticePolicy = lattice::uniform<ElementPolicy,
+                                                               Container>;
+                        using confpol_t = gauge_config_policy<LatticePolicy,
                                                               symmetry_policy::none>;
-                        confpol_t block_confpol(confpol->rank(), false);
+                        confpol_t block_confpol(confpol->rank(), ElementPolicy{}, false);
                         auto block = block_confpol.all_block_indices().begin()->second;
 
                         auto a = contraction_matrix(contractions,

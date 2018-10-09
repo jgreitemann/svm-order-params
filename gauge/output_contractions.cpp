@@ -33,13 +33,14 @@ int main(int argc, char** argv) {
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
 
     using Container = typename config_policy::config_array;
-    using confpol_t = gauge_config_policy<lattice::uniform<element_policy::uniaxial,
-                                                           Container>,
-                                          symmetry_policy::none>;
+    using LatticePolicy = typename lattice::uniform<element_policy::uniaxial,
+                                                    Container>;
+    using ElementPolicy = typename LatticePolicy::ElementPolicy;
+    using confpol_t = gauge_config_policy<LatticePolicy, symmetry_policy::none>;
     size_t rank;
     if (!(cmdl(1) >> rank))
         throw std::runtime_error("invalid rank '" + cmdl[1] + "'");
-    confpol_t confpol(rank, false);
+    confpol_t confpol(rank, ElementPolicy{}, false);
 
     auto contractions = get_contractions(rank);
     auto block = confpol.all_block_indices().begin()->second;

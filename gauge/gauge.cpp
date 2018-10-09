@@ -66,6 +66,7 @@ std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(paramete
 {
     // set up SVM configuration policy
     size_t rank = parameters["rank"].as<size_t>();
+    size_t L = parameters["length"].as<size_t>();
     if (parameters["resolve_sites"].as<bool>()) {
         if (rank != 1) {
             std::runtime_error("site-resolved config policy does not support "
@@ -80,49 +81,63 @@ std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(paramete
                 new site_resolved_rank1_config_policy<element_policy::triad>(n_sites));
         }
     }
-    using ctype = decltype(R);
-    if (parameters["bipartite"].as<bool>()) {
-        if (parameters["symmetrized"].as<bool>()) {
-            if (parameters["uniaxial"].as<bool>()) {
+    if (parameters["uniaxial"].as<bool>()) {
+        using BaseElementPolicy = element_policy::uniaxial;
+        if (parameters["bipartite"].as<bool>()) {
+            using LatticePolicy = lattice::square<BaseElementPolicy, Rt_array>;
+            using ElementPolicy = typename LatticePolicy::ElementPolicy;
+            ElementPolicy elempol{2};
+            if (parameters["symmetrized"].as<bool>()) {
                 return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<lattice::square<element_policy::uniaxial, ctype>,
-                                            symmetry_policy::symmetrized>(rank, unsymmetrize));
+                    new gauge_config_policy<LatticePolicy, symmetry_policy::symmetrized>(
+                        rank, std::move(elempol), unsymmetrize));
             } else {
                 return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<lattice::square<element_policy::triad, ctype>,
-                                            symmetry_policy::symmetrized>(rank, unsymmetrize));
+                    new gauge_config_policy<LatticePolicy, symmetry_policy::none>(
+                        rank, std::move(elempol), unsymmetrize));
             }
         } else {
-            if (parameters["uniaxial"].as<bool>()) {
+            using LatticePolicy = lattice::uniform<BaseElementPolicy, Rt_array>;
+            using ElementPolicy = typename LatticePolicy::ElementPolicy;
+            ElementPolicy elempol{};
+            if (parameters["symmetrized"].as<bool>()) {
                 return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<lattice::square<element_policy::uniaxial, ctype>,
-                                            symmetry_policy::none>(rank, unsymmetrize));
+                    new gauge_config_policy<LatticePolicy, symmetry_policy::symmetrized>(
+                        rank, std::move(elempol), unsymmetrize));
             } else {
                 return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<lattice::square<element_policy::triad, ctype>,
-                                            symmetry_policy::none>(rank, unsymmetrize));
+                    new gauge_config_policy<LatticePolicy, symmetry_policy::none>(
+                        rank, std::move(elempol), unsymmetrize));
             }
-        }
-    }
-    if (parameters["symmetrized"].as<bool>()) {
-        if (parameters["uniaxial"].as<bool>()) {
-            return std::unique_ptr<config_policy>(
-                new gauge_config_policy<lattice::uniform<element_policy::uniaxial, ctype>,
-                                        symmetry_policy::symmetrized>(rank, unsymmetrize));
-        } else {
-            return std::unique_ptr<config_policy>(
-                new gauge_config_policy<lattice::uniform<element_policy::triad, ctype>,
-                                        symmetry_policy::symmetrized>(rank, unsymmetrize));
         }
     } else {
-        if (parameters["uniaxial"].as<bool>()) {
-            return std::unique_ptr<config_policy>(
-                new gauge_config_policy<lattice::uniform<element_policy::uniaxial, ctype>,
-                                        symmetry_policy::none>(rank, unsymmetrize));
+        using BaseElementPolicy = element_policy::triad;
+        if (parameters["bipartite"].as<bool>()) {
+            using LatticePolicy = lattice::square<BaseElementPolicy, Rt_array>;
+            using ElementPolicy = typename LatticePolicy::ElementPolicy;
+            ElementPolicy elempol{2};
+            if (parameters["symmetrized"].as<bool>()) {
+                return std::unique_ptr<config_policy>(
+                    new gauge_config_policy<LatticePolicy, symmetry_policy::symmetrized>(
+                        rank, std::move(elempol), unsymmetrize));
+            } else {
+                return std::unique_ptr<config_policy>(
+                    new gauge_config_policy<LatticePolicy, symmetry_policy::none>(
+                        rank, std::move(elempol), unsymmetrize));
+            }
         } else {
-            return std::unique_ptr<config_policy>(
-                new gauge_config_policy<lattice::uniform<element_policy::triad, ctype>,
-                                        symmetry_policy::none>(rank, unsymmetrize));
+            using LatticePolicy = lattice::uniform<BaseElementPolicy, Rt_array>;
+            using ElementPolicy = typename LatticePolicy::ElementPolicy;
+            ElementPolicy elempol{};
+            if (parameters["symmetrized"].as<bool>()) {
+                return std::unique_ptr<config_policy>(
+                    new gauge_config_policy<LatticePolicy, symmetry_policy::symmetrized>(
+                        rank, std::move(elempol), unsymmetrize));
+            } else {
+                return std::unique_ptr<config_policy>(
+                    new gauge_config_policy<LatticePolicy, symmetry_policy::none>(
+                        rank, std::move(elempol), unsymmetrize));
+            }
         }
     }
 }

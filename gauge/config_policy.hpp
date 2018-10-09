@@ -30,6 +30,7 @@
 #include <memory>
 #include <set>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include <boost/multi_array.hpp>
@@ -40,12 +41,12 @@
 namespace element_policy {
 
     struct uniaxial {
-        static const size_t n_color = 1;
-        static const size_t n_block = 1;
-        static const size_t range = 3 * n_color;
-        inline size_t sublattice(size_t index) const { return 0; }
-        inline size_t color(size_t index) const { return 2; }
-        inline size_t component(size_t index) const { return index; }
+        const size_t n_color() const { return 1; }
+        const size_t n_block() const { return 1; }
+        const size_t range() const { return 3 * n_color(); }
+        const size_t sublattice(size_t index) const { return 0; }
+        const size_t color(size_t index) const { return 2; }
+        const size_t component(size_t index) const { return index; }
 
         size_t rearranged_index (indices_t const& ind) const {
             size_t components = 0;
@@ -58,12 +59,12 @@ namespace element_policy {
     };
 
     struct triad {
-        static const size_t n_color = 3;
-        static const size_t n_block = 3;
-        static const size_t range = 3 * n_color;
-        inline size_t sublattice(size_t index) const { return 0; }
-        inline size_t color(size_t index) const { return index / 3; }
-        inline size_t component(size_t index) const { return index % 3; }
+        const size_t n_color() const { return 3; }
+        const size_t n_block() const { return 3; }
+        const size_t range() const { return 3 * n_color(); }
+        const size_t sublattice(size_t index) const { return 0; }
+        const size_t color(size_t index) const { return index / 3; }
+        const size_t component(size_t index) const { return index % 3; }
 
         size_t rearranged_index (indices_t const& ind) const {
             size_t components = 0;
@@ -80,39 +81,45 @@ namespace element_policy {
         }
     };
 
-    template <typename BaseElementPolicy, size_t N_UNIT>
+    template <typename BaseElementPolicy>
     struct n_partite : private BaseElementPolicy {
-        static const size_t n_unitcell = N_UNIT;
-        static const size_t n_color = BaseElementPolicy::n_color;
-        static const size_t n_block = n_unitcell * BaseElementPolicy::n_color;
-        static const size_t range = n_unitcell * BaseElementPolicy::range;
-        inline size_t sublattice(size_t index) const {
-            return index / BaseElementPolicy::range;
+        n_partite(size_t n) : n_unit(n) {}
+
+        const size_t n_unitcell() const { return n_unit; }
+        const size_t n_color() const { return BaseElementPolicy::n_color(); }
+        const size_t n_block() const {
+            return n_unitcell() * BaseElementPolicy::n_color();
         }
-        inline size_t color(size_t index) const {
-            return BaseElementPolicy::color(index % BaseElementPolicy::range);
+        const size_t range() const {
+            return n_unitcell() * BaseElementPolicy::range();
         }
-        inline size_t component(size_t index) const {
-            return BaseElementPolicy::component(index % BaseElementPolicy::range);
+        const size_t sublattice(size_t index) const {
+            return index / BaseElementPolicy::range();
+        }
+        const size_t color(size_t index) const {
+            return BaseElementPolicy::color(index % BaseElementPolicy::range());
+        }
+        const size_t component(size_t index) const {
+            return BaseElementPolicy::component(index % BaseElementPolicy::range());
         }
 
         size_t rearranged_index (indices_t const& ind) const {
             size_t sublats = 0;
             size_t shift = 1;
             for (auto it = ind.begin(); it != ind.end(); ++it) {
-                sublats *= n_unitcell;
+                sublats *= n_unitcell();
                 sublats += sublattice(*it);
-                shift *= BaseElementPolicy::range;
+                shift *= BaseElementPolicy::range();
             }
             indices_t base_ind(ind);
             for (size_t & i : base_ind)
-                i = i % BaseElementPolicy::range;
+                i = i % BaseElementPolicy::range();
             return sublats * shift + BaseElementPolicy::rearranged_index(base_ind);
         }
-    };
 
-    template <typename BaseElementPolicy>
-    using bipartite = n_partite<BaseElementPolicy, 2>;
+    private:
+        const size_t n_unit;
+    };
 }
 
 namespace lattice {
@@ -180,7 +187,7 @@ namespace lattice {
 
     template <typename BaseElementPolicy, typename Container, size_t DIM = 3>
     struct square {
-        using ElementPolicy = element_policy::bipartite<BaseElementPolicy>;
+        using ElementPolicy = element_policy::n_partite<BaseElementPolicy>;
         using site_const_iterator = typename Container::const_iterator;
         using coord_t = std::array<size_t, DIM>;
 
@@ -221,7 +228,7 @@ namespace lattice {
             friend bool operator!= (const_iterator lhs, const_iterator rhs) { return !(lhs == rhs); }
             unitcell operator* () const { return {root, lin_index(), L}; }
             std::unique_ptr<unitcell> operator-> () const {
-                return std::unique_ptr<unitcell>(root, lin_index(), L);
+                return std::make_unique<unitcell>(root, lin_index(), L);
             }
             friend square;
         private:
@@ -426,8 +433,13 @@ template <typename LatticePolicy, typename SymmetryPolicy,
           typename ElementPolicy = typename LatticePolicy::ElementPolicy>
 struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
 
-    gauge_config_policy (size_t rank, bool unsymmetrize = true)
-        : rank_(rank), unsymmetrize(unsymmetrize), weights(size())
+    gauge_config_policy (size_t rank,
+                         ElementPolicy && elempol,
+                         bool unsymmetrize = true)
+        : ElementPolicy{std::forward<ElementPolicy>(elempol)}
+        , rank_(rank)
+        , unsymmetrize(unsymmetrize)
+        , weights(size())
     {
         indices_t ind(rank_);
         for (double & w : weights) {
@@ -437,7 +449,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
     }
 
     virtual size_t size () const override {
-        return SymmetryPolicy::size(ElementPolicy::range, rank_);
+        return SymmetryPolicy::size(ElementPolicy::range(), rank_);
     }
 
     virtual std::vector<double> configuration (config_array const& R) const override {
@@ -462,7 +474,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
 
     virtual matrix_t rearrange (matrix_t const& c) const override {
         symmetry_policy::none no_symm;
-        size_t no_symm_size = no_symm.size(ElementPolicy::range, rank_);
+        size_t no_symm_size = no_symm.size(ElementPolicy::range(), rank_);
         matrix_t out(boost::extents[no_symm_size][no_symm_size]);
         indices_t i_ind(rank_);
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
@@ -484,7 +496,8 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                                 indices_t const& bi,
                                 indices_t const& bj) const override {
         symmetry_policy::none no_symm;
-        size_t no_symm_size = no_symm.size(ElementPolicy::range / ElementPolicy::n_block, rank_);
+        size_t no_symm_size = no_symm.size(ElementPolicy::range()
+                                           / ElementPolicy::n_block(), rank_);
         matrix_t out(boost::extents[no_symm_size][no_symm_size]);
 
         indices_t ind(rank_);
@@ -514,8 +527,9 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
     }
 
     std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {
-        size_t block_range = combinatorics::ipow(ElementPolicy::n_block, rank_);
-        size_t block_size = combinatorics::ipow(ElementPolicy::range / ElementPolicy::n_block, rank_);
+        size_t block_range = combinatorics::ipow(ElementPolicy::n_block(), rank_);
+        size_t block_size = combinatorics::ipow(ElementPolicy::range()
+                                                / ElementPolicy::n_block(), rank_);
         std::pair<matrix_t, matrix_t> blocks {
             matrix_t (boost::extents[block_range][block_range]),
             matrix_t (boost::extents[block_range][block_range])
@@ -548,7 +562,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
     }
 
     virtual size_t range () const override {
-        return ElementPolicy::range;
+        return ElementPolicy::range();
     }
 
     virtual size_t rank () const override {
@@ -559,7 +573,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         indices_t cind;
         cind.reserve(ind.size());
         std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
-                       [this] (size_t a) { return sublattice(a) * ElementPolicy::n_color + color(a); });
+                       [this] (size_t a) { return sublattice(a) * ElementPolicy::n_color() + color(a); });
         return cind;
     }
 
@@ -587,7 +601,7 @@ private:
     using ElementPolicy::sublattice;
 
     void advance_ind (indices_t & ind) const {
-        SymmetryPolicy::advance_ind(ind, ElementPolicy::range);
+        SymmetryPolicy::advance_ind(ind, ElementPolicy::range());
     }
     using SymmetryPolicy::transform_ind;
 
@@ -601,14 +615,14 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
     site_resolved_rank1_config_policy (size_t N) : n_sites(N) {}
 
     virtual size_t size () const override {
-        return ElementPolicy::range * n_sites;
+        return ElementPolicy::range() * n_sites;
     }
 
     virtual std::vector<double> configuration (config_array const& R) const override {
         std::vector<double> v;
         v.reserve(size());
         for (local_state const& site : R) {
-            for (size_t a = 0; a < ElementPolicy::range; ++a) {
+            for (size_t a = 0; a < ElementPolicy::range(); ++a) {
                 v.push_back(site(color(a), component(a)));
             }
         }
@@ -618,9 +632,11 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
     virtual matrix_t rearrange (matrix_t const& c) const override {
         matrix_t out(boost::extents[size()][size()]);
         for (size_t i = 0; i < size(); ++i) {
-            size_t i_out = (i % ElementPolicy::range) * n_sites + (i / ElementPolicy::range);
+            size_t i_out = (i % ElementPolicy::range()) * n_sites
+                + (i / ElementPolicy::range());
             for (size_t j = 0; j < size(); ++j) {
-                size_t j_out = (j % ElementPolicy::range) * n_sites + (j / ElementPolicy::range);
+                size_t j_out = (j % ElementPolicy::range()) * n_sites
+                    + (j / ElementPolicy::range());
                 out[i_out][j_out] = c[i][j];
             }
         }
@@ -635,8 +651,8 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
     }
 
     std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {
-        size_t block_range = ElementPolicy::n_color * n_sites;
-        size_t block_size = ElementPolicy::range / ElementPolicy::n_color;
+        size_t block_range = ElementPolicy::n_color() * n_sites;
+        size_t block_size = ElementPolicy::range() / ElementPolicy::n_color();
         std::pair<matrix_t, matrix_t> blocks {
             matrix_t (boost::extents[block_range][block_range]),
                 matrix_t (boost::extents[block_range][block_range])
@@ -644,9 +660,9 @@ struct site_resolved_rank1_config_policy : public config_policy, private Element
         boost::multi_array<block_reduction::norm<2>,2> block_2norms(boost::extents[block_range][block_range]);
         boost::multi_array<block_reduction::sum,2> block_sums(boost::extents[block_range][block_range]);
         for (size_t i = 0; i < size(); ++i) {
-            size_t i_out = (i % ElementPolicy::range) * n_sites + (i / ElementPolicy::range);
+            size_t i_out = (i % ElementPolicy::range()) * n_sites + (i / ElementPolicy::range());
             for (size_t j = 0; j < size(); ++j) {
-                size_t j_out = (j % ElementPolicy::range) * n_sites + (j / ElementPolicy::range);
+                size_t j_out = (j % ElementPolicy::range()) * n_sites + (j / ElementPolicy::range());
                 block_2norms[i_out / block_size][j_out / block_size] += c[i][j];
                 block_sums[i_out / block_size][j_out / block_size] += c[i][j];
             }
