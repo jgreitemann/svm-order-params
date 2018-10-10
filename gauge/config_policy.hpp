@@ -40,7 +40,7 @@
 
 namespace element_policy {
 
-    struct uniaxial {
+    struct mono {
         const size_t n_color() const { return 1; }
         const size_t n_block() const { return 1; }
         const size_t range() const { return 3 * n_color(); }
@@ -125,7 +125,7 @@ namespace element_policy {
 namespace lattice {
 
     template <typename BaseElementPolicy, typename Container>
-    struct uniform {
+    struct single {
         using ElementPolicy = BaseElementPolicy;
         using site_const_iterator = typename Container::const_iterator;
 
@@ -149,7 +149,7 @@ namespace lattice {
             std::unique_ptr<unitcell> operator-> () const {
                 return std::unique_ptr<unitcell>(new unitcell(sit));
             }
-            friend uniform;
+            friend single;
         private:
             const_iterator (site_const_iterator it) : sit {it} {}
             site_const_iterator sit;
@@ -167,7 +167,7 @@ namespace lattice {
             site_const_iterator it;
         };
 
-        uniform (Container const& linear) : linear(linear) {}
+        single (Container const& linear) : linear(linear) {}
 
         const_iterator begin () const {
             return {linear.begin()};
@@ -288,6 +288,60 @@ namespace lattice {
     private:
         Container const& linear;
         size_t L;
+    };
+
+
+    template <typename BaseElementPolicy, typename Container>
+    struct full {
+        using ElementPolicy = element_policy::n_partite<BaseElementPolicy>;
+        using site_const_iterator = typename Container::const_iterator;
+
+        struct unitcell;
+        struct const_iterator {
+            const_iterator & operator++ () {
+                root += size;
+                return *this;
+            }
+            const_iterator operator++ (int) {
+                const_iterator old(*this);
+                ++(*this);
+                return old;
+            }
+            friend bool operator== (const_iterator lhs, const_iterator rhs) {
+                return lhs.root == rhs.root;
+            }
+            friend bool operator!= (const_iterator lhs, const_iterator rhs) { return !(lhs == rhs); }
+            unitcell operator* () const { return {root}; }
+            std::unique_ptr<unitcell> operator-> () const {
+                return std::make_unique<unitcell>(root);
+            }
+            site_const_iterator root;
+            size_t size;
+        };
+
+        struct unitcell {
+            typename Container::value_type const& sublattice (size_t i) const {
+                return root[i];
+            }
+            site_const_iterator root;
+        };
+
+        full (Container const& linear) : linear(linear) {}
+
+        const_iterator begin () const {
+            return {linear.begin(), linear.size()};
+        }
+
+        const_iterator end () const {
+            return {linear.end(), linear.size()};
+        }
+
+        size_t size () const {
+            return 1;
+        }
+
+    private:
+        Container const& linear;
     };
 
 }
@@ -608,107 +662,4 @@ private:
     size_t rank_;
     bool unsymmetrize;
     std::vector<double> weights;
-};
-
-template <typename ElementPolicy>
-struct site_resolved_rank1_config_policy : public config_policy, private ElementPolicy {
-    site_resolved_rank1_config_policy (size_t N) : n_sites(N) {}
-
-    virtual size_t size () const override {
-        return ElementPolicy::range() * n_sites;
-    }
-
-    virtual std::vector<double> configuration (config_array const& R) const override {
-        std::vector<double> v;
-        v.reserve(size());
-        for (local_state const& site : R) {
-            for (size_t a = 0; a < ElementPolicy::range(); ++a) {
-                v.push_back(site(color(a), component(a)));
-            }
-        }
-        return v;
-    }
-
-    virtual matrix_t rearrange (matrix_t const& c) const override {
-        matrix_t out(boost::extents[size()][size()]);
-        for (size_t i = 0; i < size(); ++i) {
-            size_t i_out = (i % ElementPolicy::range()) * n_sites
-                + (i / ElementPolicy::range());
-            for (size_t j = 0; j < size(); ++j) {
-                size_t j_out = (j % ElementPolicy::range()) * n_sites
-                    + (j / ElementPolicy::range());
-                out[i_out][j_out] = c[i][j];
-            }
-        }
-        return out;
-    }
-
-    virtual matrix_t rearrange (introspec_t const& c,
-                                indices_t const& bi,
-                                indices_t const& bj) const override {
-        throw std::runtime_error("not implemented yet");
-        return matrix_t {};
-    }
-
-    std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {
-        size_t block_range = ElementPolicy::n_color() * n_sites;
-        size_t block_size = ElementPolicy::range() / ElementPolicy::n_color();
-        std::pair<matrix_t, matrix_t> blocks {
-            matrix_t (boost::extents[block_range][block_range]),
-                matrix_t (boost::extents[block_range][block_range])
-                };
-        boost::multi_array<block_reduction::norm<2>,2> block_2norms(boost::extents[block_range][block_range]);
-        boost::multi_array<block_reduction::sum,2> block_sums(boost::extents[block_range][block_range]);
-        for (size_t i = 0; i < size(); ++i) {
-            size_t i_out = (i % ElementPolicy::range()) * n_sites + (i / ElementPolicy::range());
-            for (size_t j = 0; j < size(); ++j) {
-                size_t j_out = (j % ElementPolicy::range()) * n_sites + (j / ElementPolicy::range());
-                block_2norms[i_out / block_size][j_out / block_size] += c[i][j];
-                block_sums[i_out / block_size][j_out / block_size] += c[i][j];
-            }
-        }
-        for (size_t i = 0; i < block_range; ++i) {
-            for (size_t j = 0; j < block_range; ++j) {
-                blocks.first[i][j] = block_2norms[i][j];
-                blocks.second[i][j] = block_sums[i][j];
-            }
-        }
-        return blocks;
-    }
-
-    virtual size_t range () const override {
-        return size();
-    }
-
-    virtual size_t rank () const override {
-        return 1;
-    }
-
-    virtual indices_t block_indices(indices_t const& ind) const override {
-        indices_t cind;
-        cind.reserve(ind.size());
-        std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
-                       [this] (size_t a) { return color(a); });
-        return cind;
-    }
-
-    virtual indices_t component_indices(indices_t const& ind) const override {
-        indices_t cind;
-        cind.reserve(ind.size());
-        std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
-                       [this] (size_t a) { return component(a); });
-        return cind;
-    }
-
-    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const override {
-        std::map<indices_t, index_assoc_vec> b;
-        throw std::runtime_error("not implemented yet");
-        return b;
-    }
-
-private:
-    using ElementPolicy::color;
-    using ElementPolicy::component;
-
-    size_t n_sites;
 };

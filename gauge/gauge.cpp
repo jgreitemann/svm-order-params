@@ -53,93 +53,68 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
     phase_point::define_parameters(parameters);
 
     parameters
-        .define<bool>("resolve_sites", false, "do not average over sites (rank 1 only)")
-        .define<bool>("bipartite", false, "use a bipartite configuration (AFM)")
+        .define<std::string>("color", "triad", "use 3 colored spins (triad) or just one (mono)")
+        .define<std::string>("cluster", "single", "cluster used for SVM config")
         .define<bool>("symmetrized", true, "use symmetry <l_x m_y> == <m_y l_x>")
-        .define<bool>("uniaxial", false, "only consider n-vector in configuration")
         .define<size_t>("rank", "rank of the order parameter tensor");
 }
 
 
-std::unique_ptr<config_policy> gauge_sim::config_policy_from_parameters(parameters_type const& parameters,
-                                                                        bool unsymmetrize = true)
+auto gauge_sim::config_policy_from_parameters(parameters_type const& parameters,
+                                              bool unsymmetrize = true)
+    -> std::unique_ptr<config_policy>
 {
+#define CONFPOL_CREATE()                                        \
+    return std::unique_ptr<config_policy>(                      \
+        new gauge_config_policy<LatticePolicy,                  \
+                                symmetry_policy::symmetrized>(  \
+            rank, std::move(elempol), unsymmetrize));           \
+
+
+#define CONFPOL_BRANCH_SYMM(LATNAME, CLSIZE)                        \
+    using LatticePolicy = lattice:: LATNAME <BaseElementPolicy,     \
+                                             Rt_array>;             \
+    using ElementPolicy = typename LatticePolicy::ElementPolicy;    \
+    ElementPolicy elempol{ CLSIZE };                                \
+    if (parameters["symmetrized"].as<bool>()) {                     \
+        CONFPOL_CREATE()                                            \
+    } else {                                                        \
+        CONFPOL_CREATE()                                            \
+    }                                                               \
+
+
+#define CONFPOL_BRANCH_CLUSTER() \
+    if (clname == "single") {                               \
+        CONFPOL_BRANCH_SYMM(single,);                       \
+    } else if (clname == "bipartite") {                     \
+        CONFPOL_BRANCH_SYMM(square,2);                      \
+    } else if (clname == "full") {                          \
+        CONFPOL_BRANCH_SYMM(full,(L*L*L));                  \
+    } else {                                                \
+        throw std::runtime_error("unknown cluster name: "   \
+                                 + clname);                 \
+    }                                                       \
+
+
     // set up SVM configuration policy
     size_t rank = parameters["rank"].as<size_t>();
     size_t L = parameters["length"].as<size_t>();
-    if (parameters["resolve_sites"].as<bool>()) {
-        if (rank != 1) {
-            std::runtime_error("site-resolved config policy does not support "
-                               "ranks other than 1 at the moment");
-        }
-        size_t n_sites = combinatorics::ipow(parameters["length"].as<size_t>(), 3);
-        if (parameters["uniaxial"].as<bool>()) {
-            return std::unique_ptr<config_policy>(
-                new site_resolved_rank1_config_policy<element_policy::uniaxial>(n_sites));
-        } else {
-            return std::unique_ptr<config_policy>(
-                new site_resolved_rank1_config_policy<element_policy::triad>(n_sites));
-        }
-    }
-    if (parameters["uniaxial"].as<bool>()) {
-        using BaseElementPolicy = element_policy::uniaxial;
-        if (parameters["bipartite"].as<bool>()) {
-            using LatticePolicy = lattice::square<BaseElementPolicy, Rt_array>;
-            using ElementPolicy = typename LatticePolicy::ElementPolicy;
-            ElementPolicy elempol{2};
-            if (parameters["symmetrized"].as<bool>()) {
-                return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<LatticePolicy, symmetry_policy::symmetrized>(
-                        rank, std::move(elempol), unsymmetrize));
-            } else {
-                return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<LatticePolicy, symmetry_policy::none>(
-                        rank, std::move(elempol), unsymmetrize));
-            }
-        } else {
-            using LatticePolicy = lattice::uniform<BaseElementPolicy, Rt_array>;
-            using ElementPolicy = typename LatticePolicy::ElementPolicy;
-            ElementPolicy elempol{};
-            if (parameters["symmetrized"].as<bool>()) {
-                return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<LatticePolicy, symmetry_policy::symmetrized>(
-                        rank, std::move(elempol), unsymmetrize));
-            } else {
-                return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<LatticePolicy, symmetry_policy::none>(
-                        rank, std::move(elempol), unsymmetrize));
-            }
-        }
-    } else {
+    std::string clname = parameters["cluster"].as<std::string>();
+    std::string elname = parameters["color"].as<std::string>();
+
+    if (elname == "mono") {
+        using BaseElementPolicy = element_policy::mono;
+        CONFPOL_BRANCH_CLUSTER();
+    } else if (elname == "triad") {
         using BaseElementPolicy = element_policy::triad;
-        if (parameters["bipartite"].as<bool>()) {
-            using LatticePolicy = lattice::square<BaseElementPolicy, Rt_array>;
-            using ElementPolicy = typename LatticePolicy::ElementPolicy;
-            ElementPolicy elempol{2};
-            if (parameters["symmetrized"].as<bool>()) {
-                return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<LatticePolicy, symmetry_policy::symmetrized>(
-                        rank, std::move(elempol), unsymmetrize));
-            } else {
-                return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<LatticePolicy, symmetry_policy::none>(
-                        rank, std::move(elempol), unsymmetrize));
-            }
-        } else {
-            using LatticePolicy = lattice::uniform<BaseElementPolicy, Rt_array>;
-            using ElementPolicy = typename LatticePolicy::ElementPolicy;
-            ElementPolicy elempol{};
-            if (parameters["symmetrized"].as<bool>()) {
-                return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<LatticePolicy, symmetry_policy::symmetrized>(
-                        rank, std::move(elempol), unsymmetrize));
-            } else {
-                return std::unique_ptr<config_policy>(
-                    new gauge_config_policy<LatticePolicy, symmetry_policy::none>(
-                        rank, std::move(elempol), unsymmetrize));
-            }
-        }
+        CONFPOL_BRANCH_CLUSTER();
+    } else {
+        throw std::runtime_error("unknown color setting: " + elname);
     }
+
+#undef CONFPOL_BRANCH_CLUSTER
+#undef CONFPOL_BRANCH_SYMM
+#undef CONFPOL_CREATE
 }
 
 

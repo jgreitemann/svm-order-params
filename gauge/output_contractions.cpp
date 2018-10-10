@@ -33,8 +33,8 @@ int main(int argc, char** argv) {
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
 
     using Container = typename config_policy::config_array;
-    using LatticePolicy = typename lattice::uniform<element_policy::uniaxial,
-                                                    Container>;
+    using LatticePolicy = typename lattice::single<element_policy::mono,
+                                                   Container>;
     using ElementPolicy = typename LatticePolicy::ElementPolicy;
     using confpol_t = gauge_config_policy<LatticePolicy, symmetry_policy::none>;
     size_t rank;
