@@ -19,7 +19,6 @@
 #include "training_adapter.hpp"
 #include "test_adapter.hpp"
 #include "argh.h"
-#include "override_parameters.hpp"
 
 #include <iostream>
 #include <memory>
@@ -59,43 +58,16 @@ int main(int argc, char** argv)
         // Creates the parameters for the simulation
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
+        alps::params parameters(argc, argv);
+        argh::parser cmdl(argc, argv);
 
-        argh::parser cmdl({"--nu", "--outputfile", "--timelimit", "--sweep.N",
-                           "--sweep.samples"});
-        cmdl.parse(argc, argv);
-        alps::params parameters = [&] {
-            if (cmdl[1].empty())
-                return alps::params(argc, argv);
-            std::string pseudo_args[] = {cmdl[0], cmdl[1]};
-            if (cmdl[{"-h", "--help"}])
-                pseudo_args[1] = "--help";
-            char const * pseudo_argv[] = {pseudo_args[0].c_str(), pseudo_args[1].c_str()};
-            return alps::params(2, pseudo_argv);
-        } ();
+        // define parameters
         sim_type::define_parameters(parameters);
         define_test_parameters(parameters);
-
         if (!parameters.is_restored()) {
             parameters.define<double>("nu", 0.5, "nu_SVC regularization parameter");
             parameters.define<size_t>("progress_interval", 3,
                                       "time in sec between progress reports");
-        }
-
-        /* WORKAROUND: override parameters from CL args manually */ {
-            for (auto const& p : parameters) {
-                if (p.second.isType<int>())
-                    override_parameter<int>(p.first, parameters, cmdl);
-                if (p.second.isType<long>())
-                    override_parameter<long>(p.first, parameters, cmdl);
-                if (p.second.isType<size_t>())
-                    override_parameter<size_t>(p.first, parameters, cmdl);
-                if (p.second.isType<float>())
-                    override_parameter<float>(p.first, parameters, cmdl);
-                if (p.second.isType<double>())
-                    override_parameter<double>(p.first, parameters, cmdl);
-                if (p.second.isType<std::string>())
-                    override_parameter<std::string>(p.first, parameters, cmdl);
-            }
         }
 
         bool skip_sampling = cmdl[{"-s", "--skip-sampling"}];

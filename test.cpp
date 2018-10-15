@@ -18,7 +18,6 @@
 #include "test_adapter.hpp"
 #include "filesystem.hpp"
 #include "argh.h"
-#include "override_parameters.hpp"
 
 #include <omp.h>
 
@@ -61,20 +60,12 @@ int main(int argc, char** argv)
         // Creates the parameters for the simulation
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
+        alps::params parameters(argc, argv);
+        argh::parser cmdl(argc, argv);
 
-        argh::parser cmdl(argc, argv, argh::parser::PREFER_PARAM_FOR_UNREG_OPTION);
-        alps::params parameters = [&] {
-            if (cmdl[1].empty())
-                return alps::params(argc, argv);
-            std::string pseudo_args[] = {cmdl[0], cmdl[1]};
-            if (cmdl[{"-h", "--help"}])
-                pseudo_args[1] = "--help";
-            char const * pseudo_argv[] = {pseudo_args[0].c_str(), pseudo_args[1].c_str()};
-            return alps::params(2, pseudo_argv);
-        } ();
+        // define parameters
         sim_type::define_parameters(parameters);
         define_test_parameters(parameters);
-
         if (parameters["test.filename"].as<std::string>().empty())
             parameters["test.filename"] =
                 replace_extension(alps::origin_name(parameters), ".test.h5");
@@ -85,23 +76,6 @@ int main(int argc, char** argv)
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
             return 1;
-        }
-
-        /* WORKAROUND: override parameters from CL args manually */ {
-            for (auto const& p : parameters) {
-                if (p.second.isType<int>())
-                    override_parameter<int>(p.first, parameters, cmdl);
-                if (p.second.isType<long>())
-                    override_parameter<long>(p.first, parameters, cmdl);
-                if (p.second.isType<size_t>())
-                    override_parameter<size_t>(p.first, parameters, cmdl);
-                if (p.second.isType<float>())
-                    override_parameter<float>(p.first, parameters, cmdl);
-                if (p.second.isType<double>())
-                    override_parameter<double>(p.first, parameters, cmdl);
-                if (p.second.isType<std::string>())
-                    override_parameter<std::string>(p.first, parameters, cmdl);
-            }
         }
 
         using phase_point = sim_base::phase_point;

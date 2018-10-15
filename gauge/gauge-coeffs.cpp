@@ -46,15 +46,8 @@ int main(int argc, char** argv) {
         argh::parser cmdl;
         cmdl.add_params({"block", "t", "transition", "result"});
         cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
-        alps::params parameters = [&] {
-            if (cmdl[1].empty())
-                return alps::params(argc, argv);
-            std::string pseudo_args[] = {cmdl[0], cmdl[1]};
-            if (cmdl[{"-h", "--help"}])
-                pseudo_args[1] = "--help";
-            char const * pseudo_argv[] = {pseudo_args[0].c_str(), pseudo_args[1].c_str()};
-            return alps::params(2, pseudo_argv);
-        } ();
+        alps::params parameters(argc, argv);
+
         sim_type::define_parameters(parameters);
 
         if (parameters.help_requested(std::cout) ||
