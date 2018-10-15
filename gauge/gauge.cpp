@@ -124,28 +124,22 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     , L(parameters["length"])
     , L2(L*L)
     , L3(L*L*L)
-    , gauge_group(parameters["gauge_group"].as<std::string>())
-    , group_size(parameters["group_size"])
-    , O3(parameters["O3"].as<bool>())
-    , ppoint(parms)
-    , beta(1. / parameters["temperature"].as<double>())
-    , Eg(-9*L3)
-    , sweeps(0) //current sweeps
     , thermalization_sweeps(parameters["thermalization_sweeps"])
     , total_sweeps(parameters["total_sweeps"])
+    , sweep_unit(parameters["sweep_unit"])
     , hits_R(parameters["hits_R"])
     , hits_U(parameters["hits_U"])
     , global_gauge_prob(parameters["global_gauge_prob"].as<double>())
-    , sweep_unit(parameters["sweep_unit"])
+    , O3(parameters["O3"].as<bool>())
+    , gauge_group(parameters["gauge_group"].as<std::string>())
+    , group_size(parameters["group_size"])
+    , ppoint(parms)
+    , beta(1. / parameters["temperature"].as<double>())
     , spacing_E(parameters["spacing_E"].as<double>())
     , spacing_nem(parameters["spacing_nem"].as<double>())
-    , current_energy(0)
     , rng(parameters["SEED"].as<std::size_t>() + seed_offset)
-    , random_01(0., 1.)
-    , random_11(-1., 1.)
     , random_site(0, L3 - 1)
     , random_U(0, group_size-1)
-    , random_int_01(0, 1)
 
 {
 #ifdef DEBUGMODE
@@ -159,10 +153,6 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     Ux.resize(boost::extents[L3]);
     Uy.resize(boost::extents[L3]);
     Uz.resize(boost::extents[L3]);
-
-
-    flip_counter.resize(4);
-    std::fill(flip_counter.begin(), flip_counter.end(), 0);
 
     /** Initialization **/
     /* Generate the gauge bath */
@@ -230,7 +220,7 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
             return nematicity_D3hB();
         };
     } else {
-        std::cerr << "ERROR in the symmetry" << std::endl;
+        throw std::runtime_error("invalid gauge group");
         return;
     }
 

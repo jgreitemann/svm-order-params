@@ -118,7 +118,6 @@ int main(int argc, char** argv)
             auto labels = transition.labels();
             size_t i = index_map[labels.first], j = index_map[labels.second];
             double rho = std::abs(transition.rho());
-            double val = (rho > rhoc) ? 1. : 0.;
 
             if (rho > rhoc) {
                 std::copy(phase_points[labels.first].begin(),

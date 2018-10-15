@@ -35,7 +35,6 @@ void ising_sim::define_parameters(parameters_type & parameters) {
 // mainly using values from the parameters.
 ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
     : alps::mcbase(parms, seed_offset)
-    , rng(parameters["SEED"].as<size_t>() + seed_offset)
     , length(parameters["length"])
     , sweeps(0)
     , thermalization_sweeps(int(parameters["thermalization_sweeps"]))
@@ -44,9 +43,10 @@ ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
     , spins(length,length)
     , current_energy(0)
     , current_magnetization(0)
-    , iexp_(-1. / ppoint.temp)
+    , rng(parameters["SEED"].as<size_t>() + seed_offset)
     , uniform(0., 1.)
     , random_site(0, length - 1)
+    , iexp_(-1. / ppoint.temp)
 {
     // Initializes the spins
     for(int i=0; i<length; ++i) {

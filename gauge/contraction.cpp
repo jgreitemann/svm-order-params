@@ -38,8 +38,6 @@ bool contraction::operator() (indices_t const& i_ind,
     for (size_t i = 0; i < 2 * endpoints.size(); ++i) {
         if (checked[i])
             continue;
-        size_t a = ind_get(i);
-        size_t b = ind_get(*it);
         if (ind_get(i) != ind_get(*it))
             return false;
         checked[*it] = true;

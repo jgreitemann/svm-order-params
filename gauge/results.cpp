@@ -36,7 +36,7 @@ bool delta_rule::operator() (indices_t const& i_ind, indices_t const& j_ind) con
     auto c_it = pattern.first.begin();
     while (idx_it != j_ind.end()) {
         if ('0' <= *c_it && *c_it <= '9') {
-            if (*c_it - '0' != *idx_it)
+            if (size_t(*c_it - '0') != *idx_it)
                 return false;
         } else {
             auto find = assignments.find(*c_it);

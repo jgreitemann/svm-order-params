@@ -69,6 +69,8 @@ public:
         , global_progress(global_progress)
         , N_phase(size_t(parameters["sweep.N"]))
         , N_sample(size_t(parameters["sweep.samples"]))
+        , problem(Simulation::configuration_size())
+        , prob_serializer(problem)
         , sweep_policy([&] () -> phase_sweep_policy_type * {
                 std::string dist_name = parameters["sweep.dist"];
                 if (std::is_same<phase_point, phase_space::point::temperature>::value) {
@@ -97,10 +99,6 @@ public:
                 throw std::runtime_error("Invalid sweep policy \"" + dist_name + "\"");
                 return nullptr;
             }())
-        , n_temp(0)
-        , i_temp(0)
-        , problem(Simulation::configuration_size())
-        , prob_serializer(problem)
     {
         Simulation::update_phase_point(*sweep_policy);
     }
@@ -190,8 +188,8 @@ private:
     size_t N_phase;
     size_t N_sample;
 
-    size_t n_temp;
-    size_t i_temp;
+    size_t n_temp = 0;
+    size_t i_temp = 0;
 
     problem_t problem;
     svm::problem_serializer<svm::hdf5_tag, problem_t> prob_serializer;

@@ -57,29 +57,30 @@ public:
     using phase_label = phase_classifier::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
-    /** parameters **/
     int L;
     int L2;
     int L3;
 
-    int sweeps;
+    /* MC parameters */
+    int sweeps = 0;
     int thermalization_sweeps;
     int total_sweeps;
+    int sweep_unit;
     int hits_R; // number of hits in each update of R
     int hits_U;
     double global_gauge_prob;
-    int sweep_unit; // the actual unit is sweep_unit*hits
+
+    const bool O3; // promote SO(3) to O(3) or not
+    std::string gauge_group;
+    int group_size;
+
+    phase_point ppoint;
+    double beta;
+    double J1, J3; // define anisotropy of J matrix
 
     /* for histogram */
     double spacing_E;
     double spacing_nem;
-
-    phase_point ppoint;
-    double beta;
-
-    double J1, J3; // define anisotropy of J matrix
-
-    double Eg; // ground state energy
 
     /**  degrees of freedoms **/
     typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> Rt3;
@@ -94,33 +95,29 @@ private:
 
     Rt3 J;
 
-
-    /* promot SO(3) to O(3) or not */
-    const bool O3;
-
-    std::string gauge_group;
-    std::function<double ()> nematicity;
-    std::function<double ()> nematicityB;  //biaxial nematicity
-    std::function<double ()> nematicityB2; // variant biaxial nematicity
-    int group_size;
-    point_groups pg; // defined in point_groups.hpp
+    /* nematicity callbacks */
+    point_groups pg;
+    std::function<double()> nematicity;
+    std::function<double()> nematicityB;  //biaxial nematicity
+    std::function<double()> nematicityB2; // variant biaxial nematicity
 
     /** measurements **/
     double current_energy;
+    double Eg; // ground state energy
 
     /** random number generators**/
     std::mt19937 rng;
 
-    std::uniform_real_distribution<double> random_01;
-    std::uniform_real_distribution<double> random_11;
+    std::uniform_real_distribution<double> random_01{0, 1};
+    std::uniform_real_distribution<double> random_11{-1, 1};
+    std::uniform_int_distribution<int> random_int_01{0, 1};
     std::uniform_int_distribution<int> random_site;
     std::uniform_int_distribution<int> random_U;
-    std::uniform_int_distribution<int> random_int_01;
 
 
     /* update counter; the number of succeeded updates for R,
        Ux, Uy, Uz, respectively */
-    std::vector<double> flip_counter;
+    std::vector<double> flip_counter = { 0, 0, 0, 0 };
 
 public:
     gauge_sim(parameters_type const & parms, std::size_t seed_offset = 0);

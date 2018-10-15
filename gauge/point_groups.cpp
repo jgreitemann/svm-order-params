@@ -161,13 +161,13 @@ void point_groups::generate_D2h()
   			 0, 1, 0,  
   			 0, 0, -1; 
 
-	int k = 0;
-	for(int j = 0; j < sg_h.size(); j++)
-		for(int i = 0; i < D2_bath.size(); i++)
-		{
+	size_t k = 0;
+	for(size_t j = 0; j < sg_h.size(); j++) {
+		for(size_t i = 0; i < D2_bath.size(); i++) {
 			D2h_bath[k] = sg_h[j] * D2_bath[i];
 			k++;
 		}
+    }
 }
 
 void point_groups::generate_D2d()
@@ -187,13 +187,13 @@ void point_groups::generate_D2d()
   			 1, 0, 0,  
 			 0, 0, 1; 
 
-	int k = 0;
-	for(int j = 0; j < sg_d.size(); j++)
-		for(int i = 0; i < D2_bath.size(); i++)
-		{
+	size_t k = 0;
+	for(size_t j = 0; j < sg_d.size(); j++) {
+		for(size_t i = 0; i < D2_bath.size(); i++) {
 			D2d_bath[k] = sg_d[j] * D2_bath[i];
 			k++;
 		}
+    }
 }
 
 void point_groups::generate_D3() {
@@ -238,13 +238,13 @@ void point_groups::generate_D3h()
   			 0, 1, 0,  
   			 0, 0, -1; 
 
-	int k = 0;
-	for(int j = 0; j < sg_h.size(); j++)
-		for(int i = 0; i < D3_bath.size(); i++)
-		{
+	size_t k = 0;
+	for(size_t j = 0; j < sg_h.size(); j++) {
+		for(size_t i = 0; i < D3_bath.size(); i++) {
 			D3h_bath[k] = sg_h[j] * D3_bath[i];
 			k++;
 		}
+    }
 }
 
 void point_groups::generate_Cinfv() { // ignore the inplange elements, only works when J1 = 0

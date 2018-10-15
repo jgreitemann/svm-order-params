@@ -356,7 +356,7 @@ namespace phase_space {
             virtual void load (alps::hdf5::archive & ar) final override;
 
         private:
-            size_t n, N;
+            size_t N, n;
             double temp_max;
             double temp_step;
             bool cooling;
@@ -435,7 +435,6 @@ namespace phase_space {
                 , b(params, "sweep.grid.b.")
                 , n(offset)
             {
-                size_t oo = offset;
                 for (size_t i = 1; i <= dim; ++i)
                     subdivs[i-1] = params[format_subdiv(i)].as<size_t>();
 
