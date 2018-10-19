@@ -27,6 +27,10 @@
 using sim_type = frustmag_sim<hamiltonian::heisenberg<lattice::chain>,
                               update::single_flip>;
 
+#ifdef USE_CONCEPTS
+static_assert(Lattice<lattice::chain<site::spin_O3>>, "chain is not a Lattice");
+#endif
+
 int main(int argc, char** argv)
 {
     // Creates the parameters for the simulation

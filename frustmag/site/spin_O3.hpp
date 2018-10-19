@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "concepts.hpp"
+
 #include <Eigen/Dense>
 
 #include <cmath>
@@ -42,5 +44,9 @@ struct spin_O3 : Eigen::Vector3d {
         return random(rng);
     }
 };
+
+#ifdef USE_CONCEPTS
+static_assert(SiteState<spin_O3>, "spin_O3 is not a SiteState");
+#endif
 
 }

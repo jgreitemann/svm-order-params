@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "concepts.hpp"
 #include "phase_space_point.hpp"
 #include "site/spin_O3.hpp"
 #include "update/single_flip.hpp"
@@ -42,6 +43,7 @@ struct heisenberg {
     }
 
     template <typename RNG>
+    // requires RandomCreatable<site_state_type, RNG>
     heisenberg(alps::params const& parameters, RNG & rng)
         : ppoint{parameters, "hamiltonian.heisenberg."}
         , lattice_{parameters, [&rng] {
@@ -68,6 +70,7 @@ struct heisenberg {
     }
 
     template <typename RNG>
+    // requires UniformRandomBitGenerator<RNG>
     bool metropolis(update::single_flip_proposal<lattice_type> const& p,
                     RNG & rng)
     {

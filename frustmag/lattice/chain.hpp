@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "concepts.hpp"
+
 #include <alps/params.hpp>
 
 #include <algorithm>

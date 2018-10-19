@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "concepts.hpp"
+
 #include <iterator>
 #include <random>
 
@@ -38,6 +40,7 @@ private:
     using site_state_type = typename lattice_type::value_type;
 public:
     template <typename RNG>
+    // requires SiteState<site_state_type, RNG>
     void update(LatticeHamiltonian & hamiltonian, RNG & rng) const {
         size_t lsize = hamiltonian.lattice().size();
         for (size_t j = 0; j < lsize; ++j) {
