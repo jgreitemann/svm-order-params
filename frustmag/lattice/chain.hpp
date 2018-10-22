@@ -43,7 +43,9 @@ struct chain : std::vector<Site> {
     }
 
     template <typename Generator>
-    chain(alps::params const& parameters, Generator && gen) {
+    chain(alps::params const& parameters, Generator && gen)
+        : periodic(parameters["lattice.chain.periodic"])
+    {
         size_t L = parameters["lattice.chain.length"];
         this->reserve(L);
         std::generate_n(std::back_inserter(*this), L, gen);
