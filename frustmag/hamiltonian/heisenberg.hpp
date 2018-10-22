@@ -25,6 +25,7 @@
 
 #include <Eigen/Dense>
 
+#include <numeric>
 #include <random>
 #include <utility>
 
@@ -59,6 +60,12 @@ struct heisenberg {
 
     double energy_per_site() const {
         return energy() / lattice().size();
+    }
+
+    double magnetization() const {
+        auto sum = std::accumulate(lattice().begin(), lattice().end(),
+                                   Eigen::Vector3d(Eigen::Vector3d::Zero()));
+        return sum.norm() / lattice().size();
     }
 
     lattice_type const& lattice() const {

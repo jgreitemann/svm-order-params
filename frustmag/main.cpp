@@ -90,8 +90,11 @@ int main(int argc, char** argv)
         // std::cout << "All measured results:" << std::endl;
         // std::cout << results << std::endl;
         std::cout << parameters["lattice.chain.length"].as<size_t>() << '\t'
+                  << parameters["hamiltonian.heisenberg.temp"].as<double>() << '\t'
                   << results["Energy"].mean<double>() << '\t'
-                  << results["Energy"].error<double>() << '\n';
+                  << results["Energy"].error<double>() << '\t'
+                  << results["Magnetization"].mean<double>() << '\t'
+                  << results["Magnetization"].error<double>() << '\n';
 
         // Saving to the output file
         std::string output_file = parameters["outputfile"];

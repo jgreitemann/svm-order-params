@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "concepts.hpp"
 #include "convenience_params.hpp"
 
 #include <alps/accumulators.hpp>
@@ -27,6 +28,15 @@
 
 template <typename Hamiltonian, template <typename> typename Update>
 class frustmag_sim : public alps::mcbase, Update<Hamiltonian> {
+    using rng_type = std::mt19937;
+#ifdef USE_CONCEPTS
+    static_assert(LatticeHamiltonian<Hamiltonian, rng_type>,
+                  "Hamiltonian is not a LatticeHamiltonian");
+    static_assert(MagneticHamiltonian<Hamiltonian>,
+                  "Hamiltonian is not a MagneticHamiltonian");
+    static_assert(MetropolisUpdate<Update<Hamiltonian>, rng_type>,
+                  "Update is not a MetropolisUpdate");
+#endif
 public:
     // using phase_classifier = phase_space::classifier::critical_temperature;
     // using phase_label = phase_classifier::label_type;
@@ -35,14 +45,12 @@ public:
 
     using lattice_type = typename Hamiltonian::lattice_type;
     using update_type = Update<Hamiltonian>;
-    struct state_type {
-    };
 private:
     size_t sweeps = 0;
     size_t total_sweeps;
     size_t thermalization_sweeps;
 
-    std::mt19937 rng;
+    rng_type rng;
 
     Hamiltonian hamiltonian;
 
@@ -76,7 +84,8 @@ public:
         , hamiltonian{params, rng}
     {
         measurements
-            << alps::accumulators::FullBinningAccumulator<double>("Energy");
+            << alps::accumulators::FullBinningAccumulator<double>("Energy")
+            << alps::accumulators::FullBinningAccumulator<double>("Magnetization");
     }
 
 
@@ -93,6 +102,7 @@ public:
         if (!is_thermalized()) return;
 
         measurements["Energy"] << hamiltonian.energy_per_site();
+        measurements["Magnetization"] << hamiltonian.magnetization();
     }
 
     virtual double fraction_completed() const {

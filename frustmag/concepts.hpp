@@ -75,6 +75,11 @@ concept bool Hamiltonian = requires(T h) {
     {h.energy()} -> double;
 };
 
+template <typename T>
+concept bool MagneticHamiltonian = requires(T h) {
+    {h.magnetization()} -> double;
+};
+
 template <typename T, typename RNG = std::mt19937>
 concept bool LatticeHamiltonian = requires(T h) {
     typename T::lattice_type;
