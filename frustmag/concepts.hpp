@@ -68,4 +68,32 @@ concept bool Lattice = requires {
     };
 };
 
+template <typename T, typename RNG = std::mt19937>
+concept bool Hamiltonian = requires(T h) {
+    typename T::phase_point;
+    requires ParameterConstructible<T, std::add_lvalue_reference_t<RNG>>;
+    {h.energy()} -> double;
+};
+
+template <typename T, typename RNG = std::mt19937>
+concept bool LatticeHamiltonian = requires(T h) {
+    typename T::lattice_type;
+    typename T::site_state_type;
+    requires Hamiltonian<T, RNG>;
+    {h.energy_per_site()} -> double;
+};
+
+template <typename U, typename RNG = std::mt19937>
+concept bool MetropolisUpdate = requires {
+    typename U::hamiltonian_type;
+    typename U::proposal_type;
+    requires DefaultConstructible<U>;
+    requires requires(U & u, typename U::hamiltonian_type & h, RNG & rng,
+                      typename U::proposal_type && p)
+    {
+        {u.update(h, rng)} -> void;
+        {h.metropolis(p, rng)} -> bool;
+    };
+};
+
 #endif

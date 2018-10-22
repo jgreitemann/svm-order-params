@@ -23,25 +23,35 @@
 
 namespace update {
 
-template <typename Lattice>
+template <typename Lat>
 struct single_flip_proposal {
-    using site_iterator = typename Lattice::iterator;
-    using site_state_type = typename Lattice::value_type;
+#ifdef USE_CONCEPTS
+    static_assert(Lattice<Lat>, "Lat is not a Lattice");
+#endif
+    using site_iterator = typename Lat::iterator;
+    using site_state_type = typename Lat::value_type;
 
     site_iterator site_it;
     site_state_type flipped;
 };
 
-template <typename LatticeHamiltonian>
+template <typename LatticeH>
 struct single_flip {
+#ifdef USE_CONCEPTS
+    static_assert(LatticeHamiltonian<LatticeH>,
+                  "LatticeH is not a LatticeHamiltonian");
+#endif
 private:
-    using lattice_type = typename LatticeHamiltonian::lattice_type;
+    using lattice_type = typename LatticeH::lattice_type;
     using site_iterator = typename lattice_type::iterator;
     using site_state_type = typename lattice_type::value_type;
 public:
+    using hamiltonian_type = LatticeH;
+    using proposal_type = single_flip_proposal<lattice_type>;
+
     template <typename RNG>
     // requires SiteState<site_state_type, RNG>
-    void update(LatticeHamiltonian & hamiltonian, RNG & rng) const {
+    void update(LatticeHamiltonian & hamiltonian, RNG & rng) {
         size_t lsize = hamiltonian.lattice().size();
         for (size_t j = 0; j < lsize; ++j) {
             size_t i = std::uniform_int_distribution<size_t>{0, lsize - 1}(rng);

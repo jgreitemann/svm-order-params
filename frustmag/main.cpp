@@ -28,7 +28,22 @@ using sim_type = frustmag_sim<hamiltonian::heisenberg<lattice::chain>,
                               update::single_flip>;
 
 #ifdef USE_CONCEPTS
-static_assert(Lattice<lattice::chain<site::spin_O3>>, "chain is not a Lattice");
+namespace {
+    template <typename T>
+    requires Lattice<T>
+    struct check_lattice {};
+    template struct check_lattice<lattice::chain<site::spin_O3>>;
+
+    template <typename T>
+    requires Hamiltonian<T>
+    struct check_hamiltonian {};
+    template struct check_hamiltonian<hamiltonian::heisenberg<lattice::chain>>;
+
+    template <typename U>
+    requires MetropolisUpdate<U>
+    struct check_update {};
+    template struct check_update<update::single_flip<hamiltonian::heisenberg<lattice::chain>>>;
+}
 #endif
 
 int main(int argc, char** argv)
