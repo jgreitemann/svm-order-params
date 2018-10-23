@@ -88,8 +88,7 @@ struct ising {
         for (auto it_n : nn)
             if (it_n != end)
                 sum_nn += 2 * p.flipped.dot(*it_n);
-        std::uniform_real_distribution<double> uniform{0, 1};
-        if (sum_nn < 0 || uniform(rng) < exp(-sum_nn / ppoint.temp)) {
+        if (sum_nn < 0 || std::bernoulli_distribution{exp(-sum_nn / ppoint.temp)}(rng)) {
             *(p.site_it) = std::move(p.flipped);
             current_int_energy += sum_nn;
             return true;

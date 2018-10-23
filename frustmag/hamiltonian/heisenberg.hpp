@@ -93,8 +93,7 @@ struct heisenberg {
             if (it_n != end)
                 sum_nn += *it_n;
         double ediff = vdiff.dot(sum_nn);
-        std::uniform_real_distribution<double> uniform{0, 1};
-        if (ediff < 0 || uniform(rng) < exp(-ediff / ppoint.temp)) {
+        if (ediff < 0 || std::bernoulli_distribution{exp(-ediff / ppoint.temp)}(rng)) {
             *(p.site_it) = std::move(p.flipped);
             current_energy += ediff;
             return true;
