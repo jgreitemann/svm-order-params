@@ -26,3 +26,6 @@ target_compile_definitions(ising-chain PUBLIC -DISING -DCHAIN)
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
 target_link_libraries(heisenberg-chain ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(ising-chain ${ALPSCore_LIBRARIES} stdc++fs)
+
+enable_testing()
+add_subdirectory(test)

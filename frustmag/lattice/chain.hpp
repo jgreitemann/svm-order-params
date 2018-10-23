@@ -34,6 +34,8 @@ struct chain : std::vector<Site> {
     using iterator = typename Base::iterator;
     using const_iterator = typename Base::const_iterator;
 
+    static const size_t coordination = 2;
+
     using std::vector<Site>::vector;
 
     static void define_parameters(alps::params & parameters) {
@@ -43,12 +45,19 @@ struct chain : std::vector<Site> {
     }
 
     template <typename Generator>
-    chain(alps::params const& parameters, Generator && gen)
-        : periodic(parameters["lattice.chain.periodic"])
+    chain(size_t L, bool p, Generator && gen)
+        : periodic(p)
     {
-        size_t L = parameters["lattice.chain.length"];
         this->reserve(L);
         std::generate_n(std::back_inserter(*this), L, gen);
+    }
+
+    template <typename Generator>
+    chain(alps::params const& parameters, Generator && gen)
+        : chain(parameters["lattice.chain.length"],
+                parameters["lattice.chain.periodic"],
+                std::forward<Generator>(gen))
+    {
     }
 
     auto nearest_neighbors(iterator it) -> std::array<iterator, 2> {
