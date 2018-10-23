@@ -18,12 +18,10 @@
 
 #include "concepts.hpp"
 #include "phase_space_point.hpp"
-#include "site/spin_O3.hpp"
+#include "site/spin_Z2.hpp"
 #include "update/single_flip.hpp"
 
 #include <alps/params.hpp>
-
-#include <Eigen/Dense>
 
 #include <numeric>
 #include <random>
@@ -32,30 +30,30 @@
 namespace hamiltonian {
 
 template <template <typename> typename Lattice>
-struct heisenberg {
+struct ising {
     using phase_point = phase_space::point::temperature;
-    using site_state_type = site::spin_O3;
+    using site_state_type = site::spin_Z2;
     using lattice_type = Lattice<site_state_type>;
     using site_iterator = typename lattice_type::iterator;
 
     static void define_parameters(alps::params & parameters) {
-        phase_point::define_parameters(parameters, "hamiltonian.heisenberg.");
+        phase_point::define_parameters(parameters, "hamiltonian.ising.");
         lattice_type::define_parameters(parameters);
     }
 
     template <typename RNG>
     // requires RandomCreatable<site_state_type, RNG>
-    heisenberg(alps::params const& parameters, RNG & rng)
-        : ppoint{parameters, "hamiltonian.heisenberg."}
+    ising(alps::params const& parameters, RNG & rng)
+        : ppoint{parameters, "hamiltonian.ising."}
         , lattice_{parameters, [&rng] {
             return site_state_type::random(rng);
         }}
-        , current_energy(total_energy())
+        , current_int_energy(total_int_energy())
     {
     }
 
     double energy() const {
-        return current_energy;
+        return current_int_energy;
     }
 
     double energy_per_site() const {
@@ -63,13 +61,8 @@ struct heisenberg {
     }
 
     double magnetization() const {
-        auto sum = std::accumulate(lattice().begin(), lattice().end(),
-                                   Eigen::Vector3d(Eigen::Vector3d::Zero()));
-        return sum.norm() / lattice().size();
-    }
-
-    phase_point const& phase_space_point() const {
-        return ppoint;
+        double sum = std::accumulate(lattice().begin(), lattice().end(), 0);
+        return abs(sum) / lattice().size();
     }
 
     lattice_type const& lattice() const {
@@ -80,6 +73,10 @@ struct heisenberg {
         return lattice_;
     }
 
+    phase_point const& phase_space_point() const {
+        return ppoint;
+    }
+
     template <typename RNG>
     // requires UniformRandomBitGenerator<RNG>
     bool metropolis(update::single_flip_proposal<lattice_type> const& p,
@@ -87,36 +84,34 @@ struct heisenberg {
     {
         auto nn = lattice().nearest_neighbors(p.site_it);
         auto end = lattice().end();
-        Eigen::Vector3d vdiff = p.flipped - *(p.site_it);
-        Eigen::Vector3d sum_nn = Eigen::Vector3d::Zero();
+        int sum_nn = 0;
         for (auto it_n : nn)
             if (it_n != end)
-                sum_nn += *it_n;
-        double ediff = vdiff.dot(sum_nn);
+                sum_nn += 2 * p.flipped.dot(*it_n);
         std::uniform_real_distribution<double> uniform{0, 1};
-        if (ediff < 0 || uniform(rng) < exp(-ediff / ppoint.temp)) {
+        if (sum_nn < 0 || uniform(rng) < exp(-sum_nn / ppoint.temp)) {
             *(p.site_it) = std::move(p.flipped);
-            current_energy += ediff;
+            current_int_energy += sum_nn;
             return true;
         }
         return false;
     }
 
 private:
-    double total_energy() const {
+    int total_int_energy() const {
         // TODO implement with bonds
-        double sum = 0;
+        int sum = 0;
         auto end = lattice().end();
         for (auto site_it = lattice().begin(); site_it != end; ++site_it)
             for (auto it_n : lattice().nearest_neighbors(site_it))
                 if (it_n != end)
                     sum += site_it->dot(*it_n);
-        return .5 * sum;
+        return sum / 2;
     }
 
     phase_point ppoint;
     lattice_type lattice_;
-    double current_energy;
+    int current_int_energy;
 };
 
 }

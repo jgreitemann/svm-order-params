@@ -72,6 +72,7 @@ template <typename T, typename RNG = std::mt19937>
 concept bool Hamiltonian = requires(T h) {
     typename T::phase_point;
     requires ParameterConstructible<T, std::add_lvalue_reference_t<RNG>>;
+    {h.phase_space_point()} -> typename T::phase_point;
     {h.energy()} -> double;
 };
 

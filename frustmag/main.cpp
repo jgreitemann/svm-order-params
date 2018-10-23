@@ -18,33 +18,51 @@
 
 #include <alps/mc/stop_callback.hpp>
 
+#include <algorithm>
+#include <iterator>
 #include <iostream>
 
 #include "hamiltonian/heisenberg.hpp"
+#include "hamiltonian/ising.hpp"
 #include "lattice/chain.hpp"
 #include "update/single_flip.hpp"
 
-using sim_type = frustmag_sim<hamiltonian::heisenberg<lattice::chain>,
-                              update::single_flip>;
+#if defined HEISENBERG
+template <template <typename> typename Lattice>
+using hamiltonian_t_t = hamiltonian::heisenberg<Lattice>;
+#elif defined ISING
+template <template <typename> typename Lattice>
+using hamiltonian_t_t = hamiltonian::ising<Lattice>;
+#else
+#error Unknown hamiltonian
+#endif
+
+#if defined CHAIN
+using hamiltonian_t = hamiltonian_t_t<lattice::chain>;
+#else
+#error Unknown lattice
+#endif
 
 #ifdef USE_CONCEPTS
 namespace {
     template <typename T>
     requires Lattice<T>
     struct check_lattice {};
-    template struct check_lattice<lattice::chain<site::spin_O3>>;
+    template struct check_lattice<typename hamiltonian_t::lattice_type>;
 
     template <typename T>
     requires Hamiltonian<T>
     struct check_hamiltonian {};
-    template struct check_hamiltonian<hamiltonian::heisenberg<lattice::chain>>;
+    template struct check_hamiltonian<hamiltonian_t>;
 
     template <typename U>
     requires MetropolisUpdate<U>
     struct check_update {};
-    template struct check_update<update::single_flip<hamiltonian::heisenberg<lattice::chain>>>;
+    template struct check_update<update::single_flip<hamiltonian_t>>;
 }
 #endif
+
+using sim_type = frustmag_sim<hamiltonian_t, update::single_flip>;
 
 int main(int argc, char** argv)
 {
@@ -89,9 +107,11 @@ int main(int argc, char** argv)
         using alps::accumulators::result_wrapper;
         // std::cout << "All measured results:" << std::endl;
         // std::cout << results << std::endl;
-        std::cout << parameters["lattice.chain.length"].as<size_t>() << '\t'
-                  << parameters["hamiltonian.heisenberg.temp"].as<double>() << '\t'
-                  << results["Energy"].mean<double>() << '\t'
+        std::cout << parameters["lattice.chain.length"].as<size_t>() << '\t';
+        auto const& ppoint = sim.hamiltonian().phase_space_point();
+        std::copy(ppoint.begin(), ppoint.end(),
+                  std::ostream_iterator<double>{std::cout, "\t"});
+        std::cout << results["Energy"].mean<double>() << '\t'
                   << results["Energy"].error<double>() << '\t'
                   << results["Magnetization"].mean<double>() << '\t'
                   << results["Magnetization"].error<double>() << '\n';

@@ -52,7 +52,7 @@ private:
 
     rng_type rng;
 
-    Hamiltonian hamiltonian;
+    Hamiltonian hamiltonian_;
 
 public:
     static void define_parameters(parameters_type & parameters) {
@@ -81,28 +81,31 @@ public:
         , total_sweeps{params["total_sweeps"]}
         , thermalization_sweeps{params["thermalization_sweeps"]}
         , rng{params["SEED"].as<size_t>() + seed_offset}
-        , hamiltonian{params, rng}
+        , hamiltonian_{params, rng}
     {
         measurements
             << alps::accumulators::FullBinningAccumulator<double>("Energy")
             << alps::accumulators::FullBinningAccumulator<double>("Magnetization");
     }
 
+    Hamiltonian const& hamiltonian() const {
+        return hamiltonian_;
+    }
 
     bool is_thermalized() const {
         return sweeps > thermalization_sweeps;
     }
 
     virtual void update() {
-        update_type::update(hamiltonian, rng);
+        update_type::update(hamiltonian_, rng);
     }
 
     virtual void measure() {
         ++sweeps;
         if (!is_thermalized()) return;
 
-        measurements["Energy"] << hamiltonian.energy_per_site();
-        measurements["Magnetization"] << hamiltonian.magnetization();
+        measurements["Energy"] << hamiltonian_.energy_per_site();
+        measurements["Magnetization"] << hamiltonian_.magnetization();
     }
 
     virtual double fraction_completed() const {

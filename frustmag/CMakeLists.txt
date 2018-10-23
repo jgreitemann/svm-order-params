@@ -16,8 +16,13 @@ include_directories(.)
 include_directories(..)
 include_directories(../utilities)
 
-add_executable(heisenberg-chain
-    main.cpp
-    )
+add_executable(heisenberg-chain main.cpp)
+target_compile_definitions(heisenberg-chain PUBLIC -DHEISENBERG -DCHAIN)
+
+add_executable(ising-chain main.cpp)
+target_compile_definitions(ising-chain PUBLIC -DISING -DCHAIN)
+
+
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
 target_link_libraries(heisenberg-chain ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(ising-chain ${ALPSCore_LIBRARIES} stdc++fs)
