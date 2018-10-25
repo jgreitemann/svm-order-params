@@ -25,6 +25,7 @@
 #include "hamiltonian/heisenberg.hpp"
 #include "hamiltonian/ising.hpp"
 #include "lattice/chain.hpp"
+#include "lattice/ortho.hpp"
 #include "update/single_flip.hpp"
 
 #if defined HEISENBERG
@@ -39,6 +40,10 @@ using hamiltonian_t_t = hamiltonian::ising<Lattice>;
 
 #if defined CHAIN
 using hamiltonian_t = hamiltonian_t_t<lattice::chain>;
+#elif defined SQUARE
+using hamiltonian_t = hamiltonian_t_t<lattice::square>;
+#elif defined CUBIC
+using hamiltonian_t = hamiltonian_t_t<lattice::cubic>;
 #else
 #error Unknown lattice
 #endif
@@ -107,7 +112,7 @@ int main(int argc, char** argv)
         using alps::accumulators::result_wrapper;
         // std::cout << "All measured results:" << std::endl;
         // std::cout << results << std::endl;
-        std::cout << parameters["lattice.chain.length"].as<size_t>() << '\t';
+        std::cout << sim.hamiltonian().lattice().size() << '\t';
         auto const& ppoint = sim.hamiltonian().phase_space_point();
         std::copy(ppoint.begin(), ppoint.end(),
                   std::ostream_iterator<double>{std::cout, "\t"});

@@ -18,8 +18,10 @@
 
 #include "doctest.h"
 #include <lattice/chain.hpp>
+#include <lattice/ortho.hpp>
 
 #include <algorithm>
+#include <iostream>
 #include <iterator>
 #include <vector>
 
@@ -37,31 +39,105 @@ void test_nn(Lattice && l, int nn_ind[][Lattice::coordination]) {
         std::transform(nn.begin(), nn.end(), std::back_inserter(nni),
                        [] (auto it_n) { return it_n->i; });
         std::sort(nni.begin(), nni.end());
-        CHECK(std::equal(std::begin(nn_ind[i]), std::end(nn_ind[i]),
-                         nni.begin(), nni.end()));
+        bool nn_equal = std::equal(std::begin(nn_ind[i]), std::end(nn_ind[i]),
+                                   nni.begin(), nni.end());
+        if (!nn_equal) {
+            std::copy(std::begin(nn_ind[i]), std::end(nn_ind[i]),
+                      std::ostream_iterator<int>{std::cout, ", "});
+            std::cout << std::endl;
+            std::copy(nni.begin(), nni.end(),
+                      std::ostream_iterator<int>{std::cout, ", "});
+            std::cout << std::endl;
+            
+        }
+        CHECK(nn_equal);
     }
 }
 
-TEST_CASE("nn-chain") {
-    {
-        int nn_ind[][2] = {
-            {1, 1},
-            {0, 0}
-        };
-        test_nn(lattice::chain<int_site>(2, true,
-                                         [i=0]() mutable -> int_site { return {i++}; }),
-                nn_ind);
-    }
-    {
-        int nn_ind[][2] = {
-            {1, 4},
-            {0, 2},
-            {1, 3},
-            {2, 4},
-            {0, 3}
-        };
-        test_nn(lattice::chain<int_site>(5, true,
-                                         [i=0]() mutable -> int_site { return {i++}; }),
-                nn_ind);
-    }
+auto increment_gen = [] {
+    return [i=0]() mutable -> int_site { return {i++}; };
+};
+
+TEST_CASE("nn-chain-2") {
+    int nn_ind[][2] = {
+        {1, 1},
+        {0, 0}
+    };
+    test_nn(lattice::chain<int_site>(2, true, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-chain-5") {
+    int nn_ind[][2] = {
+        {1, 4},
+        {0, 2},
+        {1, 3},
+        {2, 4},
+        {0, 3}
+    };
+    test_nn(lattice::chain<int_site>(5, true, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-square-2") {
+    int nn_ind[][4] = {
+        {1, 1, 2, 2},
+        {0, 0, 3, 3},
+        {0, 0, 3, 3},
+        {1, 1, 2, 2}
+    };
+    test_nn(lattice::square<int_site>(2, true, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-square-4") {
+    int nn_ind[][4] = {
+        { 1,  3,  4, 12},
+        { 0,  2,  5, 13},
+        { 1,  3,  6, 14},
+        { 0,  2,  7, 15},
+        { 0,  5,  7,  8},
+        { 1,  4,  6,  9},
+        { 2,  5,  7, 10},
+        { 3,  4,  6, 11},
+        { 4,  9, 11, 12},
+        { 5,  8, 10, 13},
+        { 6,  9, 11, 14},
+        { 7,  8, 10, 15},
+        { 0,  8, 13, 15},
+        { 1,  9, 12, 14},
+        { 2, 10, 13, 15},
+        { 3, 11, 12, 14},
+    };
+    test_nn(lattice::square<int_site>(4, true, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-cubic-3") {
+    int nn_ind[][6] = {
+        { 1,  2,  3,  6,  9, 18},
+        { 0,  2,  4,  7, 10, 19},
+        { 0,  1,  5,  8, 11, 20},
+        { 0,  4,  5,  6, 12, 21},
+        { 1,  3,  5,  7, 13, 22},
+        { 2,  3,  4,  8, 14, 23},
+        { 0,  3,  7,  8, 15, 24},
+        { 1,  4,  6,  8, 16, 25},
+        { 2,  5,  6,  7, 17, 26},
+        { 0, 10, 11, 12, 15, 18},
+        { 1,  9, 11, 13, 16, 19},
+        { 2,  9, 10, 14, 17, 20},
+        { 3,  9, 13, 14, 15, 21},
+        { 4, 10, 12, 14, 16, 22},
+        { 5, 11, 12, 13, 17, 23},
+        { 6,  9, 12, 16, 17, 24},
+        { 7, 10, 13, 15, 17, 25},
+        { 8, 11, 14, 15, 16, 26},
+        { 0,  9, 19, 20, 21, 24},
+        { 1, 10, 18, 20, 22, 25},
+        { 2, 11, 18, 19, 23, 26},
+        { 3, 12, 18, 22, 23, 24},
+        { 4, 13, 19, 21, 23, 25},
+        { 5, 14, 20, 21, 22, 26},
+        { 6, 15, 18, 21, 25, 26},
+        { 7, 16, 19, 22, 24, 26},
+        { 8, 17, 20, 23, 24, 25},
+    };
+    test_nn(lattice::cubic<int_site>(3, true, increment_gen()), nn_ind);
 }

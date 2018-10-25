@@ -22,10 +22,25 @@ target_compile_definitions(heisenberg-chain PUBLIC -DHEISENBERG -DCHAIN)
 add_executable(ising-chain main.cpp)
 target_compile_definitions(ising-chain PUBLIC -DISING -DCHAIN)
 
+add_executable(heisenberg-square main.cpp)
+target_compile_definitions(heisenberg-square PUBLIC -DHEISENBERG -DSQUARE)
+
+add_executable(ising-square main.cpp)
+target_compile_definitions(ising-square PUBLIC -DISING -DSQUARE)
+
+add_executable(heisenberg-cubic main.cpp)
+target_compile_definitions(heisenberg-cubic PUBLIC -DHEISENBERG -DCUBIC)
+
+add_executable(ising-cubic main.cpp)
+target_compile_definitions(ising-cubic PUBLIC -DISING -DCUBIC)
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
 target_link_libraries(heisenberg-chain ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(ising-chain ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(heisenberg-square ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(ising-square ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(heisenberg-cubic ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(ising-cubic ${ALPSCore_LIBRARIES} stdc++fs)
 
 enable_testing()
 add_subdirectory(test)
