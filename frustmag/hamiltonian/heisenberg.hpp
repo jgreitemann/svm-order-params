@@ -93,7 +93,8 @@ struct heisenberg {
             if (it_n != end)
                 sum_nn += *it_n;
         double ediff = vdiff.dot(sum_nn);
-        if (ediff < 0 || std::bernoulli_distribution{exp(-ediff / ppoint.temp)}(rng)) {
+        double ln_ratio = -ediff / ppoint.temp;
+        if (ln_ratio >= 0 || std::bernoulli_distribution{exp(ln_ratio)}(rng)) {
             *(p.site_it) = std::move(p.flipped);
             current_energy += ediff;
             return true;

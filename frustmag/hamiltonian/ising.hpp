@@ -88,7 +88,8 @@ struct ising {
         for (auto it_n : nn)
             if (it_n != end)
                 sum_nn += 2 * p.flipped.dot(*it_n);
-        if (sum_nn < 0 || std::bernoulli_distribution{exp(-sum_nn / ppoint.temp)}(rng)) {
+        double ln_ratio = -sum_nn / ppoint.temp;
+        if (ln_ratio >= 0 || std::bernoulli_distribution{exp(ln_ratio)}(rng)) {
             *(p.site_it) = std::move(p.flipped);
             current_int_energy += sum_nn;
             return true;
