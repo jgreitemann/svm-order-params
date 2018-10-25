@@ -25,6 +25,7 @@
 
 #include <Eigen/Dense>
 
+#include <cmath>
 #include <numeric>
 #include <random>
 #include <utility>
@@ -47,6 +48,8 @@ struct heisenberg {
     // requires RandomCreatable<site_state_type, RNG>
     heisenberg(alps::params const& parameters, RNG & rng)
         : ppoint{parameters, "hamiltonian.heisenberg."}
+        , beta(1. / abs(ppoint.temp))
+        , sign(ppoint.temp < 0 ? -1 : 1)
         , lattice_{parameters, [&rng] {
             return site_state_type::random(rng);
         }}
@@ -92,9 +95,8 @@ struct heisenberg {
         for (auto it_n : nn)
             if (it_n != end)
                 sum_nn += *it_n;
-        double ediff = vdiff.dot(sum_nn);
-        double ln_ratio = -ediff / ppoint.temp;
-        if (ln_ratio >= 0 || std::bernoulli_distribution{exp(ln_ratio)}(rng)) {
+        double ediff = sign * vdiff.dot(sum_nn);
+        if (ediff <= 0 || std::bernoulli_distribution{exp(-beta * ediff)}(rng)) {
             *(p.site_it) = std::move(p.flipped);
             current_energy += ediff;
             return true;
@@ -111,10 +113,12 @@ private:
             for (auto it_n : lattice().nearest_neighbors(site_it))
                 if (it_n != end)
                     sum += site_it->dot(*it_n);
-        return .5 * sum;
+        return .5 * sign * sum;
     }
 
     phase_point ppoint;
+    double beta;
+    double sign;
     lattice_type lattice_;
     double current_energy;
 };

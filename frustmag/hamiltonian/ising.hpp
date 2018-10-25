@@ -23,6 +23,7 @@
 
 #include <alps/params.hpp>
 
+#include <cmath>
 #include <numeric>
 #include <random>
 #include <utility>
@@ -45,11 +46,14 @@ struct ising {
     // requires RandomCreatable<site_state_type, RNG>
     ising(alps::params const& parameters, RNG & rng)
         : ppoint{parameters, "hamiltonian.ising."}
+        , sign(ppoint.temp < 0 ? -1 : 1)
         , lattice_{parameters, [&rng] {
             return site_state_type::random(rng);
         }}
         , current_int_energy(total_int_energy())
     {
+        for (size_t i = 0; i <= lattice_type::coordination; ++i)
+            iexp[i] = exp(-2. * i / abs(ppoint.temp));
     }
 
     double energy() const {
@@ -87,11 +91,11 @@ struct ising {
         int sum_nn = 0;
         for (auto it_n : nn)
             if (it_n != end)
-                sum_nn += 2 * p.flipped.dot(*it_n);
-        double ln_ratio = -sum_nn / ppoint.temp;
-        if (ln_ratio >= 0 || std::bernoulli_distribution{exp(ln_ratio)}(rng)) {
+                sum_nn += p.flipped.dot(*it_n);
+        int ediff = 2 * sign * sum_nn;
+        if (ediff <= 0 || std::bernoulli_distribution{iexp[ediff/2]}(rng)) {
             *(p.site_it) = std::move(p.flipped);
-            current_int_energy += sum_nn;
+            current_int_energy += ediff;
             return true;
         }
         return false;
@@ -106,12 +110,14 @@ private:
             for (auto it_n : lattice().nearest_neighbors(site_it))
                 if (it_n != end)
                     sum += site_it->dot(*it_n);
-        return sum / 2;
+        return sum * sign / 2;
     }
 
     phase_point ppoint;
+    int sign;
     lattice_type lattice_;
     int current_int_energy;
+    std::array<double, lattice_type::coordination+1> iexp;
 };
 
 }
