@@ -28,6 +28,7 @@
 #include "lattice/ortho.hpp"
 #include "lattice/triangular.hpp"
 #include "lattice/honeycomb.hpp"
+#include "lattice/kagome.hpp"
 #include "update/single_flip.hpp"
 
 #if defined HEISENBERG
@@ -50,6 +51,8 @@ using hamiltonian_t = hamiltonian_t_t<lattice::cubic>;
 using hamiltonian_t = hamiltonian_t_t<lattice::triangular>;
 #elif defined HONEYCOMB
 using hamiltonian_t = hamiltonian_t_t<lattice::honeycomb>;
+#elif defined KAGOME
+using hamiltonian_t = hamiltonian_t_t<lattice::kagome>;
 #else
 #error Unknown lattice
 #endif

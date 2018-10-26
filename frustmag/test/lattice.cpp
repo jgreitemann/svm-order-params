@@ -21,6 +21,7 @@
 #include <lattice/ortho.hpp>
 #include <lattice/triangular.hpp>
 #include <lattice/honeycomb.hpp>
+#include <lattice/kagome.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -212,4 +213,37 @@ TEST_CASE("nn-honeycomb-3") {
         { 4, 12, 16},
     };
     test_nn(lattice::honeycomb<int_site>(3, true, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-kagome-3") {
+    int nn_ind[][4] = {
+        { 1,  2,  7, 20},
+        { 0,  2,  3, 23},
+        { 0,  1,  9, 16},
+        { 1,  4,  5, 23},
+        { 3,  5,  6, 26},
+        { 3,  4, 10, 12},
+        { 4,  7,  8, 26},
+        { 0,  6,  8, 20},
+        { 6,  7, 13, 15},
+        { 2, 10, 11, 16},
+        { 5,  9, 11, 12},
+        { 9, 10, 18, 25},
+        { 5, 10, 13, 14},
+        { 8, 12, 14, 15},
+        {12, 13, 19, 21},
+        { 8, 13, 16, 17},
+        { 2,  9, 15, 17},
+        {15, 16, 22, 24},
+        {11, 19, 20, 25},
+        {14, 18, 20, 21},
+        { 0,  7, 18, 19},
+        {14, 19, 22, 23},
+        {17, 21, 23, 24},
+        { 1,  3, 21, 22},
+        {17, 22, 25, 26},
+        {11, 18, 24, 26},
+        { 4,  6, 24, 25},
+    };
+    test_nn(lattice::kagome<int_site>(3, true, increment_gen()), nn_ind);
 }
