@@ -35,26 +35,30 @@ struct triangular : bravais<Site, 2ul, 1ul> {
     auto nearest_neighbors(iterator const& it)
         -> std::array<iterator, coordination>
     {
+        auto down = it.cell_it().down(0);
+        auto up = it.cell_it().up(0);
         return {
-            iterator{it.cell_it().down(0), 0},
-            iterator{it.cell_it().up(0), 0},
+            iterator{down, 0},
+            iterator{up, 0},
             iterator{it.cell_it().down(1), 0},
             iterator{it.cell_it().up(1), 0},
-            iterator{it.cell_it().down(0).move_up(1), 0},
-            iterator{it.cell_it().up(0).move_down(1), 0}
+            iterator{down.up(1), 0},
+            iterator{up.down(1), 0}
         };
     }
 
     auto nearest_neighbors(const_iterator const& it) const
         -> std::array<const_iterator, coordination>
     {
+        auto down = it.cell_it().down(0);
+        auto up = it.cell_it().up(0);
         return {
-            const_iterator{it.cell_it().down(0), 0},
-            const_iterator{it.cell_it().up(0), 0},
+            const_iterator{down, 0},
+            const_iterator{up, 0},
             const_iterator{it.cell_it().down(1), 0},
             const_iterator{it.cell_it().up(1), 0},
-            const_iterator{it.cell_it().down(0).move_up(1), 0},
-            const_iterator{it.cell_it().up(0).move_down(1), 0}
+            const_iterator{down.up(1), 0},
+            const_iterator{up.down(1), 0}
         };
     }
 };
