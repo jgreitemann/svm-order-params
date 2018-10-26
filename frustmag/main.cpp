@@ -26,6 +26,7 @@
 #include "hamiltonian/ising.hpp"
 #include "lattice/chain.hpp"
 #include "lattice/ortho.hpp"
+#include "lattice/triangular.hpp"
 #include "update/single_flip.hpp"
 
 #if defined HEISENBERG
@@ -44,6 +45,8 @@ using hamiltonian_t = hamiltonian_t_t<lattice::chain>;
 using hamiltonian_t = hamiltonian_t_t<lattice::square>;
 #elif defined CUBIC
 using hamiltonian_t = hamiltonian_t_t<lattice::cubic>;
+#elif defined TRIANGULAR
+using hamiltonian_t = hamiltonian_t_t<lattice::triangular>;
 #else
 #error Unknown lattice
 #endif
