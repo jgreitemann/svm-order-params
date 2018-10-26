@@ -20,6 +20,7 @@
 #include <lattice/chain.hpp>
 #include <lattice/ortho.hpp>
 #include <lattice/triangular.hpp>
+#include <lattice/honeycomb.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -187,4 +188,28 @@ TEST_CASE("nn-triangular-5") {
         { 3,  4, 15, 19, 20, 23},
     };
     test_nn(lattice::triangular<int_site>(5, true, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-honeycomb-3") {
+    int nn_ind[][3] = {
+        { 1,  5, 13},
+        { 0,  2,  6},
+        { 1,  3, 15},
+        { 2,  4,  8},
+        { 3,  5, 17},
+        { 0,  4, 10},
+        { 1,  7, 11},
+        { 6,  8, 12},
+        { 3,  7,  9},
+        { 8, 10, 14},
+        { 5,  9, 11},
+        { 6, 10, 16},
+        { 7, 13, 17},
+        { 0, 12, 14},
+        { 9, 13, 15},
+        { 2, 14, 16},
+        {11, 15, 17},
+        { 4, 12, 16},
+    };
+    test_nn(lattice::honeycomb<int_site>(3, true, increment_gen()), nn_ind);
 }

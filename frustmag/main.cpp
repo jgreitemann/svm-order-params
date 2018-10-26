@@ -27,6 +27,7 @@
 #include "lattice/chain.hpp"
 #include "lattice/ortho.hpp"
 #include "lattice/triangular.hpp"
+#include "lattice/honeycomb.hpp"
 #include "update/single_flip.hpp"
 
 #if defined HEISENBERG
@@ -47,6 +48,8 @@ using hamiltonian_t = hamiltonian_t_t<lattice::square>;
 using hamiltonian_t = hamiltonian_t_t<lattice::cubic>;
 #elif defined TRIANGULAR
 using hamiltonian_t = hamiltonian_t_t<lattice::triangular>;
+#elif defined HONEYCOMB
+using hamiltonian_t = hamiltonian_t_t<lattice::honeycomb>;
 #else
 #error Unknown lattice
 #endif

@@ -40,6 +40,12 @@ target_compile_definitions(heisenberg-triangular PUBLIC -DHEISENBERG -DTRIANGULA
 add_executable(ising-triangular main.cpp)
 target_compile_definitions(ising-triangular PUBLIC -DISING -DTRIANGULAR)
 
+add_executable(heisenberg-honeycomb main.cpp)
+target_compile_definitions(heisenberg-honeycomb PUBLIC -DHEISENBERG -DHONEYCOMB)
+
+add_executable(ising-honeycomb main.cpp)
+target_compile_definitions(ising-honeycomb PUBLIC -DISING -DHONEYCOMB)
+
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
 target_link_libraries(heisenberg-chain ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(ising-chain ${ALPSCore_LIBRARIES} stdc++fs)
@@ -49,6 +55,8 @@ target_link_libraries(heisenberg-cubic ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(ising-cubic ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(heisenberg-triangular ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(ising-triangular ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(heisenberg-honeycomb ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(ising-honeycomb ${ALPSCore_LIBRARIES} stdc++fs)
 
 enable_testing()
 add_subdirectory(test)
