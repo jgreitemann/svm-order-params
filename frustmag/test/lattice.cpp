@@ -22,6 +22,7 @@
 #include <lattice/triangular.hpp>
 #include <lattice/honeycomb.hpp>
 #include <lattice/kagome.hpp>
+#include <lattice/dice.hpp>
 
 #include <algorithm>
 #include <iostream>
@@ -40,7 +41,9 @@ void test_nn(Lattice && l, int nn_ind[][Lattice::coordination]) {
         auto nn = l.nearest_neighbors(it);
         std::vector<int> nni;
         std::transform(nn.begin(), nn.end(), std::back_inserter(nni),
-                       [] (auto it_n) { return it_n->i; });
+                       [end=l.end()] (auto it_n) {
+                           return it_n == end ? -1 : it_n->i;
+                       });
         std::sort(nni.begin(), nni.end());
         bool nn_equal = std::equal(std::begin(nn_ind[i]), std::end(nn_ind[i]),
                                    nni.begin(), nni.end());
@@ -246,4 +249,37 @@ TEST_CASE("nn-kagome-3") {
         { 4,  6, 24, 25},
     };
     test_nn(lattice::kagome<int_site>(3, true, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-dice-3") {
+    int nn_ind[][6] = {
+        { 1,  2,  7,  8, 16, 20},
+        {-1, -1, -1,  0,  3, 21},
+        {-1, -1, -1,  0,  3,  9},
+        { 1,  2,  4,  5, 10, 23},
+        {-1, -1, -1,  3,  6, 24},
+        {-1, -1, -1,  3,  6, 12},
+        { 4,  5,  7,  8, 13, 26},
+        {-1, -1, -1,  0,  6, 18},
+        {-1, -1, -1,  0,  6, 15},
+        { 2, 10, 11, 16, 17, 25},
+        {-1, -1, -1,  3,  9, 12},
+        {-1, -1, -1,  9, 12, 18},
+        { 5, 10, 11, 13, 14, 19},
+        {-1, -1, -1,  6, 12, 15},
+        {-1, -1, -1, 12, 15, 21},
+        { 8, 13, 14, 16, 17, 22},
+        {-1, -1, -1,  0,  9, 15},
+        {-1, -1, -1,  9, 15, 24},
+        { 7, 11, 19, 20, 25, 26},
+        {-1, -1, -1, 12, 18, 21},
+        {-1, -1, -1,  0, 18, 21},
+        { 1, 14, 19, 20, 22, 23},
+        {-1, -1, -1, 15, 21, 24},
+        {-1, -1, -1,  3, 21, 24},
+        { 4, 17, 22, 23, 25, 26},
+        {-1, -1, -1,  9, 18, 24},
+        {-1, -1, -1,  6, 18, 24},
+    };
+    test_nn(lattice::dice<int_site>(3, true, increment_gen()), nn_ind);
 }

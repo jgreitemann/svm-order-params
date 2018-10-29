@@ -52,6 +52,12 @@ target_compile_definitions(heisenberg-kagome PUBLIC -DHEISENBERG -DKAGOME)
 add_executable(ising-kagome main.cpp)
 target_compile_definitions(ising-kagome PUBLIC -DISING -DKAGOME)
 
+add_executable(heisenberg-dice main.cpp)
+target_compile_definitions(heisenberg-dice PUBLIC -DHEISENBERG -DDICE)
+
+add_executable(ising-dice main.cpp)
+target_compile_definitions(ising-dice PUBLIC -DISING -DDICE)
+
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
 target_link_libraries(heisenberg-chain ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(ising-chain ${ALPSCore_LIBRARIES} stdc++fs)
@@ -65,6 +71,8 @@ target_link_libraries(heisenberg-honeycomb ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(ising-honeycomb ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(heisenberg-kagome ${ALPSCore_LIBRARIES} stdc++fs)
 target_link_libraries(ising-kagome ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(heisenberg-dice ${ALPSCore_LIBRARIES} stdc++fs)
+target_link_libraries(ising-dice ${ALPSCore_LIBRARIES} stdc++fs)
 
 enable_testing()
 add_subdirectory(test)
