@@ -103,6 +103,8 @@ struct bravais {
             return !(lhs == rhs);
         }
         basic_unitcell_iterator& move_up(size_t i) {
+            if (is_end())
+                return *this;
             size_t lower = plengths[i];
             size_t upper = plengths[i+1];
             *this += lower;
@@ -118,6 +120,8 @@ struct bravais {
             return basic_unitcell_iterator(*this).move_up(i);
         }
         basic_unitcell_iterator& move_down(size_t i) {
+            if (is_end())
+                return *this;
             size_t lower = plengths[i];
             size_t upper = plengths[i+1];
             if ((index % upper) / lower == 0) {
