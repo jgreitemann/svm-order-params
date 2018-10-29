@@ -64,7 +64,7 @@ auto increment_gen = [] {
     return [i=0]() mutable -> int_site { return {i++}; };
 };
 
-TEST_CASE("nn-chain-2") {
+TEST_CASE("nn-chain-periodic-2") {
     int nn_ind[][2] = {
         {1, 1},
         {0, 0}
@@ -72,7 +72,15 @@ TEST_CASE("nn-chain-2") {
     test_nn(lattice::chain<int_site>(2, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-chain-5") {
+TEST_CASE("nn-chain-open-2") {
+    int nn_ind[][2] = {
+        {-1, 1},
+        {-1, 0}
+    };
+    test_nn(lattice::chain<int_site>(2, false, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-chain-periodic-5") {
     int nn_ind[][2] = {
         {1, 4},
         {0, 2},
@@ -83,7 +91,18 @@ TEST_CASE("nn-chain-5") {
     test_nn(lattice::chain<int_site>(5, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-square-2") {
+TEST_CASE("nn-chain-open-5") {
+    int nn_ind[][2] = {
+        {-1, 1},
+        { 0, 2},
+        { 1, 3},
+        { 2, 4},
+        {-1, 3}
+    };
+    test_nn(lattice::chain<int_site>(5, false, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-square-periodic-2") {
     int nn_ind[][4] = {
         {1, 1, 2, 2},
         {0, 0, 3, 3},
@@ -93,7 +112,17 @@ TEST_CASE("nn-square-2") {
     test_nn(lattice::square<int_site>(2, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-square-4") {
+TEST_CASE("nn-square-open-2") {
+    int nn_ind[][4] = {
+        {-1, -1, 1, 2},
+        {-1, -1, 0, 3},
+        {-1, -1, 0, 3},
+        {-1, -1, 1, 2},
+    };
+    test_nn(lattice::square<int_site>(2, false, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-square-periodic-4") {
     int nn_ind[][4] = {
         { 1,  3,  4, 12},
         { 0,  2,  5, 13},
@@ -115,7 +144,29 @@ TEST_CASE("nn-square-4") {
     test_nn(lattice::square<int_site>(4, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-cubic-3") {
+TEST_CASE("nn-square-open-4") {
+    int nn_ind[][4] = {
+        {-1, -1,  1,  4},
+        {-1,  0,  2,  5},
+        {-1,  1,  3,  6},
+        {-1, -1,  2,  7},
+        {-1,  0,  5,  8},
+        { 1,  4,  6,  9},
+        { 2,  5,  7, 10},
+        {-1,  3,  6, 11},
+        {-1,  4,  9, 12},
+        { 5,  8, 10, 13},
+        { 6,  9, 11, 14},
+        {-1,  7, 10, 15},
+        {-1, -1,  8, 13},
+        {-1,  9, 12, 14},
+        {-1, 10, 13, 15},
+        {-1, -1, 11, 14},
+    };
+    test_nn(lattice::square<int_site>(4, false, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-cubic-periodic-3") {
     int nn_ind[][6] = {
         { 1,  2,  3,  6,  9, 18},
         { 0,  2,  4,  7, 10, 19},
@@ -148,7 +199,40 @@ TEST_CASE("nn-cubic-3") {
     test_nn(lattice::cubic<int_site>(3, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-triangular-3") {
+TEST_CASE("nn-cubic-open-3") {
+    int nn_ind[][6] = {
+        {-1, -1, -1,  1,  3,  9},
+        {-1, -1,  0,  2,  4, 10},
+        {-1, -1, -1,  1,  5, 11},
+        {-1, -1,  0,  4,  6, 12},
+        {-1,  1,  3,  5,  7, 13},
+        {-1, -1,  2,  4,  8, 14},
+        {-1, -1, -1,  3,  7, 15},
+        {-1, -1,  4,  6,  8, 16},
+        {-1, -1, -1,  5,  7, 17},
+        {-1, -1,  0, 10, 12, 18},
+        {-1,  1,  9, 11, 13, 19},
+        {-1, -1,  2, 10, 14, 20},
+        {-1,  3,  9, 13, 15, 21},
+        { 4, 10, 12, 14, 16, 22},
+        {-1,  5, 11, 13, 17, 23},
+        {-1, -1,  6, 12, 16, 24},
+        {-1,  7, 13, 15, 17, 25},
+        {-1, -1,  8, 14, 16, 26},
+        {-1, -1, -1,  9, 19, 21},
+        {-1, -1, 10, 18, 20, 22},
+        {-1, -1, -1, 11, 19, 23},
+        {-1, -1, 12, 18, 22, 24},
+        {-1, 13, 19, 21, 23, 25},
+        {-1, -1, 14, 20, 22, 26},
+        {-1, -1, -1, 15, 21, 25},
+        {-1, -1, 16, 22, 24, 26},
+        {-1, -1, -1, 17, 23, 25},
+    };
+    test_nn(lattice::cubic<int_site>(3, false, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-triangular-periodic-3") {
     int nn_ind[][6] = {
         {1, 2, 3, 5, 6, 7},
         {0, 2, 3, 4, 7, 8},
@@ -163,7 +247,22 @@ TEST_CASE("nn-triangular-3") {
     test_nn(lattice::triangular<int_site>(3, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-triangular-5") {
+TEST_CASE("nn-triangular-open-3") {
+    int nn_ind[][6] = {
+        {-1, -1, -1, -1,  1,  3},
+        {-1, -1,  0,  2,  3,  4},
+        {-1, -1, -1,  1,  4,  5},
+        {-1, -1,  0,  1,  4,  6},
+        { 1,  2,  3,  5,  6,  7},
+        {-1, -1,  2,  4,  7,  8},
+        {-1, -1, -1,  3,  4,  7},
+        {-1, -1,  4,  5,  6,  8},
+        {-1, -1, -1, -1,  5,  7},
+    };
+    test_nn(lattice::triangular<int_site>(3, false, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-triangular-periodic-5") {
     int nn_ind[][6] = {
         { 1,  4,  5,  9, 20, 21},
         { 0,  2,  5,  6, 21, 22},
@@ -194,7 +293,7 @@ TEST_CASE("nn-triangular-5") {
     test_nn(lattice::triangular<int_site>(5, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-honeycomb-3") {
+TEST_CASE("nn-honeycomb-periodic-3") {
     int nn_ind[][3] = {
         { 1,  5, 13},
         { 0,  2,  6},
@@ -218,7 +317,31 @@ TEST_CASE("nn-honeycomb-3") {
     test_nn(lattice::honeycomb<int_site>(3, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-kagome-3") {
+TEST_CASE("nn-honeycomb-open-3") {
+    int nn_ind[][3] = {
+        {-1, -1,  1},
+        { 0,  2,  6},
+        {-1,  1,  3},
+        { 2,  4,  8},
+        {-1,  3,  5},
+        {-1,  4, 10},
+        {-1,  1,  7},
+        { 6,  8, 12},
+        { 3,  7,  9},
+        { 8, 10, 14},
+        { 5,  9, 11},
+        {-1, 10, 16},
+        {-1,  7, 13},
+        {-1, 12, 14},
+        { 9, 13, 15},
+        {-1, 14, 16},
+        {11, 15, 17},
+        {-1, -1, 16},
+    };
+    test_nn(lattice::honeycomb<int_site>(3, false, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-kagome-periodic-3") {
     int nn_ind[][4] = {
         { 1,  2,  7, 20},
         { 0,  2,  3, 23},
@@ -251,7 +374,40 @@ TEST_CASE("nn-kagome-3") {
     test_nn(lattice::kagome<int_site>(3, true, increment_gen()), nn_ind);
 }
 
-TEST_CASE("nn-dice-3") {
+TEST_CASE("nn-kagome-open-3") {
+    int nn_ind[][4] = {
+        {-1, -1,  1,  2},
+        {-1,  0,  2,  3},
+        {-1,  0,  1,  9},
+        {-1,  1,  4,  5},
+        {-1,  3,  5,  6},
+        { 3,  4, 10, 12},
+        {-1,  4,  7,  8},
+        {-1, -1,  6,  8},
+        { 6,  7, 13, 15},
+        {-1,  2, 10, 11},
+        { 5,  9, 11, 12},
+        {-1,  9, 10, 18},
+        { 5, 10, 13, 14},
+        { 8, 12, 14, 15},
+        {12, 13, 19, 21},
+        { 8, 13, 16, 17},
+        {-1, -1, 15, 17},
+        {15, 16, 22, 24},
+        {-1, 11, 19, 20},
+        {14, 18, 20, 21},
+        {-1, -1, 18, 19},
+        {14, 19, 22, 23},
+        {17, 21, 23, 24},
+        {-1, -1, 21, 22},
+        {17, 22, 25, 26},
+        {-1, -1, 24, 26},
+        {-1, -1, 24, 25},
+    };
+    test_nn(lattice::kagome<int_site>(3, false, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-dice-periodic-3") {
     int nn_ind[][6] = {
         { 1,  2,  7,  8, 16, 20},
         {-1, -1, -1,  0,  3, 21},
@@ -282,4 +438,37 @@ TEST_CASE("nn-dice-3") {
         {-1, -1, -1,  6, 18, 24},
     };
     test_nn(lattice::dice<int_site>(3, true, increment_gen()), nn_ind);
+}
+
+TEST_CASE("nn-dice-open-3") {
+    int nn_ind[][6] = {
+        {-1, -1, -1, -1,  1,  2},
+        {-1, -1, -1, -1,  0,  3},
+        {-1, -1, -1,  0,  3,  9},
+        {-1,  1,  2,  4,  5, 10},
+        {-1, -1, -1, -1,  3,  6},
+        {-1, -1, -1,  3,  6, 12},
+        {-1,  4,  5,  7,  8, 13},
+        {-1, -1, -1, -1, -1,  6},
+        {-1, -1, -1, -1,  6, 15},
+        {-1, -1, -1,  2, 10, 11},
+        {-1, -1, -1,  3,  9, 12},
+        {-1, -1, -1,  9, 12, 18},
+        { 5, 10, 11, 13, 14, 19},
+        {-1, -1, -1,  6, 12, 15},
+        {-1, -1, -1, 12, 15, 21},
+        { 8, 13, 14, 16, 17, 22},
+        {-1, -1, -1, -1, -1, 15},
+        {-1, -1, -1, -1, 15, 24},
+        {-1, -1, -1, 11, 19, 20},
+        {-1, -1, -1, 12, 18, 21},
+        {-1, -1, -1, -1, 18, 21},
+        {-1, 14, 19, 20, 22, 23},
+        {-1, -1, -1, 15, 21, 24},
+        {-1, -1, -1, -1, 21, 24},
+        {-1, 17, 22, 23, 25, 26},
+        {-1, -1, -1, -1, -1, 24},
+        {-1, -1, -1, -1, -1, 24},
+    };
+    test_nn(lattice::dice<int_site>(3, false, increment_gen()), nn_ind);
 }
