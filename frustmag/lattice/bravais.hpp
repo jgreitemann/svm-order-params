@@ -74,6 +74,9 @@ struct bravais {
         reference operator*() const { return *buit; }
         reference operator[](difference_type n) const { return buit[n]; }
         pointer operator->() const { return buit.operator->(); }
+        bool is_end() const {
+            return static_cast<size_t>(index) == plengths[dim];
+        }
         friend basic_unitcell_iterator operator+(basic_unitcell_iterator lhs,
                                                  difference_type n)
         {
@@ -229,7 +232,7 @@ struct bravais {
         {
         }
         basic_iterator(UIt uit, difference_type bidx)
-            : uit(uit), bidx(bidx)
+            : uit(uit), bidx(uit.is_end() ? 0 : bidx)
         {
         }
     private:
