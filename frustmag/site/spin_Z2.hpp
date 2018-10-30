@@ -46,10 +46,26 @@ struct spin_Z2 {
     operator std::int8_t() const {
         return s;
     }
+
+    template <typename OutputIterator>
+    OutputIterator & serialize(OutputIterator & it) const {
+        *it = s;
+        return ++it;
+    }
+
+    template <typename InputIterator>
+    InputIterator & deserialize(InputIterator & it) {
+        s = *it;
+        return ++it;
+    }
 };
 
 const spin_Z2 spin_Z2::up { static_cast<std::int8_t>(1) };
 const spin_Z2 spin_Z2::down { static_cast<std::int8_t>(-1) };
+
+static_assert(is_serializable<spin_Z2>::value, "spin_Z2 is not serializable");
+static_assert(!is_archivable<spin_Z2>::value,
+              "spin_Z2 is archivable, but shouldn't be");
 
 #ifdef USE_CONCEPTS
 static_assert(SiteState<spin_Z2>, "spin_Z2 is not a SiteState");

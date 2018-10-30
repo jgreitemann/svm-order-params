@@ -22,10 +22,13 @@
 #include "update/single_flip.hpp"
 
 #include <alps/params.hpp>
+#include <alps/hdf5.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <numeric>
 #include <random>
+#include <stdexcept>
 #include <utility>
 
 namespace hamiltonian {
@@ -99,6 +102,27 @@ struct ising {
             return true;
         }
         return false;
+    }
+
+    virtual void save(alps::hdf5::archive & ar) const {
+        ar["phase_point"] << std::vector<double>{ppoint.begin(), ppoint.end()};
+        ar["lattice"] << lattice_;
+    }
+
+    virtual void load(alps::hdf5::archive & ar) {
+        {
+            std::vector<double> pp;
+            ar["phase_point"] >> pp;
+            if (pp.size() != phase_point::label_dim)
+                throw std::runtime_error("error reading phase point");
+            std::copy(pp.begin(), pp.end(), ppoint.begin());
+        }
+        sign = ppoint.temp < 0 ? -1 : 1;
+
+        ar["lattice"] >> lattice_;
+        current_int_energy = total_int_energy();
+        for (size_t i = 0; i <= lattice_type::coordination; ++i)
+            iexp[i] = exp(-2. * i / abs(ppoint.temp));
     }
 
 private:

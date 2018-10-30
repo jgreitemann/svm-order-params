@@ -43,7 +43,27 @@ struct spin_O3 : Eigen::Vector3d {
     spin_O3 flipped(RNG & rng) const {
         return random(rng);
     }
+
+    template <typename OutputIterator>
+    OutputIterator & serialize(OutputIterator & it) const {
+        *it = (*this)(0);
+        *(++it) = (*this)(1);
+        *(++it) = (*this)(2);
+        return ++it;
+    }
+
+    template <typename InputIterator>
+    InputIterator & deserialize(InputIterator & it) {
+        (*this)(0) = *it;
+        (*this)(1) = *(++it);
+        (*this)(2) = *(++it);
+        return ++it;
+    }
 };
+
+static_assert(is_serializable<spin_O3>::value, "spin_O3 is not serializable");
+static_assert(!is_archivable<spin_O3>::value,
+              "spin_O3 is archivable, but shouldn't be");
 
 #ifdef USE_CONCEPTS
 static_assert(SiteState<spin_O3>, "spin_O3 is not a SiteState");

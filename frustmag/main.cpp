@@ -60,6 +60,11 @@ using hamiltonian_t = hamiltonian_t_t<lattice::dice>;
 #error Unknown lattice
 #endif
 
+static_assert(!is_serializable<typename hamiltonian_t::lattice_type>::value,
+              "lattice is serializable, but shouldn't be");
+static_assert(is_archivable<typename hamiltonian_t::lattice_type>::value,
+              "lattice is not archivable");
+
 #ifdef USE_CONCEPTS
 namespace {
     template <typename T>

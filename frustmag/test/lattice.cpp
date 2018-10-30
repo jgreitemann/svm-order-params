@@ -33,6 +33,11 @@ struct int_site {
     int i;
 };
 
+static_assert(!is_archivable<int_site>::value,
+              "int_site is_archivable when it shouldn't be.");
+static_assert(!is_serializable<int_site>::value,
+              "int_site is_serializable when it shouldn't be.");
+
 template <typename Lattice>
 void test_nn(Lattice && l, int nn_ind[][Lattice::coordination]) {
     int i = 0;

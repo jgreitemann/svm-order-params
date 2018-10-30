@@ -25,6 +25,7 @@
 
 #include <cstdlib>
 #include <random>
+#include <sstream>
 
 template <typename Hamiltonian, template <typename> typename Update>
 class frustmag_sim : public alps::mcbase, Update<Hamiltonian> {
@@ -118,6 +119,29 @@ public:
 
     using alps::mcbase::save;
     using alps::mcbase::load;
-    virtual void save(alps::hdf5::archive & ar) const {}
-    virtual void load(alps::hdf5::archive & ar) {}
+    virtual void save(alps::hdf5::archive & ar) const {
+        alps::mcbase::save(ar);
+
+        {
+            std::stringstream engine_ss;
+            engine_ss << rng;
+            ar["checkpoint/random"] << engine_ss.str();
+        }
+
+        ar["checkpoint/sweeps"] << sweeps;
+        ar["checkpoint/hamiltonian"] << hamiltonian_;
+    }
+    virtual void load(alps::hdf5::archive & ar) {
+        alps::mcbase::load(ar);
+
+        {
+            std::string engine_str;
+            ar["checkpoint/random"] >> engine_str;
+            std::istringstream engine_ss(engine_str);
+            engine_ss >> rng;
+        }
+
+        ar["checkpoint/sweeps"] >> sweeps;
+        ar["checkpoint/hamiltonian"] >> hamiltonian_;
+    }
 };

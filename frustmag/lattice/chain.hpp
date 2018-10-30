@@ -19,10 +19,12 @@
 #include "concepts.hpp"
 
 #include <alps/params.hpp>
+#include <alps/hdf5.hpp>
 
 #include <algorithm>
 #include <array>
 #include <iterator>
+#include <type_traits>
 #include <vector>
 
 namespace lattice {
@@ -88,6 +90,28 @@ struct chain : std::vector<Site> {
                 ++it
             };
         }
+    }
+
+    template <typename ..., typename T = value_type,
+              typename = std::enable_if_t<is_serializable<T>::value>>
+    void save(alps::hdf5::archive & ar) const {
+        std::vector<double> data;
+        auto it = std::back_inserter(data);
+        for (auto const& site : *this)
+            site.serialize(it);
+        ar["data"] << data;
+        ar["periodic"] << periodic;
+    }
+
+    template <typename ..., typename T = value_type,
+              typename = std::enable_if_t<is_serializable<T>::value>>
+    void load(alps::hdf5::archive & ar) {
+        std::vector<double> data;
+        ar["data"] >> data;
+        auto it = data.begin();
+        for (auto & site : *this)
+            site.deserialize(it);
+        ar["periodic"] >> periodic;
     }
 
 private:

@@ -16,15 +16,72 @@
 
 #pragma once
 
-#ifdef USE_CONCEPTS
-
-#include "std_concepts.hpp"
-
 #include <alps/params.hpp>
 
+#include <iterator>
 #include <random>
 #include <type_traits>
 #include <utility>
+
+namespace detail {
+    template <typename T>
+    struct sfinae_true : std::true_type {};
+
+    template <typename T>
+    static auto test_load(int)
+        -> sfinae_true<decltype(std::declval<T>().load(std::declval<alps::hdf5::archive&>()))>;
+
+    template <typename>
+    static auto test_load(long) -> std::false_type;
+
+    template <typename T, typename InputIt>
+    static auto test_deserialize(int)
+        -> sfinae_true<decltype(std::declval<T>().deserialize(std::declval<InputIt&>()))>;
+
+    template <typename, typename>
+    static auto test_deserialize(long) -> std::false_type;
+
+    template <typename T>
+    static auto test_save(int)
+        -> sfinae_true<decltype(std::declval<T const>().save(std::declval<alps::hdf5::archive&>()))>;
+
+    template <typename>
+    static auto test_save(long) -> std::false_type;
+
+    template <typename T, typename OutputIt>
+    static auto test_serialize(int)
+        -> sfinae_true<decltype(std::declval<T const>().serialize(std::declval<OutputIt&>()))>;
+
+    template <typename, typename>
+    static auto test_serialize(long) -> std::false_type;
+}
+
+template <typename T>
+struct has_load : decltype(detail::test_load<T>(0)) {};
+
+template <typename T, typename InputIt = std::istream_iterator<double>>
+struct has_deserialize : decltype(detail::test_deserialize<T, InputIt>(0)) {};
+
+template <typename T>
+struct has_save : decltype(detail::test_save<T>(0)) {};
+
+template <typename T, typename OutputIt = std::ostream_iterator<double>>
+struct has_serialize : decltype(detail::test_serialize<T, OutputIt>(0)) {};
+
+template <typename T>
+struct is_archivable
+    : std::integral_constant<bool, has_load<T>::value && has_save<T>::value> {};
+
+template <typename T>
+struct is_serializable
+    : std::integral_constant<bool, (has_deserialize<T>::value
+                                    && has_serialize<T>::value)>
+{
+};
+
+#ifdef USE_CONCEPTS
+
+#include "std_concepts.hpp"
 
 template <typename T, UniformRandomBitGenerator RNG = std::mt19937>
 concept bool RandomCreatable = requires(RNG & rng) {
