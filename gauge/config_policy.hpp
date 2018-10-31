@@ -46,6 +46,7 @@ namespace element_policy {
         const size_t range() const { return 3 * n_color(); }
         const size_t sublattice(size_t index) const { return 0; }
         const size_t color(size_t index) const { return 2; }
+        const size_t block(size_t index) const { return color(index); }
         const size_t component(size_t index) const { return index; }
 
         size_t rearranged_index (indices_t const& ind) const {
@@ -64,6 +65,7 @@ namespace element_policy {
         const size_t range() const { return 3 * n_color(); }
         const size_t sublattice(size_t index) const { return 0; }
         const size_t color(size_t index) const { return index / 3; }
+        const size_t block(size_t index) const { return color(index); }
         const size_t component(size_t index) const { return index % 3; }
 
         size_t rearranged_index (indices_t const& ind) const {
@@ -88,7 +90,7 @@ namespace element_policy {
         const size_t n_unitcell() const { return n_unit; }
         const size_t n_color() const { return BaseElementPolicy::n_color(); }
         const size_t n_block() const {
-            return n_unitcell() * BaseElementPolicy::n_color();
+            return n_unitcell() * BaseElementPolicy::n_block();
         }
         const size_t range() const {
             return n_unitcell() * BaseElementPolicy::range();
@@ -98,6 +100,10 @@ namespace element_policy {
         }
         const size_t color(size_t index) const {
             return BaseElementPolicy::color(index % BaseElementPolicy::range());
+        }
+        const size_t block(size_t index) const {
+            return sublattice(index) * BaseElementPolicy::n_block()
+                + BaseElementPolicy::block(index % BaseElementPolicy::range());
         }
         const size_t component(size_t index) const {
             return BaseElementPolicy::component(index % BaseElementPolicy::range());
@@ -483,50 +489,30 @@ struct config_policy {
     virtual std::map<indices_t, index_assoc_vec> all_block_indices () const = 0;
 };
 
-template <typename LatticePolicy, typename SymmetryPolicy,
-          typename ElementPolicy = typename LatticePolicy::ElementPolicy>
-struct gauge_config_policy : public config_policy, private ElementPolicy, SymmetryPolicy {
-
-    gauge_config_policy (size_t rank,
-                         ElementPolicy && elempol,
-                         bool unsymmetrize = true)
+template <typename SymmetryPolicy, typename ElementPolicy>
+struct monomial_config_policy
+    : public config_policy, protected ElementPolicy, private SymmetryPolicy
+{
+    monomial_config_policy (size_t rank,
+                            ElementPolicy && elempol,
+                            bool unsymmetrize = true)
         : ElementPolicy{std::forward<ElementPolicy>(elempol)}
         , rank_(rank)
         , unsymmetrize(unsymmetrize)
-        , weights(size())
+        , weights_(size())
     {
         indices_t ind(rank_);
-        for (double & w : weights) {
+        for (double & w : weights_) {
             w = sqrt(SymmetryPolicy::number_of_equivalents(ind));
             advance_ind(ind);
         }
     }
 
-    virtual size_t size () const override {
+    virtual size_t size () const override final {
         return SymmetryPolicy::size(ElementPolicy::range(), rank_);
     }
 
-    virtual std::vector<double> configuration (config_array const& R) const override {
-        std::vector<double> v(size());
-        indices_t ind(rank_);
-        LatticePolicy lattice(R);
-        auto w_it = weights.begin();
-        for (double & elem : v) {
-            for (auto cell : lattice) {
-                double prod = 1;
-                for (size_t a : ind)
-                    prod *= cell.sublattice(sublattice(a))(color(a), component(a));
-                elem += prod;
-            }
-            elem *= *w_it / lattice.size();
-
-            advance_ind(ind);
-            ++w_it;
-        }
-        return v;
-    }
-
-    virtual matrix_t rearrange (matrix_t const& c) const override {
+    virtual matrix_t rearrange (matrix_t const& c) const override final {
         symmetry_policy::none no_symm;
         size_t no_symm_size = no_symm.size(ElementPolicy::range(), rank_);
         matrix_t out(boost::extents[no_symm_size][no_symm_size]);
@@ -538,7 +524,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                 for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
-                        out[i_out][j_out] = c[i][j] / (weights[i] * weights[j]);
+                        out[i_out][j_out] = c[i][j] / (weights_[i] * weights_[j]);
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
             } while (unsymmetrize && transform_ind(i_ind));
@@ -548,7 +534,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
 
     virtual matrix_t rearrange (introspec_t const& coeff,
                                 indices_t const& bi,
-                                indices_t const& bj) const override {
+                                indices_t const& bj) const override final {
         symmetry_policy::none no_symm;
         size_t no_symm_size = no_symm.size(ElementPolicy::range()
                                            / ElementPolicy::n_block(), rank_);
@@ -574,7 +560,7 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
             for (size_t j_out = 0; j_out < no_symm_size; ++j_out) {
                 size_t j = j_ind_lookup[j_out];
                 out[i_out][j_out] = coeff.tensor({i, j})
-                    / (weights[i] * weights[j]);
+                    / (weights_[i] * weights_[j]);
             }
         }
         return out;
@@ -599,9 +585,9 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
                     do {
                         size_t j_out = ElementPolicy::rearranged_index(j_ind);
                         block_2norms[i_out / block_size][j_out / block_size]
-                            += c[i][j] / (weights[i] * weights[j]);
+                            += c[i][j] / (weights_[i] * weights_[j]);
                         block_sums[i_out / block_size][j_out / block_size]
-                            += c[i][j] / (weights[i] * weights[j]);
+                            += c[i][j] / (weights_[i] * weights_[j]);
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
             } while (unsymmetrize && transform_ind(i_ind));
@@ -615,23 +601,23 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return blocks;
     }
 
-    virtual size_t range () const override {
+    virtual size_t range () const override final {
         return ElementPolicy::range();
     }
 
-    virtual size_t rank () const override {
+    virtual size_t rank () const override final {
         return rank_;
     }
 
-    virtual indices_t block_indices(indices_t const& ind) const override {
+    virtual indices_t block_indices(indices_t const& ind) const override final {
         indices_t cind;
         cind.reserve(ind.size());
         std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
-                       [this] (size_t a) { return sublattice(a) * ElementPolicy::n_color() + color(a); });
+                       [this] (size_t a) { return block(a); });
         return cind;
     }
 
-    virtual indices_t component_indices(indices_t const& ind) const override {
+    virtual indices_t component_indices(indices_t const& ind) const override final {
         indices_t cind;
         cind.reserve(ind.size());
         std::transform(ind.begin(), ind.end(), std::back_inserter(cind),
@@ -639,7 +625,8 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return cind;
     }
 
-    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const override {
+    virtual std::map<indices_t, index_assoc_vec> all_block_indices () const override final
+    {
         std::map<indices_t, index_assoc_vec> b;
         indices_t i_ind(rank());
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
@@ -649,17 +636,65 @@ struct gauge_config_policy : public config_policy, private ElementPolicy, Symmet
         return b;
     }
 
-private:
-    using ElementPolicy::color;
-    using ElementPolicy::component;
-    using ElementPolicy::sublattice;
-
+protected:
     void advance_ind (indices_t & ind) const {
         SymmetryPolicy::advance_ind(ind, ElementPolicy::range());
     }
+
+    std::vector<double> const& weights() const {
+        return weights_;
+    }
+    using ElementPolicy::component;
+
+private:
+    using ElementPolicy::block;
+
     using SymmetryPolicy::transform_ind;
 
     size_t rank_;
     bool unsymmetrize;
-    std::vector<double> weights;
+    std::vector<double> weights_;
+};
+
+template <typename LatticePolicy, typename SymmetryPolicy>
+struct gauge_config_policy
+    : public monomial_config_policy<SymmetryPolicy,
+                                    typename LatticePolicy::ElementPolicy>
+{
+    using ElementPolicy = typename LatticePolicy::ElementPolicy;
+    using BasePolicy = monomial_config_policy<SymmetryPolicy, ElementPolicy>;
+    using config_array = typename BasePolicy::config_array;
+
+    using BasePolicy::BasePolicy;
+
+    using BasePolicy::size;
+    using BasePolicy::rank;
+
+    virtual std::vector<double> configuration (config_array const& R) const override final
+    {
+        std::vector<double> v(size());
+        indices_t ind(rank());
+        LatticePolicy lattice(R);
+        auto w_it = weights().begin();
+        for (double & elem : v) {
+            for (auto cell : lattice) {
+                double prod = 1;
+                for (size_t a : ind)
+                    prod *= cell.sublattice(sublattice(a))(color(a), component(a));
+                elem += prod;
+            }
+            elem *= *w_it / lattice.size();
+
+            advance_ind(ind);
+            ++w_it;
+        }
+        return v;
+    }
+
+private:
+    using BasePolicy::advance_ind;
+    using BasePolicy::weights;
+    using ElementPolicy::sublattice;
+    using ElementPolicy::color;
+    using ElementPolicy::component;
 };
