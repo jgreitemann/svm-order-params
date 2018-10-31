@@ -131,6 +131,9 @@ concept bool Hamiltonian = requires(T h) {
     typename T::phase_point;
     requires ParameterConstructible<T, std::add_lvalue_reference_t<RNG>>;
     {h.phase_space_point()} -> typename T::phase_point;
+    requires requires(T h, typename T::phase_point pp) {
+        {h.phase_space_point(pp)};
+    }
     {h.energy()} -> double;
 };
 

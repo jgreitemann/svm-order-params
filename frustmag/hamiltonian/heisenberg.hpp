@@ -78,6 +78,13 @@ struct heisenberg {
         return ppoint;
     }
 
+    void phase_space_point(phase_point const& pp) {
+        ppoint = pp;
+        beta = 1. / abs(ppoint.temp);
+        sign = ppoint.temp < 0 ? -1 : 1;
+        current_energy = total_energy();
+    }
+
     lattice_type const& lattice() const {
         return lattice_;
     }
@@ -113,18 +120,13 @@ struct heisenberg {
     }
 
     virtual void load(alps::hdf5::archive & ar) {
-        {
-            std::vector<double> pp;
-            ar["phase_point"] >> pp;
-            if (pp.size() != phase_point::label_dim)
-                throw std::runtime_error("error reading phase point");
-            std::copy(pp.begin(), pp.end(), ppoint.begin());
-        }
-        beta = 1. / abs(ppoint.temp);
-        sign = ppoint.temp < 0 ? -1 : 1;
-
         ar["lattice"] >> lattice_;
-        current_energy = total_energy();
+
+        std::vector<double> pp;
+        ar["phase_point"] >> pp;
+        if (pp.size() != phase_point::label_dim)
+            throw std::runtime_error("error reading phase point");
+        phase_space_point(phase_point{pp.begin()});
     }
 
 private:
