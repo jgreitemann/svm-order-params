@@ -17,6 +17,7 @@
 #pragma once
 
 #include "config_policy.hpp"
+#include "indices.hpp"
 
 #include <initializer_list>
 #include <map>

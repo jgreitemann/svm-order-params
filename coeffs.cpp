@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "gauge.hpp"
+#include "config_policy.hpp"
 #include "results.hpp"
 #include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
@@ -37,7 +37,18 @@
 #include <Eigen/SVD>
 
 
+#ifdef ISING
+#include "ising.hpp"
+using sim_type = ising_sim;
+#else
+#ifdef GAUGE
+#include "gauge.hpp"
 using sim_type = gauge_sim;
+#else
+#error Unknown model
+#endif
+#endif
+
 using kernel_t = svm::kernel::polynomial<2>;
 
 
@@ -287,7 +298,7 @@ int main(int argc, char** argv) {
                                             -= b(i * bj.second.size() + j);
 
                             }
-    #pragma omp critical
+#pragma omp critical
                             {
                                 std::stringstream ss;
                                 ++i_block;

@@ -18,7 +18,7 @@
 
 #include "point_groups.hpp"
 #include "phase_space_policy.hpp"
-#include "config_policy.hpp"
+#include "gauge_config_policy.hpp"
 
 #include <cmath>
 #include <memory>

@@ -80,13 +80,14 @@ add_executable(gauge-test
 target_compile_definitions(gauge-test PUBLIC -DGAUGE)
 
 add_executable(gauge-coeffs
-    gauge/gauge-coeffs.cpp
+    coeffs.cpp
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
-    gauge/contraction.cpp
-    gauge/results.cpp
+    contraction.cpp
+    results.cpp
     )
+target_compile_definitions(gauge-coeffs PUBLIC -DGAUGE)
 
 add_executable(gauge-segregate-phases
     segregate_phases.cpp
@@ -99,8 +100,8 @@ add_executable(gauge-segregate-phases
 target_compile_definitions(gauge-segregate-phases PUBLIC -DGAUGE)
 
 add_executable(output-contractions
-    gauge/output_contractions.cpp
-    gauge/contraction.cpp
+    output_contractions.cpp
+    contraction.cpp
     )
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
