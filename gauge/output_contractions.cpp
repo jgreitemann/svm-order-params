@@ -32,11 +32,9 @@ int main(int argc, char** argv) {
     argh::parser cmdl;
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
 
-    using Container = typename config_policy::config_array;
-    using LatticePolicy = typename lattice::single<element_policy::mono,
-                                                   Container>;
-    using ElementPolicy = typename LatticePolicy::ElementPolicy;
-    using confpol_t = gauge_config_policy<LatticePolicy, symmetry_policy::none>;
+    using ElementPolicy = element_policy::mono;
+    using confpol_t = block_config_policy<symmetry_policy::none,
+                                          ElementPolicy>;
     size_t rank;
     if (!(cmdl(1) >> rank))
         throw std::runtime_error("invalid rank '" + cmdl[1] + "'");
@@ -44,8 +42,6 @@ int main(int argc, char** argv) {
 
     auto contractions = get_contractions(rank);
     auto block = confpol.all_block_indices().begin()->second;
-
-    std::cout << "hello" << std::endl;
 
     boost::multi_array<double, 2> c(boost::extents[block.size()][block.size()]);
     auto c_it = contractions.begin();

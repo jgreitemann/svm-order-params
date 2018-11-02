@@ -17,9 +17,7 @@
 #pragma once
 
 #include "combinatorics.hpp"
-#include "gauge.hpp"
 #include "indices.hpp"
-#include "svm-wrapper.hpp"
 
 #include <algorithm>
 #include <array>
@@ -32,6 +30,8 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+
+#include <alps/params.hpp>
 
 #include <boost/multi_array.hpp>
 
@@ -463,14 +463,12 @@ namespace block_reduction {
     };
 }
 
+template <typename Config, typename Introspector>
 struct config_policy {
-    typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> local_state;
-    typedef boost::multi_array<local_state, 1> config_array;
-    typedef boost::multi_array<double, 2> matrix_t;
+    using config_array = Config;
+    using introspec_t = Introspector;
 
-    typedef svm::model<svm::kernel::polynomial<2>,
-                       gauge_sim::phase_label> model_t;
-    typedef svm::tensor_introspector<typename model_t::classifier_type, 2> introspec_t;
+    using matrix_t = boost::multi_array<double, 2>;
 
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
@@ -489,10 +487,16 @@ struct config_policy {
     virtual std::map<indices_t, index_assoc_vec> all_block_indices () const = 0;
 };
 
-template <typename SymmetryPolicy, typename ElementPolicy>
+template <typename Config, typename Introspector,
+          typename SymmetryPolicy, typename ElementPolicy>
 struct monomial_config_policy
-    : public config_policy, protected ElementPolicy, private SymmetryPolicy
+    : public config_policy<Config, Introspector>
+    , protected ElementPolicy
+    , private SymmetryPolicy
 {
+    using typename config_policy<Config, Introspector>::matrix_t;
+    using typename config_policy<Config, Introspector>::introspec_t;
+
     monomial_config_policy (size_t rank,
                             ElementPolicy && elempol,
                             bool unsymmetrize = true)
@@ -656,13 +660,40 @@ private:
     std::vector<double> weights_;
 };
 
-template <typename LatticePolicy, typename SymmetryPolicy>
+
+struct dummy_introspector {
+    double tensor(std::array<size_t, 2>) const {
+        throw std::runtime_error("not implemented / don't call");
+        return {};
+    }
+};
+
+template <typename SymmetryPolicy, typename ElementPolicy>
+struct block_config_policy
+    : public monomial_config_policy<int, dummy_introspector,
+                                    SymmetryPolicy, ElementPolicy>
+{
+    using BasePolicy = monomial_config_policy<int, dummy_introspector,
+                                              SymmetryPolicy, ElementPolicy>;
+    using BasePolicy::BasePolicy;
+
+    // not implemented
+    virtual std::vector<double> configuration (int const&) const override final {
+        throw std::runtime_error("not implemented / don't call");
+        return {};
+    };
+};
+
+
+template <typename Config, typename Introspector,
+          typename SymmetryPolicy, typename LatticePolicy>
 struct gauge_config_policy
-    : public monomial_config_policy<SymmetryPolicy,
+    : public monomial_config_policy<Config, Introspector, SymmetryPolicy,
                                     typename LatticePolicy::ElementPolicy>
 {
     using ElementPolicy = typename LatticePolicy::ElementPolicy;
-    using BasePolicy = monomial_config_policy<SymmetryPolicy, ElementPolicy>;
+    using BasePolicy = monomial_config_policy<Config, Introspector,
+                                              SymmetryPolicy, ElementPolicy>;
     using config_array = typename BasePolicy::config_array;
 
     using BasePolicy::BasePolicy;
@@ -698,3 +729,74 @@ private:
     using ElementPolicy::color;
     using ElementPolicy::component;
 };
+
+
+inline void define_gauge_config_policy_parameters(alps::params & parameters) {
+    parameters
+        .define<std::string>("color", "triad",
+                             "use 3 colored spins (triad) or just one (mono)")
+        .define<std::string>("cluster", "single", "cluster used for SVM config")
+        .define<bool>("symmetrized", true, "use symmetry <l_x m_y> == <m_y l_x>")
+        .define<size_t>("rank", "rank of the order parameter tensor");
+}
+
+
+template <typename Config, typename Introspector>
+auto gauge_config_policy_from_parameters(alps::params const& parameters,
+                                         bool unsymmetrize = true)
+    -> std::unique_ptr<config_policy<Config, Introspector>>
+{
+#define CONFPOL_CREATE()                                                \
+    return std::unique_ptr<config_policy<Config, Introspector>>(        \
+        new gauge_config_policy<                                        \
+        Config, Introspector, SymmetryPolicy, LatticePolicy>(           \
+            rank, std::move(elempol), unsymmetrize));                   \
+
+
+#define CONFPOL_BRANCH_SYMM(LATNAME, CLSIZE)                        \
+    using LatticePolicy = lattice:: LATNAME <BaseElementPolicy,     \
+                                             Config>;               \
+    using ElementPolicy = typename LatticePolicy::ElementPolicy;    \
+    ElementPolicy elempol{ CLSIZE };                                \
+    if (parameters["symmetrized"].as<bool>()) {                     \
+        using SymmetryPolicy = symmetry_policy::symmetrized;        \
+        CONFPOL_CREATE()                                            \
+    } else {                                                        \
+        using SymmetryPolicy = symmetry_policy::none;               \
+        CONFPOL_CREATE()                                            \
+    }                                                               \
+
+
+#define CONFPOL_BRANCH_CLUSTER() \
+    if (clname == "single") {                               \
+        CONFPOL_BRANCH_SYMM(single,);                       \
+    } else if (clname == "bipartite") {                     \
+        CONFPOL_BRANCH_SYMM(square,2);                      \
+    } else if (clname == "full") {                          \
+        CONFPOL_BRANCH_SYMM(full,(L*L*L));                  \
+    } else {                                                \
+        throw std::runtime_error("unknown cluster name: "   \
+                                 + clname);                 \
+    }                                                       \
+
+
+    // set up SVM configuration policy
+    size_t rank = parameters["rank"].as<size_t>();
+    size_t L = parameters["length"].as<size_t>();
+    std::string clname = parameters["cluster"].as<std::string>();
+    std::string elname = parameters["color"].as<std::string>();
+
+    if (elname == "mono") {
+        using BaseElementPolicy = element_policy::mono;
+        CONFPOL_BRANCH_CLUSTER();
+    } else if (elname == "triad") {
+        using BaseElementPolicy = element_policy::triad;
+        CONFPOL_BRANCH_CLUSTER();
+    } else {
+        throw std::runtime_error("unknown color setting: " + elname);
+    }
+
+#undef CONFPOL_BRANCH_CLUSTER
+#undef CONFPOL_BRANCH_SYMM
+#undef CONFPOL_CREATE
+}

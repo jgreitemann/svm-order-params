@@ -47,9 +47,13 @@ public:
     using phase_label = typename Simulation::phase_label;
     using model_t = svm::model<kernel_t, phase_label>;
     using problem_t = svm::problem<kernel_t>;
+    using introspec_t = svm::tensor_introspector<typename model_t::classifier_type, 2>;
+
+    using config_policy_t = typename Simulation::template config_policy_type<introspec_t>;
 
     test_adapter (parameters_type & parms, std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
+        , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
     {
         std::string arname = parms.get_archive_name();
 
@@ -68,7 +72,7 @@ public:
     virtual void measure () override {
         Simulation::measure();
         if (Simulation::is_thermalized()) {
-            auto res = model(svm::dataset(Simulation::configuration()));
+            auto res = model(svm::dataset(confpol->configuration(Simulation::configuration())));
             measurements["label"] << double(res.first);
 
             auto decs = svm::detail::container_factory<std::vector<double>>::copy(res.second);
@@ -79,4 +83,5 @@ public:
 private:
     using Simulation::measurements;
     model_t model;
+    std::unique_ptr<config_policy_t> confpol;
 };

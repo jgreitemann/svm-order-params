@@ -15,7 +15,6 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "gauge.hpp"
-#include "config_policy.hpp"
 #include "convenience_params.hpp"
 
 #include <iostream>
@@ -52,69 +51,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<double>("spacing_nem", 0.001, "spacing of nematicity");
     phase_point::define_parameters(parameters);
 
-    parameters
-        .define<std::string>("color", "triad", "use 3 colored spins (triad) or just one (mono)")
-        .define<std::string>("cluster", "single", "cluster used for SVM config")
-        .define<bool>("symmetrized", true, "use symmetry <l_x m_y> == <m_y l_x>")
-        .define<size_t>("rank", "rank of the order parameter tensor");
-}
-
-
-auto gauge_sim::config_policy_from_parameters(parameters_type const& parameters,
-                                              bool unsymmetrize = true)
-    -> std::unique_ptr<config_policy>
-{
-#define CONFPOL_CREATE()                                        \
-    return std::unique_ptr<config_policy>(                      \
-        new gauge_config_policy<LatticePolicy,                  \
-                                symmetry_policy::symmetrized>(  \
-            rank, std::move(elempol), unsymmetrize));           \
-
-
-#define CONFPOL_BRANCH_SYMM(LATNAME, CLSIZE)                        \
-    using LatticePolicy = lattice:: LATNAME <BaseElementPolicy,     \
-                                             Rt_array>;             \
-    using ElementPolicy = typename LatticePolicy::ElementPolicy;    \
-    ElementPolicy elempol{ CLSIZE };                                \
-    if (parameters["symmetrized"].as<bool>()) {                     \
-        CONFPOL_CREATE()                                            \
-    } else {                                                        \
-        CONFPOL_CREATE()                                            \
-    }                                                               \
-
-
-#define CONFPOL_BRANCH_CLUSTER() \
-    if (clname == "single") {                               \
-        CONFPOL_BRANCH_SYMM(single,);                       \
-    } else if (clname == "bipartite") {                     \
-        CONFPOL_BRANCH_SYMM(square,2);                      \
-    } else if (clname == "full") {                          \
-        CONFPOL_BRANCH_SYMM(full,(L*L*L));                  \
-    } else {                                                \
-        throw std::runtime_error("unknown cluster name: "   \
-                                 + clname);                 \
-    }                                                       \
-
-
-    // set up SVM configuration policy
-    size_t rank = parameters["rank"].as<size_t>();
-    size_t L = parameters["length"].as<size_t>();
-    std::string clname = parameters["cluster"].as<std::string>();
-    std::string elname = parameters["color"].as<std::string>();
-
-    if (elname == "mono") {
-        using BaseElementPolicy = element_policy::mono;
-        CONFPOL_BRANCH_CLUSTER();
-    } else if (elname == "triad") {
-        using BaseElementPolicy = element_policy::triad;
-        CONFPOL_BRANCH_CLUSTER();
-    } else {
-        throw std::runtime_error("unknown color setting: " + elname);
-    }
-
-#undef CONFPOL_BRANCH_CLUSTER
-#undef CONFPOL_BRANCH_SYMM
-#undef CONFPOL_CREATE
+    define_gauge_config_policy_parameters(parameters);
 }
 
 
@@ -287,8 +224,6 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     if (nematicityB2)
         measurements
             << alps::accumulators::FullBinningAccumulator<double>("NematicityB2");
-
-    confpol = config_policy_from_parameters(parameters);
 }
 
 /* Note: explicitly defaulting destructor here, *after* type config_policy
@@ -680,14 +615,6 @@ void gauge_sim::reset_sweeps(bool skip_therm) {
 
 bool gauge_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
-}
-
-size_t gauge_sim::configuration_size() const {
-    return confpol->size();
-}
-
-std::vector<double> gauge_sim::configuration() const {
-    return confpol->configuration(R);
 }
 
 gauge_sim::phase_point gauge_sim::phase_space_point () const {
