@@ -56,9 +56,12 @@ add_executable(ising-test
 target_compile_definitions(ising-test PUBLIC -DISING)
 
 add_executable(ising-coeffs
-    ising/ising-coeffs.cpp
+    coeffs.cpp
     ising/ising.cpp
+    contraction.cpp
+    results.cpp
     )
+target_compile_definitions(ising-coeffs PUBLIC -DISING)
 
 include_directories(gauge)
 add_executable(gauge-learn
