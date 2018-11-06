@@ -37,10 +37,15 @@ public:
 
     using phase_point = typename Simulation::phase_point;
     using phase_classifier = typename Simulation::phase_classifier;
+    using label_t = typename Simulation::phase_label;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 
     using kernel_t = svm::kernel::polynomial<2>;
     using problem_t = svm::problem<kernel_t, phase_point>;
+    using model_t = svm::model<kernel_t, label_t>;
+    using introspec_t = svm::tensor_introspector<typename model_t::classifier_type, 2>;
+
+    using config_policy_t = typename Simulation::template config_policy_type<introspec_t>;
 
     static void define_parameters(parameters_type & parameters) {
         // If the parameters are restored, they are already defined
@@ -66,10 +71,11 @@ public:
                       double const& global_progress,
                       std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
+        , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
         , global_progress(global_progress)
         , N_phase(size_t(parameters["sweep.N"]))
         , N_sample(size_t(parameters["sweep.samples"]))
-        , problem(Simulation::configuration_size())
+        , problem(confpol->size())
         , prob_serializer(problem)
         , sweep_policy([&] () -> phase_sweep_policy_type * {
                 std::string dist_name = parameters["sweep.dist"];
@@ -128,7 +134,7 @@ public:
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            problem.add_sample(Simulation::configuration(),
+            problem.add_sample(confpol->configuration(Simulation::configuration()),
                                Simulation::phase_space_point());
             ++i_temp;
         }
@@ -162,7 +168,7 @@ public:
         ar["training/sweep"] >> *sweep_policy;
 
         ar["training/problem"] >> prob_serializer;
-        if (problem.dim() != Simulation::configuration_size())
+        if (problem.dim() != confpol->size())
             throw std::runtime_error("invalid problem dimension");
 
         // flatten
@@ -173,7 +179,7 @@ public:
     }
 
     problem_t surrender_problem () {
-        problem_t other_problem (Simulation::configuration_size());
+        problem_t other_problem(confpol->size());
         std::swap(other_problem, problem);
         return other_problem;
     }
@@ -182,6 +188,8 @@ private:
 
     using Simulation::parameters;
     using Simulation::random;
+
+    std::unique_ptr<config_policy_t> confpol;
 
     double const& global_progress;
 

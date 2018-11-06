@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "gauge.hpp"
+#include "config_policy.hpp"
 #include "results.hpp"
 #include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
@@ -37,7 +37,18 @@
 #include <Eigen/SVD>
 
 
+#ifdef ISING
+#include "ising.hpp"
+using sim_type = ising_sim;
+#else
+#ifdef GAUGE
+#include "gauge.hpp"
 using sim_type = gauge_sim;
+#else
+#error Unknown model
+#endif
+#endif
+
 using kernel_t = svm::kernel::polynomial<2>;
 
 
@@ -65,6 +76,7 @@ int main(int argc, char** argv) {
         log_msg("Reading model...");
         using model_t = svm::model<kernel_t, sim_type::phase_label>;
         using classifier_t = typename model_t::classifier_type;
+        using introspec_t = svm::tensor_introspector<classifier_t, 2>;
         model_t model;
         {
             alps::hdf5::archive ar(arname, "r");
@@ -75,11 +87,11 @@ int main(int argc, char** argv) {
         auto treat_transition = [&] (classifier_t const& classifier,
                                      std::string const& basename)
         {
-            auto coeff = svm::tensor_introspect<2>(classifier);
+            introspec_t coeff = svm::tensor_introspect<2>(classifier);
 
-            std::unique_ptr<config_policy> confpol =
-                sim_type::config_policy_from_parameters(parameters,
-                                                        cmdl[{"-u", "--unsymmetrize"}]);
+            auto confpol = sim_type::config_policy_from_parameters<introspec_t>(
+                parameters,
+                cmdl[{"-u", "--unsymmetrize"}]);
 
             auto contractions = get_contractions(confpol->rank());
             auto block_inds = confpol->all_block_indices();
@@ -141,13 +153,12 @@ int main(int argc, char** argv) {
                     {
                         log_msg("Analyzing contractions...");
 
-                        using Container = typename config_policy::config_array;
-                        using ElementPolicy = element_policy::mono;
-                        using LatticePolicy = lattice::single<ElementPolicy,
-                                                              Container>;
-                        using confpol_t = gauge_config_policy<LatticePolicy,
-                                                              symmetry_policy::none>;
-                        confpol_t block_confpol(confpol->rank(), ElementPolicy{}, false);
+                        using ElementPolicy = element_policy::components;
+                        using confpol_t = block_config_policy<symmetry_policy::none,
+                                                              ElementPolicy>;
+                        confpol_t block_confpol(confpol->rank(),
+                                                ElementPolicy{confpol->n_components()},
+                                                false);
                         auto block = block_confpol.all_block_indices().begin()->second;
 
                         auto a = contraction_matrix(contractions,
@@ -289,7 +300,7 @@ int main(int argc, char** argv) {
                                             -= b(i * bj.second.size() + j);
 
                             }
-    #pragma omp critical
+#pragma omp critical
                             {
                                 std::stringstream ss;
                                 ++i_block;
@@ -315,12 +326,12 @@ int main(int argc, char** argv) {
                     if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
                         alps::params nosymm_params(parameters);
                         nosymm_params["symmetrized"] = false;
-                        auto cpol = sim_type::config_policy_from_parameters(nosymm_params, false);
-                        std::string result_name = parameters["gauge_group"];
+                        auto cpol = sim_type::config_policy_from_parameters<introspec_t>(nosymm_params, false);
+                        std::string result_name;
                         cmdl("--result") >> result_name;
                         try {
                             auto exact = cpol->rearrange(
-                                results::exact_tensor.at(result_name).get(cpol));
+                                results::exact_tensor.at(result_name).get(*cpol));
                             normalize_matrix(exact);
                             if (cmdl[{"-e", "--exact"}]) {
                                 write_matrix(exact,

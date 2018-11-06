@@ -96,28 +96,3 @@ tensor_factory::tensor_factory (std::vector<contraction> && bc,
                                 std::vector<contraction> && cc)
     : block_contractions(std::forward<std::vector<contraction>>(bc)),
       component_contractions(std::forward<std::vector<contraction>>(cc)) {}
-
-boost::multi_array<double, 2> tensor_factory::get (std::unique_ptr<config_policy> const& cpol) const {
-    symmetry_policy::none symm;
-    size_t rank = cpol->rank();
-    size_t size = symm.size(cpol->range(), rank);
-    boost::multi_array<double, 2> res(boost::extents[size][size]);
-    indices_t i_ind(rank);
-    for (auto row : res) {
-        indices_t i_ind_block = cpol->block_indices(i_ind);
-        indices_t i_ind_component = cpol->component_indices(i_ind);
-        indices_t j_ind(rank);
-        for (auto & elem : row) {
-            elem = 0;
-            indices_t j_ind_block = cpol->block_indices(j_ind);
-            indices_t j_ind_component = cpol->component_indices(j_ind);
-            for (auto const& bc : block_contractions)
-                for (auto const& cc : component_contractions)
-                    elem += (bc(i_ind_block, j_ind_block)
-                             * cc(i_ind_component, j_ind_component));
-            symm.advance_ind(j_ind, cpol->range());
-        }
-        symm.advance_ind(i_ind, cpol->range());
-    }
-    return res;
-}

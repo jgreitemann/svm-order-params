@@ -18,6 +18,7 @@
 
 #include "point_groups.hpp"
 #include "phase_space_policy.hpp"
+#include "gauge_config_policy.hpp"
 
 #include <cmath>
 #include <memory>
@@ -34,9 +35,6 @@
 
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
-
-// forward declaration
-struct config_policy;
 
 class gauge_sim : public alps::mcbase {
 public:
@@ -125,7 +123,17 @@ public:
 
     static void define_parameters(parameters_type & parameters);
 
-    static std::unique_ptr<config_policy> config_policy_from_parameters(parameters_type const&, bool);
+    template <typename Introspector>
+    using config_policy_type = config_policy<Rt_array, Introspector>;
+
+    template <typename Introspector>
+    static auto config_policy_from_parameters(parameters_type const& parameters,
+                                              bool unsymmetrize = true)
+        -> std::unique_ptr<config_policy_type<Introspector>>
+    {
+        return gauge_config_policy_from_parameters<Rt_array, Introspector>(
+            parameters, unsymmetrize);
+    }
 
     virtual void update();
     virtual void measure();
@@ -178,13 +186,11 @@ public:
             names.push_back("NematicityB2");
         return names;
     }
+    Rt_array const& configuration() const {
+        return R;
+    }
     void reset_sweeps(bool skip_therm);
     bool is_thermalized() const;
-    size_t configuration_size() const;
-    std::vector<double> configuration() const;
     phase_point phase_space_point () const;
     void update_phase_point (phase_sweep_policy_type & sweep_policy);
-
-private:
-    std::unique_ptr<config_policy> confpol;
 };
