@@ -65,7 +65,6 @@ int main(int argc, char** argv)
 
         // define parameters
         sim_type::define_parameters(parameters);
-        define_test_parameters(parameters);
         if (parameters["test.filename"].as<std::string>().empty())
             parameters["test.filename"] =
                 replace_extension(alps::origin_name(parameters), ".test.h5");

@@ -63,7 +63,7 @@ int main(int argc, char** argv)
 
         // define parameters
         sim_type::define_parameters(parameters);
-        define_test_parameters(parameters);
+        test_adapter<sim_base>::define_test_parameters(parameters);
         if (!parameters.is_restored()) {
             parameters.define<double>("nu", 0.5, "nu_SVC regularization parameter");
             parameters.define<size_t>("progress_interval", 3,

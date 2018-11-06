@@ -24,20 +24,6 @@
 #include <alps/mc/mcbase.hpp>
 
 
-void define_test_parameters(alps::params & parameters) {
-    if (!parameters.is_restored()) {
-        parameters
-            .define<double>("test.a.J1", 0., "minimum temperature in test")
-            .define<double>("test.a.J3", 10., "maximum temperature in test")
-            .define<double>("test.b.J1", 0., "minimum temperature in test")
-            .define<double>("test.b.J3", 10., "maximum temperature in test")
-            .define<size_t>("test.N_scan", 10, "number of temperatures to test at")
-            .define<std::string>("test.filename", "", "test output file name")
-            .define<std::string>("test.txtname", "", "test output txt name")
-            ;
-    }
-}
-
 template <class Simulation>
 class test_adapter : public Simulation {
 public:
@@ -47,6 +33,23 @@ public:
     using phase_label = typename Simulation::phase_label;
     using model_t = svm::model<kernel_t, phase_label>;
     using problem_t = svm::problem<kernel_t>;
+
+    static void define_test_parameters(alps::params & parameters) {
+        if (!parameters.is_restored()) {
+            parameters
+                .define<size_t>("test.N_scan", 10, "number of temperatures to test at")
+                .define<std::string>("test.filename", "", "test output file name")
+                .define<std::string>("test.txtname", "", "test output txt name")
+                ;
+            Simulation::phase_point::define_parameters(parameters, "test.a.");
+            Simulation::phase_point::define_parameters(parameters, "test.b.");
+        }
+    }
+
+    static void define_parameters(alps::params & parameters) {
+        Simulation::define_parameters(parameters);
+        define_test_parameters(parameters);
+    }
 
     test_adapter (parameters_type & parms, std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
