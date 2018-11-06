@@ -153,10 +153,12 @@ int main(int argc, char** argv) {
                     {
                         log_msg("Analyzing contractions...");
 
-                        using ElementPolicy = element_policy::mono;
+                        using ElementPolicy = element_policy::components;
                         using confpol_t = block_config_policy<symmetry_policy::none,
                                                               ElementPolicy>;
-                        confpol_t block_confpol(confpol->rank(), ElementPolicy{}, false);
+                        confpol_t block_confpol(confpol->rank(),
+                                                ElementPolicy{confpol->n_components()},
+                                                false);
                         auto block = block_confpol.all_block_indices().begin()->second;
 
                         auto a = contraction_matrix(contractions,

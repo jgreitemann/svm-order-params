@@ -31,14 +31,11 @@
 
 namespace element_policy {
 
-    struct mono {
+    struct mono : components {
+        mono() : components{3} {}
         const size_t n_color() const { return 1; }
-        const size_t n_block() const { return 1; }
-        const size_t range() const { return 3 * n_color(); }
         const size_t sublattice(size_t index) const { return 0; }
         const size_t color(size_t index) const { return 2; }
-        const size_t block(size_t index) const { return color(index); }
-        const size_t component(size_t index) const { return index; }
 
         size_t rearranged_index (indices_t const& ind) const {
             size_t components = 0;

@@ -35,6 +35,29 @@
 #include <boost/multi_array.hpp>
 
 
+namespace element_policy {
+
+    struct components {
+        size_t N;
+
+        const size_t n_block() const { return 1; }
+        const size_t range() const { return N * n_block(); }
+        const size_t block(size_t index) const { return 0; }
+        const size_t component(size_t index) const { return index; }
+
+        size_t rearranged_index (indices_t const& ind) const {
+            size_t components = 0;
+            for (auto it = ind.begin(); it != ind.end(); ++it) {
+                components *= 3;
+                components += component(*it);
+            }
+            return components;
+        }
+
+    };
+
+}
+
 namespace symmetry_policy {
 
     struct none {
@@ -154,6 +177,7 @@ struct config_policy {
 
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
+    virtual size_t n_components () const = 0;
     virtual size_t rank () const = 0;
     virtual std::vector<double> configuration (config_array const&) const = 0;
 
@@ -289,6 +313,10 @@ struct monomial_config_policy
 
     virtual size_t range () const override final {
         return ElementPolicy::range();
+    }
+
+    virtual size_t n_components () const override final {
+        return ElementPolicy::range() / ElementPolicy::n_block();
     }
 
     virtual size_t rank () const override final {
