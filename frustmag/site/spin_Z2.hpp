@@ -47,6 +47,8 @@ struct spin_Z2 {
         return s;
     }
 
+    static const size_t size = 1;
+
     template <typename OutputIterator>
     OutputIterator & serialize(OutputIterator & it) const {
         *it = s;

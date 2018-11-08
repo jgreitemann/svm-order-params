@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "config_sim_base.hpp"
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
 #include "filesystem.hpp"
@@ -37,18 +38,6 @@
 #include <alps/hdf5/multi_array.hpp>
 
 #include <boost/multi_array.hpp>
-
-#ifdef ISING
-    #include "ising.hpp"
-    using sim_base = ising_sim;
-#else
-#ifdef GAUGE
-    #include "gauge.hpp"
-    using sim_base = gauge_sim;
-#else
-    #error Unknown model
-#endif
-#endif
 
 
 int main(int argc, char** argv)

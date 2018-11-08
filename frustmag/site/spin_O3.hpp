@@ -44,6 +44,8 @@ struct spin_O3 : Eigen::Vector3d {
         return random(rng);
     }
 
+    static const size_t size = 3;
+
     template <typename OutputIterator>
     OutputIterator & serialize(OutputIterator & it) const {
         *it = (*this)(0);

@@ -38,6 +38,43 @@ else()
   message(FATAL_ERROR "Unknown gauge classifier")
 endif()
 
+set(HAMILTONIAN "heisenberg" CACHE STRING "The Hamiltonian for the frustmag simulation")
+if(HAMILTONIAN STREQUAL heisenberg)
+  add_definitions(-DHEISENBERG)
+  message(STATUS "Using frustmag Hamiltonian: heisenberg")
+elseif(HAMILTONIAN STREQUAL ising)
+  add_definitions(-DISING)
+  message(STATUS "Using frustmag Hamiltonian: ising")
+else()
+  message(FATAL_ERROR "Unknown frustmag Hamiltonian")
+endif()
+
+set(LATTICE "kagome" CACHE STRING "The lattice for the frustmag simulation")
+if(LATTICE STREQUAL chain)
+  add_definitions(-DCHAIN)
+  message(STATUS "Using frustmag lattice: chain")
+elseif(LATTICE STREQUAL square)
+  add_definitions(-DSQUARE)
+  message(STATUS "Using frustmag lattice: square")
+elseif(LATTICE STREQUAL cubic)
+  add_definitions(-DCUBIC)
+  message(STATUS "Using frustmag lattice: cubic")
+elseif(LATTICE STREQUAL triangular)
+  add_definitions(-DTRIANGULAR)
+  message(STATUS "Using frustmag lattice: triangular")
+elseif(LATTICE STREQUAL honeycomb)
+  add_definitions(-DHONEYCOMB)
+  message(STATUS "Using frustmag lattice: honeycomb")
+elseif(LATTICE STREQUAL kagome)
+  add_definitions(-DKAGOME)
+  message(STATUS "Using frustmag lattice: kagome")
+elseif(LATTICE STREQUAL dice)
+  add_definitions(-DDICE)
+  message(STATUS "Using frustmag lattice: dice")
+else()
+  message(FATAL_ERROR "Unknown frustmag lattice")
+endif()
+
 include_directories(colormap)
 
 include_directories(ising)
@@ -107,6 +144,26 @@ add_executable(output-contractions
     contraction.cpp
     )
 
+include_directories(frustmag)
+add_executable(frustmag-learn
+    learn.cpp
+    phase_space_policy.cpp
+    checkpointing_stop_callback.cpp
+    )
+target_compile_definitions(frustmag-learn PUBLIC -DFRUSTMAG -DHAS_SVM)
+
+add_executable(frustmag-test
+    test.cpp
+    )
+target_compile_definitions(frustmag-test PUBLIC -DFRUSTMAG -DHAS_SVM)
+
+add_executable(frustmag-coeffs
+    coeffs.cpp
+    contraction.cpp
+    results.cpp
+    )
+target_compile_definitions(frustmag-coeffs PUBLIC -DFRUSTMAG -DHAS_SVM)
+
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore 
 target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm stdc++fs)
@@ -117,3 +174,7 @@ target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-segregate-phases ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(output-contractions ${ALPSCore_LIBRARIES} svm stdc++fs)
+
+target_link_libraries(frustmag-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(frustmag-test ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(frustmag-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)

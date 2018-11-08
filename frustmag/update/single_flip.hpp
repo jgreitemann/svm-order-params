@@ -51,7 +51,7 @@ public:
 
     template <typename RNG>
     // requires SiteState<site_state_type, RNG>
-    void update(LatticeHamiltonian & hamiltonian, RNG & rng) {
+    void update(LatticeH & hamiltonian, RNG & rng) {
         size_t lsize = hamiltonian.lattice().size();
         for (size_t j = 0; j < lsize; ++j) {
             size_t i = std::uniform_int_distribution<size_t>{0, lsize - 1}(rng);

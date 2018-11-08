@@ -18,6 +18,11 @@
 
 #include "concepts.hpp"
 #include "convenience_params.hpp"
+#include "phase_space_point.hpp"
+#ifdef HAS_SVM
+#include "frustmag_config_policy.hpp"
+#include "phase_space_policy.hpp"
+#endif
 
 #include <alps/accumulators.hpp>
 #include <alps/mc/api.hpp>
@@ -39,13 +44,27 @@ class frustmag_sim : public alps::mcbase, Update<Hamiltonian> {
                   "Update is not a MetropolisUpdate");
 #endif
 public:
-    // using phase_classifier = phase_space::classifier::critical_temperature;
-    // using phase_label = phase_classifier::label_type;
-    // using phase_point = phase_classifier::point_type;
-    // using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
-
+    using phase_point = phase_space::point::temperature;
     using lattice_type = typename Hamiltonian::lattice_type;
     using update_type = Update<Hamiltonian>;
+
+#ifdef HAS_SVM
+    using phase_classifier = phase_space::classifier::critical_temperature;
+    using phase_label = phase_classifier::label_type;
+    using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
+
+    template <typename Introspector>
+    using config_policy_type = config_policy<lattice_type, Introspector>;
+
+    template <typename Introspector>
+    static auto config_policy_from_parameters(parameters_type const& parameters,
+                                              bool unsymmetrize = true)
+        -> std::unique_ptr<config_policy_type<Introspector>>
+    {
+        return frustmag_config_policy_from_parameters<lattice_type, Introspector>(
+            parameters, unsymmetrize);
+    }
+#endif
 private:
     size_t sweeps = 0;
     size_t total_sweeps;
@@ -74,6 +93,10 @@ public:
                             "number of sweeps for thermalization");
 
         Hamiltonian::define_parameters(parameters);
+
+#ifdef HAS_SVM
+        define_frustmag_config_policy_parameters(parameters);
+#endif
     }
 
     frustmag_sim(parameters_type const & params, std::size_t seed_offset = 0)
@@ -91,10 +114,6 @@ public:
 
     Hamiltonian const& hamiltonian() const {
         return hamiltonian_;
-    }
-
-    bool is_thermalized() const {
-        return sweeps > thermalization_sweeps;
     }
 
     virtual void update() {
@@ -144,4 +163,38 @@ public:
         ar["checkpoint/sweeps"] >> sweeps;
         ar["checkpoint/hamiltonian"] >> hamiltonian_;
     }
+
+    // SVM interface functions
+    std::vector<std::string> order_param_names() const {
+        return {"Magnetization"};
+    }
+
+    void reset_sweeps(bool skip_therm) {
+        if (skip_therm)
+            sweeps = thermalization_sweeps;
+        else
+            sweeps = 0;
+    }
+
+    bool is_thermalized() const {
+        return sweeps > thermalization_sweeps;
+    }
+
+    auto const& configuration() const {
+        return hamiltonian_.lattice();
+    }
+
+    phase_point phase_space_point() const {
+        return hamiltonian_.phase_space_point();
+    }
+
+#ifdef HAS_SVM
+    void update_phase_point(phase_sweep_policy_type & sweep_policy) {
+        auto current_pp = hamiltonian_.phase_space_point();
+        bool changed = sweep_policy.yield(current_pp, rng);
+        if (changed)
+            hamiltonian_.phase_space_point(current_pp);
+        reset_sweeps(!changed);
+    }
+#endif
 };

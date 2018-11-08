@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "config_policy.hpp"
+#include "config_sim_base.hpp"
 #include "results.hpp"
 #include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
@@ -36,19 +37,6 @@
 
 #include <Eigen/SVD>
 
-
-#ifdef ISING
-#include "ising.hpp"
-using sim_type = ising_sim;
-#else
-#ifdef GAUGE
-#include "gauge.hpp"
-using sim_type = gauge_sim;
-#else
-#error Unknown model
-#endif
-#endif
-
 using kernel_t = svm::kernel::polynomial<2>;
 
 
@@ -59,7 +47,7 @@ int main(int argc, char** argv) {
         cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
         alps::params parameters(argc, argv);
 
-        sim_type::define_parameters(parameters);
+        sim_base::define_parameters(parameters);
 
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
@@ -74,7 +62,7 @@ int main(int argc, char** argv) {
         };
 
         log_msg("Reading model...");
-        using model_t = svm::model<kernel_t, sim_type::phase_label>;
+        using model_t = svm::model<kernel_t, sim_base::phase_label>;
         using classifier_t = typename model_t::classifier_type;
         using introspec_t = svm::tensor_introspector<classifier_t, 2>;
         model_t model;
@@ -89,7 +77,7 @@ int main(int argc, char** argv) {
         {
             introspec_t coeff = svm::tensor_introspect<2>(classifier);
 
-            auto confpol = sim_type::config_policy_from_parameters<introspec_t>(
+            auto confpol = sim_base::config_policy_from_parameters<introspec_t>(
                 parameters,
                 cmdl[{"-u", "--unsymmetrize"}]);
 
@@ -326,7 +314,7 @@ int main(int argc, char** argv) {
                     if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
                         alps::params nosymm_params(parameters);
                         nosymm_params["symmetrized"] = false;
-                        auto cpol = sim_type::config_policy_from_parameters<introspec_t>(nosymm_params, false);
+                        auto cpol = sim_base::config_policy_from_parameters<introspec_t>(nosymm_params, false);
                         std::string result_name;
                         cmdl("--result") >> result_name;
                         try {

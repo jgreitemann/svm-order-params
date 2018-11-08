@@ -358,11 +358,10 @@ protected:
     std::vector<double> const& weights() const {
         return weights_;
     }
+    using ElementPolicy::block;
     using ElementPolicy::component;
 
 private:
-    using ElementPolicy::block;
-
     using SymmetryPolicy::transform_ind;
 
     size_t rank_;

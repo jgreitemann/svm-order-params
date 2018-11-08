@@ -37,6 +37,7 @@ struct chain : std::vector<Site> {
     using const_iterator = typename Base::const_iterator;
 
     static const size_t coordination = 2;
+    static const size_t n_basis = 1;
 
     using std::vector<Site>::vector;
 

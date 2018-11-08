@@ -112,6 +112,7 @@ concept bool Lattice = requires {
     requires Container<T>;
     requires ParameterConstructible<T, std::add_rvalue_reference_t<Generator>>;
     {T::coordination} -> size_t;
+    {T::n_basis} -> size_t;
     requires requires(T lat, typename T::iterator site_it) {
         {lat.nearest_neighbors(site_it)};
         requires Container<decltype(lat.nearest_neighbors(site_it))>;

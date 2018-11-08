@@ -30,8 +30,10 @@
 
 namespace lattice {
 
-template <typename Site, size_t dim, size_t n_basis>
+template <typename Site, size_t dim, size_t N_BASIS>
 struct bravais {
+    static const size_t n_basis = N_BASIS;
+
     using value_type = Site;
     using reference = Site&;
     using const_reference = Site const&;
@@ -252,7 +254,7 @@ struct bravais {
             .define<bool>("lattice.bravais.periodic", 1, "PBC = true, OBC = false");
     }
 
-    bravais() : periodic{}, cells{}, plengths{} {}
+    bravais() : periodic{}, cells_{}, plengths{} {}
 
     template <typename Generator>
     bravais(size_t L, bool p, Generator && gen)
@@ -262,8 +264,8 @@ struct bravais {
         std::fill(plengths.begin() + 1, plengths.end(), L);
         std::partial_sum(plengths.begin(), plengths.end(), plengths.begin(),
                          std::multiplies<>{});
-        cells.reserve(plengths.back());
-        std::generate_n(std::back_inserter(cells), plengths.back(),
+        cells_.reserve(plengths.back());
+        std::generate_n(std::back_inserter(cells_), plengths.back(),
                         [&] {
                             using Indices = std::make_index_sequence<n_basis>;
                             return generate_cell_impl(gen, Indices{});
@@ -279,53 +281,57 @@ struct bravais {
     }
 
     size_type size() const {
-        return cells.size() * n_basis;
+        return cells_.size() * n_basis;
     }
 
     iterator begin() {
-        return {{cells.begin(), 0, plengths.data(), periodic}, 0};
+        return {{cells_.begin(), 0, plengths.data(), periodic}, 0};
     }
 
     const_iterator begin() const {
-        return {{cells.begin(), 0, plengths.data(), periodic}, 0};
+        return {{cells_.begin(), 0, plengths.data(), periodic}, 0};
     }
 
     const_iterator cbegin() const {
-        return {{cells.begin(), 0, plengths.data(), periodic}, 0};
+        return {{cells_.begin(), 0, plengths.data(), periodic}, 0};
     }
 
     iterator end() {
-        return {{cells.end(), static_cast<difference_type>(plengths.back()),
+        return {{cells_.end(), static_cast<difference_type>(plengths.back()),
                     plengths.data(), periodic}, 0};
     }
 
     const_iterator end() const {
-        return {{cells.end(), static_cast<difference_type>(plengths.back()),
+        return {{cells_.end(), static_cast<difference_type>(plengths.back()),
                     plengths.data(), periodic}, 0};
     }
 
     const_iterator cend() const {
-        return {{cells.end(), static_cast<difference_type>(plengths.back()),
+        return {{cells_.end(), static_cast<difference_type>(plengths.back()),
                     plengths.data(), periodic}, 0};
     }
 
+    std::vector<unitcell_type> const& cells() const {
+        return cells_;
+    }
+
     size_type max_size() const {
-        return cells.max_size();
+        return cells_.max_size();
     }
 
     bool empty() const {
-        return cells.empty();
+        return cells_.empty();
     }
 
     void swap(bravais & other) {
         std::swap(periodic, other.periodic);
-        cells.swap(other.cells);
+        cells_.swap(other.cells_);
         std::swap(plengths, other.plengths);
     }
 
     friend bool operator==(bravais const& lhs, bravais const& rhs) {
         return lhs.periodic == rhs.periodic
-            && lhs.cells == rhs.cells;
+            && lhs.cells_ == rhs.cells_;
     }
 
     friend bool operator!=(bravais const& lhs, bravais const& rhs) {
@@ -363,7 +369,7 @@ private:
     }
 
     bool periodic;
-    std::vector<unitcell_type> cells;
+    std::vector<unitcell_type> cells_;
     lengths_type plengths;
 };
 
