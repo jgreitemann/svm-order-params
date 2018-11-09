@@ -18,6 +18,7 @@
 
 #include "concepts.hpp"
 #include "convenience_params.hpp"
+#include "observables.hpp"
 #include "phase_space_point.hpp"
 #ifdef HAS_SVM
 #include "frustmag_config_policy.hpp"
@@ -107,9 +108,7 @@ public:
         , rng{params["SEED"].as<size_t>() + seed_offset}
         , hamiltonian_{params, rng}
     {
-        measurements
-            << alps::accumulators::FullBinningAccumulator<double>("Energy")
-            << alps::accumulators::FullBinningAccumulator<double>("Magnetization");
+        observables<Hamiltonian>::define(measurements);
     }
 
     Hamiltonian const& hamiltonian() const {
@@ -124,8 +123,7 @@ public:
         ++sweeps;
         if (!is_thermalized()) return;
 
-        measurements["Energy"] << hamiltonian_.energy_per_site();
-        measurements["Magnetization"] << hamiltonian_.magnetization();
+        measurements << observables<Hamiltonian>{hamiltonian_};
     }
 
     virtual double fraction_completed() const {
@@ -166,7 +164,7 @@ public:
 
     // SVM interface functions
     std::vector<std::string> order_param_names() const {
-        return {"Magnetization"};
+        return observables<Hamiltonian>::names();
     }
 
     void reset_sweeps(bool skip_therm) {
