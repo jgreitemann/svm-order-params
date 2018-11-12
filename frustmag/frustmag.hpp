@@ -43,8 +43,8 @@ class frustmag_sim : public alps::mcbase, Update<Hamiltonian> {
                   "Hamiltonian is not a LatticeHamiltonian");
     static_assert(MagneticHamiltonian<Hamiltonian>,
                   "Hamiltonian is not a MagneticHamiltonian");
-    static_assert(MetropolisUpdate<Update<Hamiltonian>, rng_type>,
-                  "Update is not a MetropolisUpdate");
+    static_assert(MCUpdate<Update<Hamiltonian>, rng_type>,
+                  "Update is not a MCUpdate");
 #endif
 public:
     using phase_point = phase_space::point::temperature;

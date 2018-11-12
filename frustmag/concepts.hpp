@@ -152,17 +152,25 @@ concept bool LatticeHamiltonian = requires(T h) {
 };
 
 template <typename U, typename RNG = std::mt19937>
-concept bool MetropolisUpdate = requires {
+concept bool MCUpdate = requires {
     typename U::hamiltonian_type;
-    typename U::proposal_type;
     typename U::acceptance_type;
     requires DefaultConstructible<U>;
-    requires requires(U & u, typename U::hamiltonian_type & h, RNG & rng,
-                      typename U::proposal_type && p)
+    requires requires(U & u, typename U::hamiltonian_type & h, RNG & rng)
     {
         {u.update(h, rng)} -> typename U::acceptance_type;
-        {h.metropolis(p, rng)} -> bool;
         {typename U::acceptance_type{}.size()} -> size_t;
+    };
+};
+
+template <typename U, typename RNG = std::mt19937>
+concept bool MetropolisUpdate = requires {
+    requires MCUpdate<U, RNG>;
+    typename U::proposal_type;
+    requires requires(typename U::hamiltonian_type & h, RNG & rng,
+                      typename U::proposal_type && p)
+    {
+        {h.metropolis(p, rng)} -> bool;
     };
 };
 
