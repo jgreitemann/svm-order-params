@@ -155,12 +155,14 @@ template <typename U, typename RNG = std::mt19937>
 concept bool MetropolisUpdate = requires {
     typename U::hamiltonian_type;
     typename U::proposal_type;
+    typename U::acceptance_type;
     requires DefaultConstructible<U>;
     requires requires(U & u, typename U::hamiltonian_type & h, RNG & rng,
                       typename U::proposal_type && p)
     {
-        {u.update(h, rng)} -> void;
+        {u.update(h, rng)} -> typename U::acceptance_type;
         {h.metropolis(p, rng)} -> bool;
+        {typename U::acceptance_type{}.size()} -> size_t;
     };
 };
 

@@ -48,16 +48,20 @@ private:
 public:
     using hamiltonian_type = LatticeH;
     using proposal_type = single_flip_proposal<lattice_type>;
+    using acceptance_type = std::array<double, 1>;
 
     template <typename RNG>
     // requires SiteState<site_state_type, RNG>
-    void update(LatticeH & hamiltonian, RNG & rng) {
+    acceptance_type update(LatticeH & hamiltonian, RNG & rng) {
         size_t lsize = hamiltonian.lattice().size();
+        double acc = 0;
         for (size_t j = 0; j < lsize; ++j) {
             size_t i = std::uniform_int_distribution<size_t>{0, lsize - 1}(rng);
             site_iterator site_it = std::next(hamiltonian.lattice().begin(), i);
-            hamiltonian.metropolis({site_it, site_it->flipped(rng)}, rng);
+            if(hamiltonian.metropolis({site_it, site_it->flipped(rng)}, rng))
+                acc += 1.;
         }
+        return {acc / lsize};
     }
 };
 

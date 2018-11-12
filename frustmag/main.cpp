@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <iterator>
 #include <iostream>
+#include <vector>
 
 int main(int argc, char** argv)
 {
@@ -78,6 +79,11 @@ int main(int argc, char** argv)
                       << ' '  << results[name].autocorrelation<double>();
         }
         std::cout << '\n';
+
+        std::cout << "\nAcceptances:\n";
+        auto acc = results["Acceptance"].mean<std::vector<double>>();
+        std::copy(acc.begin(), acc.end(),
+                  std::ostream_iterator<double>{std::cout, "\n"});
 
         // Saving to the output file
         std::string output_file = parameters["outputfile"];

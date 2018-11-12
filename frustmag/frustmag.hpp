@@ -29,9 +29,11 @@
 #include <alps/mc/api.hpp>
 #include <alps/mc/mcbase.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <random>
 #include <sstream>
+#include <vector>
 
 template <typename Hamiltonian, template <typename> typename Update>
 class frustmag_sim : public alps::mcbase, Update<Hamiltonian> {
@@ -75,6 +77,8 @@ private:
 
     Hamiltonian hamiltonian_;
 
+    std::vector<double> acceptance;
+
 public:
     static void define_parameters(parameters_type & parameters) {
         // If the parameters are restored, they are already defined
@@ -109,6 +113,11 @@ public:
         , hamiltonian_{params, rng}
     {
         observables<Hamiltonian>::define(measurements);
+        measurements
+            << alps::accumulators::FullBinningAccumulator<std::vector<double>>("Acceptance");
+
+        using acc_t = typename update_type::acceptance_type;
+        acceptance.resize(acc_t{}.size());
     }
 
     Hamiltonian const& hamiltonian() const {
@@ -116,7 +125,9 @@ public:
     }
 
     virtual void update() {
-        update_type::update(hamiltonian_, rng);
+        auto acc = update_type::update(hamiltonian_, rng);
+        std::copy(acc.begin(), acc.end(), acceptance.begin());
+        measurements["Acceptance"] << acceptance;
     }
 
     virtual void measure() {
