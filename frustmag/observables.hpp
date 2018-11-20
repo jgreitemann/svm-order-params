@@ -61,15 +61,18 @@ namespace obs {
 
         static measurements_t & define(measurements_t & meas) {
             return meas
+                << alps::accumulators::FullBinningAccumulator<double>("AbsMagnetization")
                 << alps::accumulators::FullBinningAccumulator<double>("Magnetization");
         }
 
         static std::vector<std::string> names() {
-            return {"Magnetization"};
+            return {"AbsMagnetization", "Magnetization"};
         }
 
         measurements_t & measure(measurements_t & meas) const {
-            meas["Magnetization"] << hamiltonian.magnetization();
+            double mag = hamiltonian.magnetization();
+            meas["AbsMagnetization"] << abs(mag);
+            meas["Magnetization"] << mag;
             return meas;
         }
     };

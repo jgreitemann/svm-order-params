@@ -68,7 +68,7 @@ struct ising {
 
     double magnetization() const {
         double sum = std::accumulate(lattice().begin(), lattice().end(), 0);
-        return abs(sum) / lattice().size();
+        return sum / lattice().size();
     }
 
     lattice_type const& lattice() const {
