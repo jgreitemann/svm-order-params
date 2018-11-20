@@ -38,6 +38,10 @@ struct spin_O3 : Eigen::Vector3d {
             cos_theta;
         return ret;
     }
+
+    spin_O3() = default;
+
+    spin_O3(Eigen::Vector3d const& other) : Eigen::Vector3d{other} {}
     
     template <typename RNG>
     spin_O3 flipped(RNG & rng) const {

@@ -20,6 +20,7 @@
 #include "phase_space_point.hpp"
 #include "site/spin_O3.hpp"
 #include "update/single_flip.hpp"
+#include "update/overrelaxation.hpp"
 
 #include <alps/params.hpp>
 #include <alps/hdf5.hpp>
@@ -112,6 +113,22 @@ struct heisenberg {
             return true;
         }
         return false;
+    }
+
+    template <typename RNG>
+    // requires UniformRandomBitGenerator<RNG>
+    bool metropolis(update::overrelaxation_proposal<lattice_type> const& p,
+                    RNG &)
+    {
+        auto nn = lattice().nearest_neighbors(p.site_it);
+        auto n = std::accumulate(nn.begin(), nn.end(),
+                                 Eigen::Vector3d{Eigen::Vector3d::Zero()},
+                                 [] (auto const& a, auto const& b) {
+                                     return a + *b;
+                                 });
+        *(p.site_it) = site_state_type{2. * p.site_it->dot(n) / n.squaredNorm() * n
+                                       - *(p.site_it)};
+        return true;
     }
 
     virtual void save(alps::hdf5::archive & ar) const {

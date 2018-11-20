@@ -27,6 +27,8 @@
 #include "lattice/kagome.hpp"
 #include "lattice/dice.hpp"
 #include "update/single_flip.hpp"
+#include "update/overrelaxation.hpp"
+#include "update/mux.hpp"
 
 #if defined HEISENBERG
 template <template <typename> typename Lattice>
@@ -80,4 +82,19 @@ namespace {
 }
 #endif
 
-using sim_base = frustmag_sim<hamiltonian_t, update::single_flip>;
+template <typename Hamiltonian>
+struct update_t {
+    template <typename LatticeH>
+    using type = update::single_flip<LatticeH>;
+};
+
+template <template <typename> typename Lat>
+struct update_t<hamiltonian::heisenberg<Lat>> {
+    template <typename LatticeH>
+    using type = update::muxer<
+        update::single_flip
+        , update::overrelaxation
+        >::type<LatticeH>;
+};
+
+using sim_base = frustmag_sim<hamiltonian_t, update_t<hamiltonian_t>::type>;
