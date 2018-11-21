@@ -85,7 +85,10 @@ namespace {
 template <typename Hamiltonian>
 struct update_t {
     template <typename LatticeH>
-    using type = update::single_flip<LatticeH>;
+    using type = update::muxer<
+        update::single_flip
+        , update::global_trafo
+        >::type<LatticeH>;
 };
 
 template <template <typename> typename Lat>
@@ -94,6 +97,7 @@ struct update_t<hamiltonian::heisenberg<Lat>> {
     using type = update::muxer<
         update::single_flip
         , update::overrelaxation
+        , update::global_trafo
         >::type<LatticeH>;
 };
 

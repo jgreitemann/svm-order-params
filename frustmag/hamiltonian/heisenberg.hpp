@@ -21,6 +21,7 @@
 #include "site/spin_O3.hpp"
 #include "update/single_flip.hpp"
 #include "update/overrelaxation.hpp"
+#include "update/global_trafo.hpp"
 
 #include <alps/params.hpp>
 #include <alps/hdf5.hpp>
@@ -128,6 +129,37 @@ struct heisenberg {
                                  });
         *(p.site_it) = site_state_type{2. * p.site_it->dot(n) / n.squaredNorm() * n
                                        - *(p.site_it)};
+        return true;
+    }
+
+    template <typename RNG>
+    // requires UniformRandomBitGenerator<RNG>
+    bool metropolis(update::global_trafo_proposal, RNG & rng) {
+        struct angle {
+            double cos;
+            double sin;
+        };
+        std::array<angle, 3> euler;
+        std::generate(euler.begin(), euler.end(), [&rng] () -> angle {
+                double a = std::uniform_real_distribution<double>{0, 2. * M_PI}(rng);
+                return {cos(a), sin(a)};
+            });
+        Eigen::Matrix3d R;
+        R << euler[0].cos * euler[2].cos - euler[0].sin * euler[1].sin * euler[2].sin,
+            -euler[0].sin * euler[1].cos,
+            -euler[0].cos * euler[2].sin - euler[0].sin * euler[1].sin * euler[2].cos,
+            euler[0].cos * euler[1].sin * euler[2].sin + euler[0].sin * euler[2].cos,
+            euler[0].cos * euler[1].cos,
+            euler[0].cos * euler[1].sin * euler[2].cos - euler[0].sin * euler[2].sin,
+            euler[1].cos * euler[2].sin,
+            -euler[1].sin,
+            euler[1].cos * euler[2].cos;
+        if (std::bernoulli_distribution{}(rng)) {
+            R.col(0) *= -1;
+        }
+        for (site_state_type & s : lattice()) {
+            s = site_state_type{R * s};
+        }
         return true;
     }
 

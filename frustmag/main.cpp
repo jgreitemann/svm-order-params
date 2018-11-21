@@ -70,15 +70,16 @@ int main(int argc, char** argv)
         auto const& ppoint = sim.hamiltonian().phase_space_point();
         std::copy(ppoint.begin(), ppoint.end(),
                   std::ostream_iterator<double>{std::cout, "\t"});
-        std::cout << results["Energy"].mean<double>() << ' '
+        std::cout << "\nEnergy:\t"
+                  << results["Energy"].mean<double>() << ' '
                   << results["Energy"].error<double>() << ' '
-                  << results["Energy"].autocorrelation<double>();
+                  << results["Energy"].autocorrelation<double>() << '\n';
         for (std::string const& name : sim.order_param_names()) {
-            std::cout << '\t' << results[name].mean<double>()
+            std::cout << name << ':'
+                      << '\t' << results[name].mean<double>()
                       << ' '  << results[name].error<double>()
-                      << ' '  << results[name].autocorrelation<double>();
+                      << ' '  << results[name].autocorrelation<double>() << '\n';
         }
-        std::cout << '\n';
 
         std::cout << "\nAcceptances:\n";
         auto acc = results["Acceptance"].mean<std::vector<double>>();

@@ -20,6 +20,7 @@
 #include "phase_space_point.hpp"
 #include "site/spin_Z2.hpp"
 #include "update/single_flip.hpp"
+#include "update/global_trafo.hpp"
 
 #include <alps/params.hpp>
 #include <alps/hdf5.hpp>
@@ -109,6 +110,15 @@ struct ising {
             return true;
         }
         return false;
+    }
+
+    template <typename RNG>
+    // requires UniformRandomBitGenerator<RNG>
+    bool metropolis(update::global_trafo_proposal, RNG &) {
+        for (site_state_type & s : lattice()) {
+            s.s *= -1;
+        }
+        return true;
     }
 
     virtual void save(alps::hdf5::archive & ar) const {
