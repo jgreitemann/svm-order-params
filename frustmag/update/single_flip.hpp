@@ -18,6 +18,9 @@
 
 #include "concepts.hpp"
 
+#include <alps/params.hpp>
+
+#include <array>
 #include <iterator>
 #include <random>
 
@@ -49,6 +52,13 @@ public:
     using hamiltonian_type = LatticeH;
     using proposal_type = single_flip_proposal<lattice_type>;
     using acceptance_type = std::array<double, 1>;
+
+    static void define_parameters(alps::params & parameters) {
+    }
+
+    single_flip(alps::params const& parameters)
+    {
+    }
 
     template <typename RNG>
     // requires SiteState<site_state_type, RNG>

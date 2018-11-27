@@ -18,6 +18,11 @@
 
 #include "concepts.hpp"
 
+#include <alps/params.hpp>
+
+#include <array>
+#include <tuple>
+#include <type_traits>
 #include <utility>
 
 namespace update {
@@ -33,6 +38,16 @@ public:
     using acceptance_type = std::array<double, sizeof...(Updates)>;
 
     std::tuple<Updates<LatticeH>...> updates;
+
+    static void define_parameters(alps::params & parameters) {
+        using expand = int[];
+        expand{(Updates<LatticeH>::define_parameters(parameters), 0)...};
+    }
+
+    mux(alps::params const& parameters)
+        : updates{(static_cast<std::void_t<Updates<LatticeH>>>(0), parameters)...}
+    {
+    }
 
     template <typename RNG>
     acceptance_type update(LatticeH & hamiltonian, RNG & rng) {

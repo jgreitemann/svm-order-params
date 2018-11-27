@@ -18,6 +18,8 @@
 
 #include "concepts.hpp"
 
+#include <alps/params.hpp>
+
 namespace update {
 
 template <typename Lat>
@@ -43,6 +45,9 @@ private:
 public:
     using hamiltonian_type = LatticeH;
     using acceptance_type = std::array<double, 1>;
+
+    static void define_parameters(alps::params & parameters) {}
+    overrelaxation(alps::params const& parameters) {}
 
     template <typename RNG>
     // requires SiteState<site_state_type, RNG>
