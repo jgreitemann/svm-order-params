@@ -17,12 +17,14 @@
 #pragma once
 
 #include "concepts.hpp"
+#include "site/spin_O3.hpp"
 
 #include <alps/params.hpp>
 
 #include <array>
 #include <iterator>
 #include <random>
+#include <type_traits>
 
 namespace update {
 
@@ -54,13 +56,21 @@ public:
     using acceptance_type = std::array<double, 1>;
 
     static void define_parameters(alps::params & parameters) {
+        if (std::is_same<site_state_type, site::spin_O3>::value)
+            parameters.define<double>("update.single_flip.cos_theta_0", -1.,
+                                      "cos(theta_0) \\in [-1; 1]");
     }
 
     single_flip(alps::params const& parameters)
+        : cos_theta_0 {
+            std::is_same<site_state_type, site::spin_O3>::value ?
+                parameters["update.single_flip.cos_theta_0"] : -1.
+        }
     {
     }
 
-    template <typename RNG>
+    template <typename RNG, typename..., typename S = site_state_type,
+              typename = std::enable_if_t<std::is_same<S, site::spin_O3>::value>>
     // requires SiteState<site_state_type, RNG>
     acceptance_type update(LatticeH & hamiltonian, RNG & rng) {
         size_t lsize = hamiltonian.lattice().size();
@@ -68,11 +78,32 @@ public:
         for (size_t j = 0; j < lsize; ++j) {
             size_t i = std::uniform_int_distribution<size_t>{0, lsize - 1}(rng);
             site_iterator site_it = std::next(hamiltonian.lattice().begin(), i);
-            if(hamiltonian.metropolis({site_it, site_it->flipped(rng)}, rng))
+            if (hamiltonian.metropolis(
+                    {site_it, site_it->flipped(rng, cos_theta_0)}, rng))
                 acc += 1.;
         }
         return {acc / lsize};
     }
+
+    template <typename RNG, typename..., typename S = site_state_type,
+              typename = std::enable_if_t<!std::is_same<S, site::spin_O3>::value>,
+              int dummy = -1>
+    // requires SiteState<site_state_type, RNG>
+    acceptance_type update(LatticeH & hamiltonian, RNG & rng) {
+        size_t lsize = hamiltonian.lattice().size();
+        double acc = 0;
+        for (size_t j = 0; j < lsize; ++j) {
+            size_t i = std::uniform_int_distribution<size_t>{0, lsize - 1}(rng);
+            site_iterator site_it = std::next(hamiltonian.lattice().begin(), i);
+            if (hamiltonian.metropolis(
+                    {site_it, site_it->flipped(rng)}, rng))
+                acc += 1.;
+        }
+        return {acc / lsize};
+    }
+
+private:
+    double cos_theta_0 = -1;
 };
 
 }

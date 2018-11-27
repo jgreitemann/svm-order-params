@@ -27,9 +27,9 @@ namespace site {
 
 struct spin_O3 : Eigen::Vector3d {
     template <typename RNG>
-    static spin_O3 random(RNG & rng) {
+    static spin_O3 random(RNG & rng, double cos_theta_0 = -1) {
         double phi = std::uniform_real_distribution<double>{0, 2*M_PI}(rng);
-        double cos_theta = std::uniform_real_distribution<double>{-1, 1}(rng);
+        double cos_theta = std::uniform_real_distribution<double>{cos_theta_0, 1}(rng);
         double sin_theta = std::sqrt(1 - std::pow(cos_theta, 2));
         spin_O3 ret;
         ret <<
@@ -44,8 +44,22 @@ struct spin_O3 : Eigen::Vector3d {
     spin_O3(Eigen::Vector3d const& other) : Eigen::Vector3d{other} {}
     
     template <typename RNG>
-    spin_O3 flipped(RNG & rng) const {
-        return random(rng);
+    spin_O3 flipped(RNG & rng, double cos_theta_0 = -1) const {
+        double cos_theta = (*this)[2];
+        double sin_theta = std::sqrt(1 - std::pow(cos_theta, 2));
+        double cos_phi = (*this)[0] / sin_theta;
+        double sin_phi = (*this)[1] / sin_theta;
+        Eigen::Matrix3d R;
+        R <<
+            cos_theta * cos_phi, -sin_phi, sin_theta * cos_phi,
+            cos_theta * sin_phi, cos_phi, sin_theta * sin_phi,
+            -sin_theta, 0, cos_theta;
+        spin_O3 ret{R * random(rng, cos_theta_0)};
+
+        // important: renormalize to avoid exponential growth of rounding errors
+        ret /= ret.norm();
+
+        return ret;
     }
 
     static const size_t size = 3;
