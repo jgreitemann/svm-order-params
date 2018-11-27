@@ -97,6 +97,8 @@ public:
             .define<size_t>("thermalization_sweeps", 10000,
                             "number of sweeps for thermalization");
 
+        update_type::define_parameters(parameters);
+
         Hamiltonian::define_parameters(parameters);
 
 #ifdef HAS_SVM
@@ -106,7 +108,7 @@ public:
 
     frustmag_sim(parameters_type const & params, std::size_t seed_offset = 0)
         : alps::mcbase{params, seed_offset}
-        , update_type{}
+        , update_type{params}
         , total_sweeps{params["total_sweeps"]}
         , thermalization_sweeps{params["thermalization_sweeps"]}
         , rng{params["SEED"].as<size_t>() + seed_offset}

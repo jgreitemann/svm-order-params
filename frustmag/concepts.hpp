@@ -155,7 +155,7 @@ template <typename U, typename RNG = std::mt19937>
 concept bool MCUpdate = requires {
     typename U::hamiltonian_type;
     typename U::acceptance_type;
-    requires DefaultConstructible<U>;
+    requires ParameterConstructible<U>;
     requires requires(U & u, typename U::hamiltonian_type & h, RNG & rng)
     {
         {u.update(h, rng)} -> typename U::acceptance_type;
