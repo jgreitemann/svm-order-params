@@ -326,21 +326,24 @@ namespace phase_space {
 
             static const size_t dim = point_type::label_dim;
 
-            static void define_parameters(alps::params & params) {
-                point_type::define_parameters(params, "sweep.grid.a.");
-                point_type::define_parameters(params, "sweep.grid.b.");
+            static void define_parameters(alps::params & params,
+                                          std::string prefix = "sweep.")
+            {
+                point_type::define_parameters(params, prefix + "grid.a.");
+                point_type::define_parameters(params, prefix + "grid.b.");
                 for (size_t i = 1; i <= dim; ++i)
-                    params.define<size_t>(format_subdiv(i), 1,
+                    params.define<size_t>(format_subdiv(i, prefix), 1,
                                           "number of grid subdivisions");
             }
 
-            grid (alps::params const& params, size_t offset = 0)
-                : a(params, "sweep.grid.a.")
-                , b(params, "sweep.grid.b.")
+            grid (alps::params const& params, size_t offset = 0,
+                  std::string prefix = "sweep.")
+                : a(params, prefix + "grid.a.")
+                , b(params, prefix + "grid.b.")
                 , n(offset)
             {
                 for (size_t i = 1; i <= dim; ++i)
-                    subdivs[i-1] = params[format_subdiv(i)].as<size_t>();
+                    subdivs[i-1] = params[format_subdiv(i, prefix)].as<size_t>();
 
                 double frac = 0.;
                 for (double p = 0.5; offset != 0; offset >>= 1, p /= 2)
@@ -360,8 +363,12 @@ namespace phase_space {
                 auto ita = a.begin();
                 auto itb = b.begin();
                 for (size_t i = 0; i < dim; ++i, ++it, ++ita, ++itb) {
-                    *it = *ita + (*itb - *ita) / (subdivs[i] - 1) * (x % subdivs[i]);
-                    x /= subdivs[i];
+                    if (subdivs[i] == 1) {
+                        *it = *ita;
+                    } else {
+                        *it = *ita + (*itb - *ita) / (subdivs[i] - 1) * (x % subdivs[i]);
+                        x /= subdivs[i];
+                    }
                 }
                 n = (n + 1) % size();
                 return true;
@@ -379,9 +386,11 @@ namespace phase_space {
                 ar["n"] >> n;
             }
 
-            static std::string format_subdiv(size_t i) {
+            static std::string format_subdiv(size_t i,
+                                             std::string const& prefix)
+            {
                 std::stringstream ss;
-                ss << "sweep.grid.N" << i;
+                ss << prefix + "grid.N" << i;
                 return ss.str();
             }
 
