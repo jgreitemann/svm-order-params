@@ -54,6 +54,7 @@ public:
 #endif
     using phase_label = phase_classifier::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
+    using test_sweep_type = phase_space::sweep::line_scan<phase_point>;
 private:
     int L;
     int L2;

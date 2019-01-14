@@ -40,12 +40,10 @@ public:
     static void define_test_parameters(alps::params & parameters) {
         if (!parameters.is_restored()) {
             parameters
-                .define<size_t>("test.N_scan", 10, "number of temperatures to test at")
                 .define<std::string>("test.filename", "", "test output file name")
                 .define<std::string>("test.txtname", "", "test output txt name")
                 ;
-            Simulation::phase_point::define_parameters(parameters, "test.a.");
-            Simulation::phase_point::define_parameters(parameters, "test.b.");
+            Simulation::test_sweep_type::define_parameters(parameters, "test.");
         }
     }
 

@@ -459,8 +459,30 @@ namespace phase_space {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
 
+            static void define_parameters(alps::params & params,
+                                          std::string prefix = "sweep.")
+                {
+                    point_type::define_parameters(params, prefix + "line_scan.a.");
+                    point_type::define_parameters(params, prefix + "line_scan.b.");
+                    params.define<size_t>(prefix + "line_scan.N", 8,
+                                          "number of phase points on line");
+                }
+
+            line_scan (alps::params const& params, size_t offset = 0,
+                       std::string prefix = "sweep.")
+                : a(params, prefix + "line_scan.a.")
+                , b(params, prefix + "line_scan.b.")
+                , n(offset)
+                , N(params[prefix + "line_scan.N"].as<size_t>())
+            {
+            }
+
             line_scan (point_type const& a, point_type const& b, size_t N)
                 : a(a), b(b), n(0), N(N) {}
+
+            size_t size() const {
+                return N;
+            }
 
             virtual bool yield (point_type & point, rng_type &) final override {
                 return yield(point);

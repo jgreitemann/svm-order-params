@@ -68,16 +68,14 @@ int main(int argc, char** argv)
 
         using phase_point = sim_base::phase_point;
         auto points = [&parameters] {
-            std::vector<phase_point> ps;
-            phase_point p;
-            ps.reserve(parameters["test.N_scan"].as<size_t>());
-            using scan_t = phase_space::sweep::line_scan<phase_point>;
-            scan_t scan(phase_point(parameters, "test.a."),
-                        phase_point(parameters, "test.b."),
-                        parameters["test.N_scan"].as<size_t>());
-            while (scan.yield(p)) {
-                ps.push_back(p);
-            }
+            using scan_t = typename sim_base::test_sweep_type;
+            scan_t scan{parameters, 0, "test."};
+            std::vector<phase_point> ps(scan.size());
+            std::generate(ps.begin(), ps.end(),
+                          [p=phase_point{}, &scan]() mutable {
+                              scan.yield(p);
+                              return p;
+                          });
             return ps;
         } ();
         using pair_t = std::pair<double, double>;
