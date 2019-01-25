@@ -401,6 +401,91 @@ namespace phase_space {
         };
 
         template <typename Point>
+        struct nonuniform_grid : public policy<Point> {
+            using point_type = typename policy<Point>::point_type;
+            using rng_type = typename policy<Point>::rng_type;
+
+            static const size_t dim = point_type::label_dim;
+            static const size_t MAX_GRID = 10;
+
+            static void define_parameters(alps::params & params,
+                                          std::string prefix = "sweep.")
+            {
+                for (size_t i = 1; i <= MAX_GRID; ++i)
+                    point_type::define_parameters(params, format_stop(i, prefix));
+                for (size_t i = 1; i <= dim; ++i)
+                    params.define<size_t>(format_subdiv(i, prefix), 1,
+                                          "number of grid subdivisions");
+            }
+
+            nonuniform_grid (alps::params const& params, size_t offset = 0,
+                             std::string prefix = "sweep.")
+                : n(offset)
+            {
+                for (size_t i = 1; i <= dim; ++i)
+                    subdivs[i-1] = params[format_subdiv(i, prefix)].as<size_t>();
+                auto max = *std::max_element(subdivs.begin(), subdivs.end());
+                for (size_t i = 1; i <= max; ++i)
+                    ppoints.emplace_back(params, format_stop(i, prefix));
+
+                double frac = 0.;
+                for (double p = 0.5; offset != 0; offset >>= 1, p /= 2)
+                    if (offset & 1)
+                        frac += p;
+                n = size() * frac;
+            }
+
+            size_t size() const {
+                return std::accumulate(subdivs.begin(), subdivs.end(),
+                                       1, std::multiplies<>{});
+            }
+
+            bool yield (point_type & point) {
+                size_t x = n;
+                auto it = point.begin();
+                for (size_t i = 0; i < dim; ++i, ++it) {
+                    *it = *std::next(ppoints[x % subdivs[i]].begin(), i);
+                    x /= subdivs[i];
+                }
+                n = (n + 1) % size();
+                return true;
+            }
+
+            virtual bool yield (point_type & point, rng_type &) final override {
+                return yield(point);
+            }
+
+            virtual void save (alps::hdf5::archive & ar) const final override {
+                ar["n"] << n;
+            }
+
+            virtual void load (alps::hdf5::archive & ar) final override {
+                ar["n"] >> n;
+            }
+
+            static std::string format_subdiv(size_t i,
+                                             std::string const& prefix)
+            {
+                std::stringstream ss;
+                ss << prefix + "nonuniform_grid.N" << i;
+                return ss.str();
+            }
+
+            static std::string format_stop(size_t i,
+                                           std::string const& prefix)
+            {
+                std::stringstream ss;
+                ss << prefix + "nonuniform_grid.stop" << i << '.';
+                return ss.str();
+            }
+
+        private:
+            std::array<size_t, dim> subdivs;
+            std::vector<point_type> ppoints;
+            size_t n;
+        };
+
+        template <typename Point>
         struct uniform : public policy<Point> {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
@@ -533,6 +618,7 @@ namespace phase_space {
             }
             cycle<Point>::define_parameters(params);
             grid<Point>::define_parameters(params);
+            nonuniform_grid<Point>::define_parameters(params);
             uniform<Point>::define_parameters(params);
             uniform_line<Point>::define_parameters(params);
         }
