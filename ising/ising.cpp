@@ -16,7 +16,7 @@ void ising_sim::define_parameters(parameters_type & parameters) {
     if (parameters.is_restored()) {
         return;
     }
-    
+
     // Adds the parameters of the base class
     alps::mcbase::define_parameters(parameters);
     // Adds the convenience parameters (for save/load)
@@ -66,10 +66,10 @@ ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
             int j_next=(j+1)%length;
             current_energy += -(spins(i,j)*spins(i,j_next)+
                                 spins(i,j)*spins(i_next,j));
-            
+
         }
     }
-    
+
     // Adds the measurements
     measurements
         << alps::accumulators::FullBinningAccumulator<double>("Energy")
@@ -126,7 +126,7 @@ void ising_sim::update() {
                      spins(i2,j)+  // left
                      spins(i,j1)+  // up
                      spins(i,j2)); // down
-    
+
     // Step acceptance:
     if (delta<=0. || uniform(rng) < iexp_(delta)) {
         // update energy:
@@ -135,14 +135,14 @@ void ising_sim::update() {
         current_magnetization -= 2*spins(i,j);
         // flip the spin
         spins(i,j) = -spins(i,j);
-    }        
+    }
 }
 
 // Collects the measurements at each MC step.
 void ising_sim::measure() {
     ++sweeps;
     if (!is_thermalized()) return;
-    
+
     const double n=length*length; // number of sites
     double tmag = current_magnetization / n; // magnetization
 
@@ -172,13 +172,13 @@ void ising_sim::save(alps::hdf5::archive & ar) const {
     std::ostringstream engine_ss;
     engine_ss << rng;
     ar["checkpoint/random"] << engine_ss.str();
-    
+
     // We just need to add our own internal state
     ar["checkpoint/spins"] << spins;
     ar["checkpoint/sweeps"] << sweeps;
     ar["checkpoint/current_energy"] << current_energy;
     ar["checkpoint/current_magnetization"] << current_magnetization;
-    
+
     // The rest of the internal state is saved as part of the parameters
 }
 

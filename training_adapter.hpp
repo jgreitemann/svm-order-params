@@ -1,5 +1,5 @@
 // SVM Order Parameters for Hidden Spin Order
-// Copyright (C) 2018  Jonas Greitemann, Ke Liu, and Lode Pollet
+// Copyright (C) 2018-2019  Jonas Greitemann, Ke Liu, and Lode Pollet
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ public:
         if (parameters.is_restored()) {
             return;
         }
-        
+
         // Adds the parameters of the base class
         Simulation::define_parameters(parameters);
         phase_classifier::define_parameters(parameters);

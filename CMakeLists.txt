@@ -164,7 +164,7 @@ add_executable(frustmag-coeffs
     )
 target_compile_definitions(frustmag-coeffs PUBLIC -DFRUSTMAG -DHAS_SVM)
 
-# Use ALPSCore_LIBRARIES variable to link to ALPSCore 
+# Use ALPSCore_LIBRARIES variable to link to ALPSCore
 target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)

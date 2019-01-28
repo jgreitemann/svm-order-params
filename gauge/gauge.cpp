@@ -1,5 +1,5 @@
 // SVM Order Parameters for Hidden Spin Order
-// Copyright (C) 2018  Jonas Greitemann, Ke Liu, and Lode Pollet
+// Copyright (C) 2018-2019  Jonas Greitemann, Ke Liu, and Lode Pollet
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -202,11 +202,11 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
     std::cout << "Nematicity(normalized) at infinite temperature: \n "
               << sqrt(nematicity()) << std::endl;
     if(nematicityB)
-        std::cout << "Biaxial nematicity(normalized) at infinite temperature: \n " 
-                  << sqrt(nematicityB()) << std::endl;	
+        std::cout << "Biaxial nematicity(normalized) at infinite temperature: \n "
+                  << sqrt(nematicityB()) << std::endl;
 	if(nematicityB2)
-		std::cout << "Variant biaxial nematicity(normalized) at infinite temperature: \n " 
-                  << sqrt(nematicityB2()) << std::endl;	
+		std::cout << "Variant biaxial nematicity(normalized) at infinite temperature: \n "
+                  << sqrt(nematicityB2()) << std::endl;
 #endif
 
     // Adds the measurements
