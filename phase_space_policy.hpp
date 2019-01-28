@@ -674,7 +674,7 @@ namespace phase_space {
                 , b(params, "sweep.grid.b.")
             {
                 for (size_t i = 1; i <= dim; ++i)
-                    subdivs[i-1] = params[grid_type::format_subdiv(i)];
+                    subdivs[i-1] = params[grid_type::format_subdiv(i, "sweep.")];
                 size = std::accumulate(subdivs.begin(), subdivs.end(),
                                        1, std::multiplies<>());
             }
