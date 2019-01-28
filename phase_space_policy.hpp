@@ -712,6 +712,64 @@ namespace phase_space {
             size_t size;
         };
 
+        template <typename Point>
+        struct fixed_from_nonuniform_grid {
+            using point_type = Point;
+            using grid_type = sweep::nonuniform_grid<point_type>;
+            using label_type = label::numeric_label<svm::DYNAMIC>;
+
+            static const size_t dim = point_type::label_dim;
+
+            static void define_parameters(alps::params & params) {
+            }
+
+            fixed_from_nonuniform_grid (alps::params const& params) {
+                std::string prefix = "sweep.";
+                for (size_t i = 1; i <= dim; ++i)
+                    subdivs[i-1] = params[grid_type::format_subdiv(i, prefix)];
+                size = std::accumulate(subdivs.begin(), subdivs.end(),
+                                       1, std::multiplies<>());
+                auto max = *std::max_element(subdivs.begin(), subdivs.end());
+                for (size_t i = 1; i <= max; ++i)
+                    ppoints.emplace_back(params,
+                                         grid_type::format_stop(i, prefix));
+            }
+
+            label_type operator() (point_type pp) {
+                std::array<long, dim> coords;
+                std::vector<double> dists(ppoints.size());
+
+                auto itc = coords.begin(), its = subdivs.begin(), itp = pp.begin();
+                for (size_t i = 0; itc != coords.end(); ++itc, ++its, ++itp, ++i) {
+                    for (size_t j = 0; j < *its; ++j)
+                        dists[j] = std::abs(*itp - *std::next(ppoints[j].begin(), i));
+                    *itc = std::min_element(dists.begin(), dists.begin() + *its)
+                            - dists.begin();
+                }
+
+                long tot = 0;
+                for (auto itc = coords.rbegin(), its = subdivs.rbegin();
+                     itc != coords.rend();
+                     ++itc, ++its)
+                {
+                    tot = *itc + *its * tot;
+                }
+
+                if (tot < 0 || size <= tot)
+                    throw std::runtime_error([&pp] {
+                            std::stringstream ss;
+                            ss << "phase point " << pp
+                               << " exceeds limits of grid";
+                            return ss.str();
+                        }());
+                return tot;
+            }
+        private:
+            std::array<size_t, dim> subdivs;
+            std::vector<point_type> ppoints;
+            size_t size;
+        };
+
     }
 
 }
