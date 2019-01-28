@@ -1,5 +1,5 @@
 // SVM Order Parameters for Hidden Spin Order
-// Copyright (C) 2018  Jonas Greitemann, Ke Liu, and Lode Pollet
+// Copyright (C) 2018-2019  Jonas Greitemann, Ke Liu, and Lode Pollet
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -26,11 +26,11 @@ constexpr double gr(boost::math::constants::phi<double>());
 
 
 class point_groups {
-	
-	private: 
+
+	private:
 	typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> Rt3;
     typedef boost::multi_array<Rt3, 1> Rt_array;
-    
+
     Rt_array D2_bath;
     Rt_array D2h_bath;
     Rt_array D2d_bath;
@@ -45,9 +45,9 @@ class point_groups {
     Rt_array Oh_bath;
     Rt_array I_bath;
     Rt_array Ih_bath;
-	
+
 	public:
-	
+
 	inline void generate_D2();
 	inline void generate_D2h();
 	inline void generate_D2d();
@@ -64,5 +64,5 @@ class point_groups {
 	inline void generate_Ih();
 
 	void determine_symmetry(std::string str1, int size, bool hds, Rt_array& arr1);
-	
+
 	};

@@ -1,5 +1,5 @@
 // SVM Order Parameters for Hidden Spin Order
-// Copyright (C) 2018  Jonas Greitemann, Ke Liu, and Lode Pollet
+// Copyright (C) 2018-2019  Jonas Greitemann, Ke Liu, and Lode Pollet
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ int main(int argc, char** argv)
     typedef test_adapter<sim_base> sim_type;
 
     try {
-    
+
         // Creates the parameters for the simulation
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;

@@ -1,5 +1,5 @@
 // SVM Order Parameters for Hidden Spin Order
-// Copyright (C) 2018  Jonas Greitemann, Ke Liu, and Lode Pollet
+// Copyright (C) 2018-2019  Jonas Greitemann, Ke Liu, and Lode Pollet
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -16,16 +16,16 @@
 
 #include "point_groups.hpp"
 
-void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_array& arr1) 
+void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_array& arr1)
 {
 
 	if(str1 == "T" && size == 12)
-	{ 
+	{
 		generate_T();
 		arr1.resize(boost::extents[size]);
 		arr1 = T_bath;
 		return;
-	} 
+	}
 
 	 else if(str1 == "Cinfv" && size == 1 && hds)
 		 {
@@ -33,7 +33,7 @@ void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_a
 			arr1.resize(boost::extents[size]);
 			arr1 = Cinfv_bath;
 			return;
-		 }	
+		 }
 
 	else if(str1 == "Dinfh" && size == 2 && hds)
 		 {
@@ -41,26 +41,26 @@ void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_a
 			arr1.resize(boost::extents[size]);
 			arr1 = Dinfh_bath;
 			return;
-		 }	
+		 }
 
-	else if(str1 == "Td" && size == 24 && hds) 
-		 { 
+	else if(str1 == "Td" && size == 24 && hds)
+		 {
 			generate_Td();
 			arr1.resize(boost::extents[size]);
 			arr1 = Td_bath;
 			return;
 		 }
 
-	else if(str1 == "Th" && size == 24 && hds) 
-		 { 
+	else if(str1 == "Th" && size == 24 && hds)
+		 {
 			generate_Th();
 			arr1.resize(boost::extents[size]);
 			arr1 = Th_bath;
 			return;
 		 }
 
-	else if(str1 == "O" && size == 24) 
-		 { 
+	else if(str1 == "O" && size == 24)
+		 {
 			generate_O();
 			arr1.resize(boost::extents[size]);
 			arr1 = O_bath;
@@ -103,7 +103,7 @@ void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_a
              generate_D2d();
              arr1.resize(boost::extents[size]);
              arr1 = D2d_bath;
-		 }	
+		 }
 		 else if(str1 == "D3" && size == 6)
 		 {
              generate_D3();
@@ -118,7 +118,7 @@ void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_a
              arr1=D3h_bath;
 		 }
 
-         else 
+         else
          {
              std::cout << " \n UNKNOWN symmetry or ERROR in its size or handedness \n" << std::endl;
              return;
@@ -157,9 +157,9 @@ void point_groups::generate_D2h()
 			 0, 1, 0,
 			 0, 0, 1;
 
-	sg_h[1] << 1, 0, 0, 
-  			 0, 1, 0,  
-  			 0, 0, -1; 
+	sg_h[1] << 1, 0, 0,
+  			 0, 1, 0,
+  			 0, 0, -1;
 
 	size_t k = 0;
 	for(size_t j = 0; j < sg_h.size(); j++) {
@@ -183,9 +183,9 @@ void point_groups::generate_D2d()
 			 0, 1, 0,
 			 0, 0, 1;
 
-	sg_d[1] << 0, 1, 0, 
-  			 1, 0, 0,  
-			 0, 0, 1; 
+	sg_d[1] << 0, 1, 0,
+  			 1, 0, 0,
+			 0, 0, 1;
 
 	size_t k = 0;
 	for(size_t j = 0; j < sg_d.size(); j++) {
@@ -212,11 +212,11 @@ void point_groups::generate_D3() {
 
 	D3_bath[3] << 1, 0, 0,
 				0, -1, 0,
-				0, 0, -1; //c2x				
+				0, 0, -1; //c2x
 
 
-	D3_bath[4] = D3_bath[3]*D3_bath[1]; 
-	D3_bath[5] = D3_bath[3]*D3_bath[2]; 		
+	D3_bath[4] = D3_bath[3]*D3_bath[1];
+	D3_bath[5] = D3_bath[3]*D3_bath[2];
 	D3_bath[0] = D3_bath[3] * D3_bath[3];
 
 	}
@@ -234,9 +234,9 @@ void point_groups::generate_D3h()
 			 0, 1, 0,
 			 0, 0, 1;
 
-	sg_h[1] << 1, 0, 0, 
-  			 0, 1, 0,  
-  			 0, 0, -1; 
+	sg_h[1] << 1, 0, 0,
+  			 0, 1, 0,
+  			 0, 0, -1;
 
 	size_t k = 0;
 	for(size_t j = 0; j < sg_h.size(); j++) {
@@ -249,8 +249,8 @@ void point_groups::generate_D3h()
 
 void point_groups::generate_Cinfv() { // ignore the inplange elements, only works when J1 = 0
 	Cinfv_bath.resize(boost::extents[1]);
-	Cinfv_bath[0] = Eigen::MatrixXd::Identity(3,3); 
-}	
+	Cinfv_bath[0] = Eigen::MatrixXd::Identity(3,3);
+}
 
 void point_groups::generate_Dinfh() { // as Cinfv
 	Dinfh_bath.resize(boost::extents[2]);
@@ -258,7 +258,7 @@ void point_groups::generate_Dinfh() { // as Cinfv
 	Dinfh_bath[1] = - Dinfh_bath[0];
 }
 
-void point_groups::generate_T() 
+void point_groups::generate_T()
 {
 
 	/* use D2 and c3 as generating groups */
@@ -274,7 +274,7 @@ void point_groups::generate_T()
 			 1, 0, 0,
 			 0, 1, 0;
 
-	c3[2] = c3[1] * c3[1];	
+	c3[2] = c3[1] * c3[1];
 	c3[0] = c3[1] * c3[2];
 
 
@@ -287,9 +287,9 @@ void point_groups::generate_T()
 	for(int j = 0; j < len_c3; j++)
 		for (int i = 0; i < len_D2; i ++)
 			{
-				T_bath[k] = c3[j] * D2_bath[i]; 
-				k++; 
-			}		
+				T_bath[k] = c3[j] * D2_bath[i];
+				k++;
+			}
 
 }
 
@@ -309,10 +309,10 @@ void point_groups::generate_Td()
 			 0, 1, 0,
 			 0, 0, 1;
 
-	/* m x x z*/		 
-	Z2[1] << 0, 1, 0, 
-  			 1, 0, 0,  
-  			 0, 0, 1; 
+	/* m x x z*/
+	Z2[1] << 0, 1, 0,
+  			 1, 0, 0,
+  			 0, 0, 1;
 
 	int k = 0;
 	for(int j = 0; j < len_Z2; j++)
@@ -339,10 +339,10 @@ void point_groups::generate_Th()
 			 0, 1, 0,
 			 0, 0, 1;
 
-	/* -1 */		 
-	Z2[1] << -1, 0, 0, 
-  			 0, -1, 0,  
-  			 0, 0, -1; 
+	/* -1 */
+	Z2[1] << -1, 0, 0,
+  			 0, -1, 0,
+  			 0, 0, -1;
 
 	int k = 0;
 	for(int j = 0; j < len_Z2; j++)
@@ -369,10 +369,10 @@ void point_groups::generate_O()	{
 			 0, 1, 0,
 			 0, 0, 1;
 
-	/*2 x,x,0; leads to C4(z) with C2(y)*/		 
-	Z2[1] << 0, 1, 0, 
-  			 1, 0, 0,  
-  			 0, 0, -1; 
+	/*2 x,x,0; leads to C4(z) with C2(y)*/
+	Z2[1] << 0, 1, 0,
+  			 1, 0, 0,
+  			 0, 0, -1;
 
 	int k = 0;
 	for(int j = 0; j < len_Z2; j++)
@@ -401,9 +401,9 @@ void point_groups::generate_Oh()
 			 0, 1, 0,
 			 0, 0, 1;
 
-	Z2[1] << -1, 0, 0, 
-  			 0, -1, 0,  
-  			 0, 0, -1; 
+	Z2[1] << -1, 0, 0,
+  			 0, -1, 0,
+  			 0, 0, -1;
 
 	int k = 0;
 	for(int j = 0; j < len_Z2; j++)
@@ -465,9 +465,9 @@ void point_groups::generate_Ih()
 			 0, 1, 0,
 			 0, 0, 1;
 
-	Z2[1] << -1, 0, 0, 
-  			 0, -1, 0,  
-  			 0, 0, -1; 
+	Z2[1] << -1, 0, 0,
+  			 0, -1, 0,
+  			 0, 0, -1;
 
 	int k = 0;
 	for(int j = 0; j < len_Z2; j++)

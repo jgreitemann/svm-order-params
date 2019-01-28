@@ -22,7 +22,7 @@ void Demo() {
     g::matsubara_positive_mesh m_mesh(beta, nfreq);
     g::momentum_index_mesh k_mesh(generate_momentum_mesh());
     g::index_mesh s_mesh(nspins);
-    
+
     // construct a GF using a pre-defined convenience type
     g::omega_k_sigma_gf gf(m_mesh, k_mesh, s_mesh);
     // initialize a GF to all-zeros
@@ -42,7 +42,7 @@ void Demo() {
     typedef
         g::two_index_gf<double, g::momentum_index_mesh, g::index_mesh>
         density_matrix_type;
-    
+
     // Construct the object:
     density_matrix_type denmat=density_matrix_type(k_mesh,s_mesh);
 
@@ -57,7 +57,7 @@ void Demo() {
     }
 
     // construct a tailed GF using predefined convenience type:
-    g::omega_k_sigma_gf_with_tail gft(gf); 
+    g::omega_k_sigma_gf_with_tail gft(gf);
     gft.set_tail(0, denmat);              // set the tail
 
     density_matrix_type gftail=gft.tail(0); // retrieve the tail

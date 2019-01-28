@@ -1,5 +1,5 @@
 // SVM Order Parameters for Hidden Spin Order
-// Copyright (C) 2018  Jonas Greitemann, Ke Liu, and Lode Pollet
+// Copyright (C) 2018-2019  Jonas Greitemann, Ke Liu, and Lode Pollet
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -54,7 +54,7 @@ using problem_t = typename model_t::problem_t;
 int main(int argc, char** argv)
 {
     try {
-    
+
         // Creates the parameters for the simulation
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
@@ -88,7 +88,7 @@ int main(int argc, char** argv)
 
             cp["simulation/n_clones"] >> n_clones;
         }
-    
+
         std::vector<double> progress;
         double global_progress = 0.;
 #pragma omp parallel
@@ -197,7 +197,7 @@ int main(int argc, char** argv)
 
             // set up serializer
             svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
-            
+
             // Saving to the output file
             std::string output_file = parameters["outputfile"];
             alps::hdf5::archive ar(output_file, "w");
