@@ -75,37 +75,7 @@ public:
         , N_sample(size_t(parameters["sweep.samples"]))
         , problem(confpol->size())
         , prob_serializer(problem)
-        , sweep_policy([&] () -> phase_sweep_policy_type * {
-                std::string dist_name = parameters["sweep.dist"];
-                if (std::is_same<phase_point, phase_space::point::temperature>::value) {
-                    if (dist_name == "gaussian")
-                        return dynamic_cast<phase_sweep_policy_type*>(
-                            new phase_space::sweep::gaussian_temperatures(parms));
-                    if (dist_name == "uniform")
-                        return dynamic_cast<phase_sweep_policy_type*>(
-                            new phase_space::sweep::uniform_temperatures(parms));
-                    if (dist_name == "bimodal")
-                        return dynamic_cast<phase_sweep_policy_type*>(
-                            new phase_space::sweep::equidistant_temperatures(parms, 2, seed_offset));
-                }
-                if (dist_name == "cycle")
-                    return dynamic_cast<phase_sweep_policy_type*>(
-                        new phase_space::sweep::cycle<phase_point> (parms, seed_offset));
-                if (dist_name == "grid")
-                    return dynamic_cast<phase_sweep_policy_type*>(
-                        new phase_space::sweep::grid<phase_point> (parms, seed_offset));
-                if (dist_name == "nonuniform_grid")
-                    return dynamic_cast<phase_sweep_policy_type*>(
-                        new phase_space::sweep::nonuniform_grid<phase_point>(parms, seed_offset));
-                if (dist_name == "uniform")
-                    return dynamic_cast<phase_sweep_policy_type*>(
-                        new phase_space::sweep::uniform<phase_point> (parms));
-                if (dist_name == "uniform_line")
-                    return dynamic_cast<phase_sweep_policy_type*>(
-                        new phase_space::sweep::uniform_line<phase_point> (parms));
-                throw std::runtime_error("Invalid sweep policy \"" + dist_name + "\"");
-                return nullptr;
-            }())
+        , sweep_policy(phase_space::sweep::from_parameters<phase_point>(parms, seed_offset))
         , N_phase(sweep_policy->size())
     {
         Simulation::update_phase_point(*sweep_policy);

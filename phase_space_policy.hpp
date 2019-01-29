@@ -646,6 +646,42 @@ namespace phase_space {
             uniform_line<Point>::define_parameters(params);
         }
 
+        template <typename Point>
+        auto from_parameters(alps::params const& parms, size_t seed_offset = 0)
+        {
+            return std::unique_ptr<policy<Point>>{[&] () -> policy<Point>* {
+                std::string dist_name = parms["sweep.dist"];
+                if (std::is_same<Point, phase_space::point::temperature>::value) {
+                    if (dist_name == "gaussian")
+                        return dynamic_cast<policy<Point>*>(
+                            new gaussian_temperatures(parms));
+                    if (dist_name == "uniform")
+                        return dynamic_cast<policy<Point>*>(
+                            new uniform_temperatures(parms));
+                    if (dist_name == "bimodal")
+                        return dynamic_cast<policy<Point>*>(
+                            new equidistant_temperatures(parms, 2, seed_offset));
+                }
+                if (dist_name == "cycle")
+                    return dynamic_cast<policy<Point>*>(
+                        new cycle<Point> (parms, seed_offset));
+                if (dist_name == "grid")
+                    return dynamic_cast<policy<Point>*>(
+                        new grid<Point> (parms, seed_offset));
+                if (dist_name == "nonuniform_grid")
+                    return dynamic_cast<policy<Point>*>(
+                        new nonuniform_grid<Point>(parms, seed_offset));
+                if (dist_name == "uniform")
+                    return dynamic_cast<policy<Point>*>(
+                        new uniform<Point> (parms));
+                if (dist_name == "uniform_line")
+                    return dynamic_cast<policy<Point>*>(
+                        new uniform_line<Point> (parms));
+                throw std::runtime_error("Invalid sweep policy \"" + dist_name + "\"");
+                return nullptr;
+            }()};
+        }
+
     }
 
     namespace classifier {

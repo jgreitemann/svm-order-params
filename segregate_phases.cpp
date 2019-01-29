@@ -93,12 +93,13 @@ int main(int argc, char** argv)
     std::vector<label_t> labels;
     {
         using classifier_t = typename sim_base::phase_classifier;
-        phase_space::sweep::grid<phase_point> grid_sweep(parameters);
+        auto grid_sweep = phase_space::sweep::from_parameters<phase_point>(parameters);
         classifier_t classifier(parameters);
         phase_point p;
         std::ofstream os("vertices.txt");
-        for (size_t i = 0; i < grid_sweep.size(); ++i) {
-            grid_sweep.yield(p);
+        std::mt19937 dummy_rng(42);
+        for (size_t i = 0; i < grid_sweep->size(); ++i) {
+            grid_sweep->yield(p, dummy_rng);
             auto l = classifier(p);
             phase_points[l] = p;
             index_map[l] = i;
