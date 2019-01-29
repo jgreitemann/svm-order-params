@@ -136,9 +136,10 @@ int main(int argc, char** argv)
                 L(j,j) += 1;
             }
 
-            auto diag = phase_space::classifier::D2h_map.at("D2h");
-            bool is_transition = diag(phase_points[labels.first]) == diag(phase_points[labels.second]);
-            os << is_transition << '\t' << rho << std::endl;
+            // auto diag = phase_space::classifier::D2h_map.at("D2h");
+            // bool is_transition = diag(phase_points[labels.first]) == diag(phase_points[labels.second]);
+            // os << is_transition << '\t' << rho << std::endl;
+            os << rho << '\n';
         }
     }
 
