@@ -31,18 +31,7 @@
 
 #include <Eigen/Eigenvalues>
 
-#ifdef ISING
-#include "ising.hpp"
-using sim_base = ising_sim;
-#else
-#ifdef GAUGE
-#include "gauge.hpp"
-using sim_base = gauge_sim;
-#else
-#error Unknown model
-#endif
-#endif
-
+#include "config_sim_base.hpp"
 
 using phase_point = typename sim_base::phase_point;
 using kernel_t = svm::kernel::polynomial<2>;
