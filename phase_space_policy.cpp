@@ -46,12 +46,17 @@ void sweep::gaussian_temperatures::define_parameters(alps::params & params) {
 }
 
 sweep::gaussian_temperatures::gaussian_temperatures (alps::params const& params)
-    : temp_center(params["sweep.gaussian_temperatures.temp_center"].as<double>())
+    : N(params["sweep.N"].as<size_t>())
+    , temp_center(params["sweep.gaussian_temperatures.temp_center"].as<double>())
     , temp_min(params["sweep.gaussian_temperatures.temp_min"].as<double>())
     , temp_max(params["sweep.gaussian_temperatures.temp_max"].as<double>())
     , temp_step(params["sweep.gaussian_temperatures.temp_step"].as<double>())
     , temp_sigma_sq(pow(params["sweep.gaussian_temperatures.temp_sigma"].as<double>(), 2))
 {}
+
+size_t sweep::gaussian_temperatures::size() const {
+    return N;
+}
 
 bool sweep::gaussian_temperatures::yield (point_type & point, rng_type & rng) {
     using uniform_t = std::uniform_real_distribution<double>;
@@ -78,10 +83,15 @@ void sweep::uniform_temperatures::define_parameters(alps::params & params) {
 }
 
 sweep::uniform_temperatures::uniform_temperatures (alps::params const& params)
-    : temp_min(params["sweep.uniform_temperatures.temp_min"].as<double>())
+    : N(params["sweep.N"].as<size_t>())
+    , temp_min(params["sweep.uniform_temperatures.temp_min"].as<double>())
     , temp_max(params["sweep.uniform_temperatures.temp_max"].as<double>())
     , temp_step(params["sweep.uniform_temperatures.temp_step"].as<double>())
 {}
+
+size_t sweep::uniform_temperatures::size() const {
+    return N;
+}
 
 bool sweep::uniform_temperatures::yield (point_type & point, rng_type & rng) {
     using uniform_t = std::uniform_real_distribution<double>;
@@ -112,6 +122,10 @@ sweep::equidistant_temperatures::equidistant_temperatures (alps::params const& p
                  - params["sweep.equidistant_temperatures.temp_min"].as<double>()) / (N-1))
     , cooling(offset % N != 0)
 {}
+
+size_t sweep::equidistant_temperatures::size() const {
+    return N;
+}
 
 bool sweep::equidistant_temperatures::yield (point_type & point, rng_type &) {
     if ((n == 0 && !cooling) || (n == N-1 && cooling)) {

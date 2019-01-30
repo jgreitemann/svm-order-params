@@ -34,6 +34,9 @@ elseif(GAUGE_CLASSIFIER STREQUAL D3h)
 elseif(GAUGE_CLASSIFIER STREQUAL GRID)
   add_definitions(-DGAUGE_CLASSIFIER_GRID)
   message(STATUS "Using gauge classifier: fixed_from_grid")
+elseif(GAUGE_CLASSIFIER STREQUAL NONUNIFORM_GRID)
+  add_definitions(-DGAUGE_CLASSIFIER_NONUNIFORM_GRID)
+  message(STATUS "Using gauge classifier: fixed_from_nonuniform_grid")
 else()
   message(FATAL_ERROR "Unknown gauge classifier")
 endif()
@@ -74,6 +77,7 @@ elseif(LATTICE STREQUAL dice)
 else()
   message(FATAL_ERROR "Unknown frustmag lattice")
 endif()
+
 
 include_directories(colormap)
 

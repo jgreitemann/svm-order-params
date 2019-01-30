@@ -49,6 +49,8 @@ public:
     using phase_classifier = phase_space::classifier::D3h_phase_diagram;
 #elif defined(GAUGE_CLASSIFIER_GRID)
     using phase_classifier = phase_space::classifier::fixed_from_grid<phase_point>;
+#elif defined(GAUGE_CLASSIFIER_NONUNIFORM_GRID)
+    using phase_classifier = phase_space::classifier::fixed_from_nonuniform_grid<phase_point>;
 #else
     #error unknown / missing gauge classifier
 #endif

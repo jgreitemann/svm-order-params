@@ -30,7 +30,9 @@
         	"${project_path}/svm/libsvm",
         	"${project_path}/utilities",
             "/usr/include/openmpi-x86_64",
-            "/usr/local/include/eigen3"
+            "/usr/include/openmpi",
+            "/usr/local/include/eigen3",
+            "~/.local/include/eigen3",
         ]
     }
 }
