@@ -107,7 +107,7 @@ int main(int argc, char** argv)
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
             size_t i = index_map[labels.first], j = index_map[labels.second];
-            double rho = std::abs(transition.rho());
+            double rho = std::abs(std::abs(transition.rho()) - 1);
 
             if (rho > rhoc) {
                 std::copy(phase_points[labels.first].begin(),
@@ -128,7 +128,7 @@ int main(int argc, char** argv)
             // auto diag = phase_space::classifier::D2h_map.at("D2h");
             // bool is_transition = diag(phase_points[labels.first]) == diag(phase_points[labels.second]);
             // os << is_transition << '\t' << rho << std::endl;
-            os << rho << '\n';
+            os << std::abs(transition.rho()) << '\n';
         }
     }
 
