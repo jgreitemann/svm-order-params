@@ -225,6 +225,7 @@ namespace phase_space {
             using point_type = Point;
             using rng_type = RNG;
 
+            virtual size_t size() const = 0;
             virtual bool yield (point_type & point, rng_type & rng) = 0;
             virtual void save (alps::hdf5::archive & ar) const {}
             virtual void load (alps::hdf5::archive & ar) {}
@@ -233,8 +234,10 @@ namespace phase_space {
         struct gaussian_temperatures : public policy<point::temperature> {
             static void define_parameters(alps::params & params);
             gaussian_temperatures (alps::params const& params);
+            virtual size_t size() const final override;
             virtual bool yield (point_type & point, rng_type & rng) final override;
         private:
+            size_t N;
             double temp_center;
             double temp_min;
             double temp_max;
@@ -245,8 +248,10 @@ namespace phase_space {
         struct uniform_temperatures : public policy<point::temperature> {
             static void define_parameters(alps::params & params);
             uniform_temperatures (alps::params const& params);
+            virtual size_t size() const final override;
             virtual bool yield (point_type & point, rng_type & rng) final override;
         private:
+            size_t N;
             double temp_min;
             double temp_max;
             double temp_step;
@@ -255,6 +260,7 @@ namespace phase_space {
         struct equidistant_temperatures : public policy<point::temperature> {
             static void define_parameters(alps::params & params);
             equidistant_temperatures (alps::params const& params, size_t N, size_t n=0);
+            virtual size_t size() const final override;
             virtual bool yield (point_type & point, rng_type &) final override;
             virtual void save (alps::hdf5::archive & ar) const final override;
             virtual void load (alps::hdf5::archive & ar) final override;
@@ -292,6 +298,10 @@ namespace phase_space {
                     points.emplace_back(params, format_prefix(i));
                 }
                 n = n % points.size();
+            }
+
+            virtual size_t size() const final override {
+                return points.size();
             }
 
             virtual bool yield (point_type & point, rng_type &) final override {
@@ -352,7 +362,7 @@ namespace phase_space {
                 n = size() * frac;
             }
 
-            size_t size() const {
+            virtual size_t size() const final override {
                 return std::accumulate(subdivs.begin(), subdivs.end(),
                                        1, std::multiplies<>{});
             }
@@ -435,7 +445,7 @@ namespace phase_space {
                 n = size() * frac;
             }
 
-            size_t size() const {
+            virtual size_t size() const final override {
                 return std::accumulate(subdivs.begin(), subdivs.end(),
                                        1, std::multiplies<>{});
             }
@@ -495,12 +505,17 @@ namespace phase_space {
                 point_type::define_parameters(params, "sweep.uniform.b.");
             }
 
-            uniform (point_type a, point_type b)
-                : a(a), b(b) {}
+            uniform (size_t N, point_type a, point_type b)
+                : N(N), a(a), b(b) {}
 
             uniform (alps::params const& params)
-                : a(params, "sweep.uniform.a.")
+                : N(params["sweep.N"].as<size_t>())
+                , a(params, "sweep.uniform.a.")
                 , b(params, "sweep.uniform.b.") {}
+
+            virtual size_t size() const final override {
+                return N;
+            }
 
             virtual bool yield (point_type & point, rng_type & rng) final override {
                 auto ita = a.begin();
@@ -513,6 +528,7 @@ namespace phase_space {
             }
 
         private:
+            size_t N;
             point_type a, b;
         };
 
@@ -526,12 +542,17 @@ namespace phase_space {
                 point_type::define_parameters(params, "sweep.uniform_line.b.");
             }
 
-            uniform_line (point_type a, point_type b)
-                : a(a), b(b) {}
+            uniform_line (size_t N, point_type a, point_type b)
+                : N(N), a(a), b(b) {}
 
             uniform_line (alps::params const& params)
-                : a(params, "sweep.uniform_line.a.")
+                : N(params["sweep.N"].as<size_t>())
+                , a(params, "sweep.uniform_line.a.")
                 , b(params, "sweep.uniform_line.b.") {}
+
+            virtual size_t size() const final override {
+                return N;
+            }
 
             virtual bool yield (point_type & point, rng_type & rng) final override {
                 double x = std::uniform_real_distribution<double>{}(rng);
@@ -545,6 +566,7 @@ namespace phase_space {
             }
 
         private:
+            size_t N;
             point_type a, b;
         };
 
@@ -574,7 +596,7 @@ namespace phase_space {
             line_scan (point_type const& a, point_type const& b, size_t N)
                 : a(a), b(b), n(0), N(N) {}
 
-            size_t size() const {
+            virtual size_t size() const final override {
                 return N;
             }
 
@@ -611,6 +633,7 @@ namespace phase_space {
 
         template <typename Point>
         void define_parameters (alps::params & params) {
+            params.define<size_t>("sweep.N", 1, "number of phase space points");
             if (std::is_same<Point, point::temperature>::value) {
                 gaussian_temperatures::define_parameters(params);
                 uniform_temperatures::define_parameters(params);
