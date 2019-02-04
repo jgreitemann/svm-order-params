@@ -38,11 +38,6 @@ namespace element_policy {
         const size_t block(size_t index) const { return index; }
         const size_t component(size_t index) const { return 0; }
 
-        size_t rearranged_index (indices_t const& ind) const {
-            return std::accumulate(ind.begin(), ind.end(), 0,
-                                   [&] (size_t a, size_t b) { return L*a + b; });
-        }
-
     private:
         size_t L;
     };

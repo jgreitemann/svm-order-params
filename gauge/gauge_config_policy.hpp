@@ -36,15 +36,6 @@ namespace element_policy {
         const size_t n_color() const { return 1; }
         const size_t sublattice(size_t index) const { return 0; }
         const size_t color(size_t index) const { return 2; }
-
-        size_t rearranged_index (indices_t const& ind) const {
-            size_t components = 0;
-            for (auto it = ind.begin(); it != ind.end(); ++it) {
-                components *= 3;
-                components += component(*it);
-            }
-            return components;
-        }
     };
 
     struct triad {
@@ -55,20 +46,6 @@ namespace element_policy {
         const size_t color(size_t index) const { return index / 3; }
         const size_t block(size_t index) const { return color(index); }
         const size_t component(size_t index) const { return index % 3; }
-
-        size_t rearranged_index (indices_t const& ind) const {
-            size_t components = 0;
-            size_t colors = 0;
-            size_t shift = 1;
-            for (auto it = ind.begin(); it != ind.end(); ++it) {
-                components *= 3;
-                components += component(*it);
-                colors *= 3;
-                colors += color(*it);
-                shift *= 3;
-            }
-            return colors * shift + components;
-        }
     };
 
     template <typename BaseElementPolicy>
@@ -95,20 +72,6 @@ namespace element_policy {
         }
         const size_t component(size_t index) const {
             return BaseElementPolicy::component(index % BaseElementPolicy::range());
-        }
-
-        size_t rearranged_index (indices_t const& ind) const {
-            size_t sublats = 0;
-            size_t shift = 1;
-            for (auto it = ind.begin(); it != ind.end(); ++it) {
-                sublats *= n_unitcell();
-                sublats += sublattice(*it);
-                shift *= BaseElementPolicy::range();
-            }
-            indices_t base_ind(ind);
-            for (size_t & i : base_ind)
-                i = i % BaseElementPolicy::range();
-            return sublats * shift + BaseElementPolicy::rearranged_index(base_ind);
         }
 
     private:

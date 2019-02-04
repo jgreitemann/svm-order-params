@@ -44,16 +44,6 @@ namespace element_policy {
         const size_t range() const { return N * n_block(); }
         const size_t block(size_t index) const { return 0; }
         const size_t component(size_t index) const { return index; }
-
-        size_t rearranged_index (indices_t const& ind) const {
-            size_t components = 0;
-            for (auto it = ind.begin(); it != ind.end(); ++it) {
-                components *= 3;
-                components += component(*it);
-            }
-            return components;
-        }
-
     };
 
 }
@@ -229,11 +219,11 @@ struct monomial_config_policy
         indices_t i_ind(rank_);
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
             do {
-                size_t i_out = ElementPolicy::rearranged_index(i_ind);
+                size_t i_out = rearranged_index(i_ind);
                 indices_t j_ind(rank_);
                 for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
-                        size_t j_out = ElementPolicy::rearranged_index(j_ind);
+                        size_t j_out = rearranged_index(j_ind);
                         out[i_out][j_out] = c[i][j] / (weights_[i] * weights_[j]);
                     } while (unsymmetrize && transform_ind(j_ind));
                 }
@@ -256,7 +246,7 @@ struct monomial_config_policy
         for (size_t i = 0; i < size(); ++i, advance_ind(ind)) {
             do {
                 indices_t ind_block = block_indices(ind);
-                size_t out = ElementPolicy::rearranged_index(component_indices(ind));
+                size_t out = rearranged_index(component_indices(ind));
                 if (std::equal(bi.begin(), bi.end(), ind_block.begin()))
                     i_ind_lookup[out] = i;
                 if (std::equal(bj.begin(), bj.end(), ind_block.begin()))
@@ -289,11 +279,11 @@ struct monomial_config_policy
         indices_t i_ind(rank_);
         for (size_t i = 0; i < size(); ++i, advance_ind(i_ind)) {
             do {
-                size_t i_out = ElementPolicy::rearranged_index(i_ind);
+                size_t i_out = rearranged_index(i_ind);
                 indices_t j_ind(rank_);
                 for (size_t j = 0; j < size(); ++j, advance_ind(j_ind)) {
                     do {
-                        size_t j_out = ElementPolicy::rearranged_index(j_ind);
+                        size_t j_out = rearranged_index(j_ind);
                         block_2norms[i_out / block_size][j_out / block_size]
                             += c[i][j] / (weights_[i] * weights_[j]);
                         block_sums[i_out / block_size][j_out / block_size]
@@ -362,6 +352,21 @@ protected:
     using ElementPolicy::component;
 
 private:
+    size_t rearranged_index (indices_t const& ind) const {
+        size_t n_component = ElementPolicy::range() / ElementPolicy::n_block();
+        size_t components = 0;
+        size_t blocks = 0;
+        size_t shift = 1;
+        for (auto it = ind.begin(); it != ind.end(); ++it) {
+            components *= n_component;
+            components += component(*it);
+            blocks *= n_component;
+            blocks += block(*it);
+            shift *= n_component;
+        }
+        return blocks * shift + components;
+    }
+
     using SymmetryPolicy::transform_ind;
 
     size_t rank_;

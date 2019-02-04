@@ -43,24 +43,6 @@ namespace element_policy {
         const size_t component(size_t index) const {
             return index % Lattice::value_type::size;
         }
-
-        size_t rearranged_index (indices_t const& ind) const {
-            size_t components = 0;
-            size_t blocks = 0;
-            size_t shift = 1;
-            for (auto it = ind.begin(); it != ind.end(); ++it) {
-                components *= 3;
-                components += component(*it);
-                blocks *= 3;
-                blocks += block(*it);
-                shift *= 3;
-            }
-            return blocks * shift + components;
-            // return std::accumulate(ind.begin(), ind.end(), 0,
-            //                        [] (size_t a, size_t b) {
-            //                            return Lattice::value_type::size * a + b;
-            //                        });
-        }
     };
 }
 
