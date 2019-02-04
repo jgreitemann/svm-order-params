@@ -33,44 +33,44 @@ namespace element_policy {
 
     struct mono : components {
         mono() : components{3} {}
-        const size_t n_color() const { return 1; }
-        const size_t sublattice(size_t index) const { return 0; }
-        const size_t color(size_t index) const { return 2; }
+        constexpr size_t n_color() const { return 1; }
+        constexpr size_t sublattice(size_t) const { return 0; }
+        constexpr size_t color(size_t) const { return 2; }
     };
 
     struct triad {
-        const size_t n_color() const { return 3; }
-        const size_t n_block() const { return 3; }
-        const size_t range() const { return 3 * n_color(); }
-        const size_t sublattice(size_t index) const { return 0; }
-        const size_t color(size_t index) const { return index / 3; }
-        const size_t block(size_t index) const { return color(index); }
-        const size_t component(size_t index) const { return index % 3; }
+        constexpr size_t n_color() const { return 3; }
+        constexpr size_t n_block() const { return 3; }
+        constexpr size_t range() const { return 3 * n_color(); }
+        constexpr size_t sublattice(size_t) const { return 0; }
+        constexpr size_t color(size_t index) const { return index / 3; }
+        constexpr size_t block(size_t index) const { return color(index); }
+        constexpr size_t component(size_t index) const { return index % 3; }
     };
 
     template <typename BaseElementPolicy>
     struct n_partite : private BaseElementPolicy {
         n_partite(size_t n) : n_unit(n) {}
 
-        const size_t n_unitcell() const { return n_unit; }
-        const size_t n_color() const { return BaseElementPolicy::n_color(); }
-        const size_t n_block() const {
+        constexpr size_t n_unitcell() const { return n_unit; }
+        constexpr size_t n_color() const { return BaseElementPolicy::n_color(); }
+        constexpr size_t n_block() const {
             return n_unitcell() * BaseElementPolicy::n_block();
         }
-        const size_t range() const {
+        constexpr size_t range() const {
             return n_unitcell() * BaseElementPolicy::range();
         }
-        const size_t sublattice(size_t index) const {
+        constexpr size_t sublattice(size_t index) const {
             return index / BaseElementPolicy::range();
         }
-        const size_t color(size_t index) const {
+        constexpr size_t color(size_t index) const {
             return BaseElementPolicy::color(index % BaseElementPolicy::range());
         }
-        const size_t block(size_t index) const {
+        constexpr size_t block(size_t index) const {
             return sublattice(index) * BaseElementPolicy::n_block()
                 + BaseElementPolicy::block(index % BaseElementPolicy::range());
         }
-        const size_t component(size_t index) const {
+        constexpr size_t component(size_t index) const {
             return BaseElementPolicy::component(index % BaseElementPolicy::range());
         }
 

@@ -40,10 +40,10 @@ namespace element_policy {
     struct components {
         size_t N;
 
-        const size_t n_block() const { return 1; }
-        const size_t range() const { return N * n_block(); }
-        const size_t block(size_t index) const { return 0; }
-        const size_t component(size_t index) const { return index; }
+        constexpr size_t n_block() const { return 1; }
+        constexpr size_t range() const { return N * n_block(); }
+        constexpr size_t block(size_t) const { return 0; }
+        constexpr size_t component(size_t index) const { return index; }
     };
 
 }
@@ -71,11 +71,11 @@ namespace symmetry_policy {
             }
         }
 
-        bool transform_ind (indices_t & ind) const {
+        bool transform_ind (indices_t &) const {
             return false;
         }
 
-        size_t number_of_equivalents (indices_t const& ind) const {
+        size_t number_of_equivalents (indices_t const&) const {
             return 1;
         }
     };

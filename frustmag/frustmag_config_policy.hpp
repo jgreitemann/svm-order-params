@@ -33,14 +33,14 @@
 namespace element_policy {
     template <typename Lattice>
     struct lattice {
-        const size_t n_block() const { return Lattice::n_basis; }
-        const size_t range() const {
+        constexpr size_t n_block() const { return Lattice::n_basis; }
+        constexpr size_t range() const {
             return Lattice::value_type::size * n_block();
         }
-        const size_t block(size_t index) const {
+        constexpr size_t block(size_t index) const {
             return index / Lattice::value_type::size;
         }
-        const size_t component(size_t index) const {
+        constexpr size_t component(size_t index) const {
             return index % Lattice::value_type::size;
         }
     };
