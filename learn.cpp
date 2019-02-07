@@ -31,9 +31,14 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
 
+#ifdef CONFIG_MAPPING_LAZY
 #include "procrastination_adapter.hpp"
-
 using sim_type = procrastination_adapter<sim_base>;
+#else
+#include "training_adapter.hpp"
+using sim_type = training_adapter<sim_base>;
+#endif
+
 using kernel_t = typename sim_type::kernel_t;
 using label_t = typename sim_type::phase_label;
 using classifier_t = typename sim_type::phase_classifier;
