@@ -124,7 +124,8 @@ public:
         ar["training/n_temp"] << n_temp;
         ar["training/sweep"] << *sweep_policy;
 
-        ar["training/problem"] << prob_serializer;
+        if (problem.size() > 0)
+            ar["training/problem"] << prob_serializer;
     }
 
     using alps::mcbase::load;
@@ -139,7 +140,10 @@ public:
         ar["training/n_temp"] >> n_temp;
         ar["training/sweep"] >> *sweep_policy;
 
-        ar["training/problem"] >> prob_serializer;
+        if (ar.is_group("training/problem"))
+            ar["training/problem"] >> prob_serializer;
+        else
+            problem = {confpol->size()};
         if (problem.dim() != confpol->size())
             throw std::runtime_error("invalid problem dimension");
 
