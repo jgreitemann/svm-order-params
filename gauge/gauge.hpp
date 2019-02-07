@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "config_serialization.hpp"
 #include "point_groups.hpp"
 #include "phase_space_policy.hpp"
 #include "gauge_config_policy.hpp"
@@ -83,9 +84,11 @@ private:
     double spacing_E;
     double spacing_nem;
 
+public:
     /**  degrees of freedoms **/
     typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> Rt3;
     typedef boost::multi_array<Rt3, 1> Rt_array;
+private:
 
     Rt_array R; //matter fields
 
@@ -196,4 +199,30 @@ public:
     bool is_thermalized() const;
     phase_point phase_space_point () const;
     void update_phase_point (phase_sweep_policy_type & sweep_policy);
+};
+
+template <>
+struct config_serializer<gauge_sim::Rt_array> {
+    using config_t = gauge_sim::Rt_array;
+    template <typename OutputIterator>
+    void serialize(config_t const& conf, OutputIterator it) const {
+        for (auto const& mat : conf) {
+            for (size_t i = 0; i < 3; ++i) {
+                for (size_t j = 0; j < 3; ++j) {
+                    *(it++) = mat(i, j);
+                }
+            }
+        }
+    }
+
+    template <typename InputIterator>
+    void deserialize(InputIterator it, config_t & conf) const {
+        for (auto & mat : conf) {
+            for (size_t i = 0; i < 3; ++i) {
+                for (size_t j = 0; j < 3; ++j) {
+                    mat(i, j) = *(it++);
+                }
+            }
+        }
+    }
 };
