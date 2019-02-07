@@ -179,7 +179,7 @@ int main(int argc, char** argv)
             cp["simulation/n_clones"] << n_clones;
         }
 
-        {
+        if (!cmdl[{"--skip-svm"}]) {
             // create the model
             svm::parameters<kernel_t> kernel_params(parameters["nu"].as<double>(),
                                                     svm::machine_type::NU_SVC);
