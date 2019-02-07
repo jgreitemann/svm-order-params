@@ -106,3 +106,7 @@ struct kagome : bravais<Site, 2ul, 3ul> {
 };
 
 }
+
+template <typename Site>
+struct config_serializer<lattice::kagome<Site>>
+    : lattice_serializer<lattice::kagome<Site>> {};

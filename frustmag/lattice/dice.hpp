@@ -122,3 +122,7 @@ struct dice : bravais<Site, 2ul, 3ul> {
 };
 
 }
+
+template <typename Site>
+struct config_serializer<lattice::dice<Site>>
+    : lattice_serializer<lattice::dice<Site>> {};

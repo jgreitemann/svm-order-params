@@ -17,6 +17,8 @@
 #pragma once
 
 #include "concepts.hpp"
+#include "config_serialization.hpp"
+#include "lattice_serialization.hpp"
 
 #include <alps/params.hpp>
 #include <alps/hdf5.hpp>
@@ -120,3 +122,7 @@ private:
 };
 
 }
+
+template <typename Site>
+struct config_serializer<lattice::chain<Site>>
+    : lattice_serializer<lattice::chain<Site>> {};

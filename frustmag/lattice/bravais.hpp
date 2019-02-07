@@ -17,6 +17,8 @@
 #pragma once
 
 #include "concepts.hpp"
+#include "config_serialization.hpp"
+#include "lattice_serialization.hpp"
 
 #include <alps/params.hpp>
 #include <alps/hdf5.hpp>
@@ -374,3 +376,7 @@ private:
 };
 
 }
+
+template <typename Site, size_t dim, size_t N_BASIS>
+struct config_serializer<lattice::bravais<Site, dim, N_BASIS>>
+    : lattice_serializer<lattice::bravais<Site, dim, N_BASIS>> {};
