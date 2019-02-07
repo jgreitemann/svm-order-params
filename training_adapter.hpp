@@ -101,13 +101,12 @@ public:
         Simulation::update();
     }
 
-    virtual void measure () override {
+    virtual void measure () final override {
         double frac = Simulation::fraction_completed();
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            problem.add_sample(confpol->configuration(Simulation::configuration()),
-                               Simulation::phase_space_point());
+            sample_config();
             ++i_temp;
         }
     }
@@ -160,12 +159,16 @@ public:
         return other_problem;
     }
 
-private:
+protected:
+    std::unique_ptr<config_policy_t> confpol;
+    virtual void sample_config() {
+        problem.add_sample(confpol->configuration(Simulation::configuration()),
+                           Simulation::phase_space_point());
+    }
 
+private:
     using Simulation::parameters;
     using Simulation::random;
-
-    std::unique_ptr<config_policy_t> confpol;
 
     double const& global_progress;
 

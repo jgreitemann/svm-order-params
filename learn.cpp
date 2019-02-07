@@ -17,7 +17,6 @@
 #include "checkpointing_stop_callback.hpp"
 #include "config_sim_base.hpp"
 #include "svm-wrapper.hpp"
-#include "training_adapter.hpp"
 #include "test_adapter.hpp"
 #include "argh.h"
 
@@ -32,8 +31,9 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
 
+#include "procrastination_adapter.hpp"
 
-using sim_type = training_adapter<sim_base>;
+using sim_type = procrastination_adapter<sim_base>;
 using kernel_t = typename sim_type::kernel_t;
 using label_t = typename sim_type::phase_label;
 using classifier_t = typename sim_type::phase_classifier;
