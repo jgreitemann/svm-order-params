@@ -64,3 +64,7 @@ struct triangular : bravais<Site, 2ul, 1ul> {
 };
 
 }
+
+template <typename Site>
+struct config_serializer<lattice::triangular<Site>>
+    : lattice_serializer<lattice::triangular<Site>> {};

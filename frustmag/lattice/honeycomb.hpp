@@ -68,3 +68,7 @@ struct honeycomb : bravais<Site, 2ul, 2ul> {
 };
 
 }
+
+template <typename Site>
+struct config_serializer<lattice::honeycomb<Site>>
+    : lattice_serializer<lattice::honeycomb<Site>> {};

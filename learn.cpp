@@ -17,7 +17,6 @@
 #include "checkpointing_stop_callback.hpp"
 #include "config_sim_base.hpp"
 #include "svm-wrapper.hpp"
-#include "training_adapter.hpp"
 #include "test_adapter.hpp"
 #include "argh.h"
 
@@ -32,8 +31,14 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
 
-
+#ifdef CONFIG_MAPPING_LAZY
+#include "procrastination_adapter.hpp"
+using sim_type = procrastination_adapter<sim_base>;
+#else
+#include "training_adapter.hpp"
 using sim_type = training_adapter<sim_base>;
+#endif
+
 using kernel_t = typename sim_type::kernel_t;
 using label_t = typename sim_type::phase_label;
 using classifier_t = typename sim_type::phase_classifier;
@@ -174,7 +179,7 @@ int main(int argc, char** argv)
             cp["simulation/n_clones"] << n_clones;
         }
 
-        {
+        if (!cmdl[{"--skip-svm"}]) {
             // create the model
             svm::parameters<kernel_t> kernel_params(parameters["nu"].as<double>(),
                                                     svm::machine_type::NU_SVC);

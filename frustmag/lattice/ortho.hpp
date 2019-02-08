@@ -69,3 +69,7 @@ template <typename Site>
 using cubic = ortho<Site, 3>;
 
 }
+
+template <typename Site, size_t dim>
+struct config_serializer<lattice::ortho<Site, dim>>
+    : lattice_serializer<lattice::ortho<Site, dim>> {};

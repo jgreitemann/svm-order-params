@@ -101,13 +101,12 @@ public:
         Simulation::update();
     }
 
-    virtual void measure () override {
+    virtual void measure () final override {
         double frac = Simulation::fraction_completed();
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            problem.add_sample(confpol->configuration(Simulation::configuration()),
-                               Simulation::phase_space_point());
+            sample_config();
             ++i_temp;
         }
     }
@@ -124,7 +123,8 @@ public:
         ar["training/n_temp"] << n_temp;
         ar["training/sweep"] << *sweep_policy;
 
-        ar["training/problem"] << prob_serializer;
+        if (problem.size() > 0)
+            ar["training/problem"] << prob_serializer;
     }
 
     using alps::mcbase::load;
@@ -139,7 +139,10 @@ public:
         ar["training/n_temp"] >> n_temp;
         ar["training/sweep"] >> *sweep_policy;
 
-        ar["training/problem"] >> prob_serializer;
+        if (ar.is_group("training/problem"))
+            ar["training/problem"] >> prob_serializer;
+        else
+            problem = {confpol->size()};
         if (problem.dim() != confpol->size())
             throw std::runtime_error("invalid problem dimension");
 
@@ -156,12 +159,16 @@ public:
         return other_problem;
     }
 
-private:
+protected:
+    std::unique_ptr<config_policy_t> confpol;
+    virtual void sample_config() {
+        problem.add_sample(confpol->configuration(Simulation::configuration()),
+                           Simulation::phase_space_point());
+    }
 
+private:
     using Simulation::parameters;
     using Simulation::random;
-
-    std::unique_ptr<config_policy_t> confpol;
 
     double const& global_progress;
 
