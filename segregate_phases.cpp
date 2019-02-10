@@ -21,10 +21,13 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <fstream>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
+#include <numeric>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -38,9 +41,18 @@ using kernel_t = svm::kernel::polynomial<2>;
 using label_t = typename sim_base::phase_label;
 using model_t = svm::model<kernel_t, label_t>;
 
+template <typename Label>
+double euclidean_distance(Label const& l1, Label const& l2) {
+    return sqrt(std::inner_product(l1.begin(), l1.end(), l2.begin(), 0.,
+        std::plus<>{},
+        [](double a, double b) {
+            return (a - b) * (a - b);
+        }));
+}
+
 int main(int argc, char** argv)
 {
-    argh::parser cmdl({"r", "rhoc", "p", "phase", "m", "mask"});
+    argh::parser cmdl({"r", "rhoc", "R", "radius", "m", "mask"});
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
     alps::params parameters = [&] {
         if (cmdl[1].empty())
@@ -61,6 +73,10 @@ int main(int argc, char** argv)
     double rhoc;
     if (!(cmdl({"-r", "--rhoc"}) >> rhoc))
         rhoc = 1.75;
+
+    double radius;
+    if (!(cmdl({"-R", "--radius"}) >> radius))
+        radius = std::numeric_limits<double>::max();
 
     std::string arname = parameters.get_archive_name();
     bool verbose = cmdl[{"-v", "--verbose"}];
@@ -124,6 +140,10 @@ int main(int argc, char** argv)
             auto labels = transition.labels();
             size_t i = index_map[labels.first], j = index_map[labels.second];
             double rho = std::abs(std::abs(transition.rho()) - 1);
+
+            auto l = transition.labels();
+            if (euclidean_distance(phase_points[l.first], phase_points[l.second]) > radius)
+                continue;
 
             if (check_mask(k++) && rho > rhoc) {
                 os3 << true << '\n';
