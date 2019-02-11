@@ -17,7 +17,10 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
+#include <functional>
 #include <iostream>
+#include <numeric>
 #include <string>
 #include <type_traits>
 
@@ -112,13 +115,13 @@ namespace phase_space {
         template <typename Point>
         struct distance {
             double operator() (Point const& lhs, Point const& rhs) const {
-                double d = 0.;
-                auto itl = lhs.begin();
-                auto itr = rhs.begin();
-                for (; itl != lhs.end(); ++itl, ++itr) {
-                    d += pow(*itl - *itr, 2);
-                }
-                return sqrt(d);
+                return sqrt(std::inner_product(
+                    lhs.begin(), lhs.end(),
+                    rhs.begin(), 0.,
+                    std::plus<>{},
+                    [](double a, double b) {
+                        return (a - b) * (a - b);
+                    }));
             }
         };
 

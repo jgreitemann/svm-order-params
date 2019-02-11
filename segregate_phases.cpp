@@ -21,13 +21,11 @@
 
 #include <algorithm>
 #include <cmath>
-#include <functional>
 #include <fstream>
 #include <iostream>
 #include <iterator>
 #include <limits>
 #include <map>
-#include <numeric>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -40,15 +38,6 @@ using phase_point = typename sim_base::phase_point;
 using kernel_t = svm::kernel::polynomial<2>;
 using label_t = typename sim_base::phase_label;
 using model_t = svm::model<kernel_t, label_t>;
-
-template <typename Label>
-double euclidean_distance(Label const& l1, Label const& l2) {
-    return sqrt(std::inner_product(l1.begin(), l1.end(), l2.begin(), 0.,
-        std::plus<>{},
-        [](double a, double b) {
-            return (a - b) * (a - b);
-        }));
-}
 
 int main(int argc, char** argv)
 {
@@ -135,6 +124,7 @@ int main(int argc, char** argv)
         std::ofstream os("rho.txt");
         std::ofstream os2("edges.txt");
         std::ofstream os3("mask.txt");
+        phase_space::point::distance<phase_point> dist{};
         size_t k = 0;
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
@@ -142,7 +132,7 @@ int main(int argc, char** argv)
             double rho = std::abs(std::abs(transition.rho()) - 1);
 
             auto l = transition.labels();
-            if (euclidean_distance(phase_points[l.first], phase_points[l.second]) > radius)
+            if (dist(phase_points[l.first], phase_points[l.second]) > radius)
                 continue;
 
             if (check_mask(k++) && rho > rhoc) {
