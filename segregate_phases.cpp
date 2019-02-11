@@ -59,11 +59,41 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    double rhoc;
-    cmdl({"-r", "--rhoc"}, 1.) >> rhoc;
+    std::string arname = parameters.get_archive_name();
+    bool verbose = cmdl[{"-v", "--verbose"}];
+    auto log_msg = [verbose] (std::string const& msg) {
+        if (verbose)
+            std::cout << msg << std::endl;
+    };
 
     double radius;
     cmdl({"-R", "--radius"}, std::numeric_limits<double>::max()) >> radius;
+
+    log_msg("Reading model...");
+    model_t model;
+    {
+        alps::hdf5::archive ar(arname, "r");
+        svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+        ar["model"] >> serial;
+    }
+
+    log_msg("Calculating bias RMS...");
+    double rho_std = [&] {
+        std::ofstream os("rho.txt");
+        double variance = 0;
+        size_t n = 0;
+        for (auto const& transition : model.classifiers()) {
+            ++n;
+            double rho = std::abs(transition.rho());
+            variance = (1. * (n - 1) / n) * variance + pow(rho - 1., 2.) / n;
+            os << rho << '\n';
+        }
+        return sqrt(variance);
+    }();
+    std::cout << "RMS bias deviation from unity: " << rho_std << '\n';
+
+    double rhoc;
+    cmdl({"-r", "--rhoc"}, rho_std) >> rhoc;
 
     auto weight = [&]() -> std::function<double(double)> {
         std::string weight_name;
@@ -81,21 +111,7 @@ int main(int argc, char** argv)
         }
     }();
 
-    std::string arname = parameters.get_archive_name();
-    bool verbose = cmdl[{"-v", "--verbose"}];
-    auto log_msg = [verbose] (std::string const& msg) {
-        if (verbose)
-            std::cout << msg << std::endl;
-    };
-
-    log_msg("Reading model...");
-    model_t model;
-    {
-        alps::hdf5::archive ar(arname, "r");
-        svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
-        ar["model"] >> serial;
-    }
-
+    log_msg("Collecting phase space points...");
     std::map<label_t, phase_point> phase_points;
     std::map<label_t, size_t> index_map;
     std::vector<label_t> labels;
@@ -118,10 +134,10 @@ int main(int argc, char** argv)
         }
     }
 
+    log_msg("Constructing graph...");
     using matrix_t = Eigen::MatrixXd;
     matrix_t L(phase_points.size(), phase_points.size());
     {
-        std::ofstream os("rho.txt");
         std::ofstream os2("edges.txt");
         phase_space::point::distance<phase_point> dist{};
         for (auto const& transition : model.classifiers()) {
@@ -132,8 +148,6 @@ int main(int argc, char** argv)
             auto l = transition.labels();
             if (dist(phase_points[l.first], phase_points[l.second]) > radius)
                 continue;
-
-            os << std::abs(transition.rho()) << '\t' << w << '\n';
 
             std::copy(phase_points[labels.first].begin(),
               phase_points[labels.first].end(),
@@ -150,6 +164,7 @@ int main(int argc, char** argv)
         }
     }
 
+    log_msg("Diagonalizing Laplacian...");
     auto eigen = Eigen::SelfAdjointEigenSolver<matrix_t>(L);
 
     std::vector<std::pair<size_t, double>> evals;
@@ -159,6 +174,7 @@ int main(int argc, char** argv)
     std::sort(evals.begin(), evals.end(),
               [](auto const& lhs, auto const& rhs) { return lhs.second < rhs.second; });
 
+    log_msg("Writing phases...");
     size_t degen = 0;
     std::ofstream os("phases.txt");
     auto const& evecs = eigen.eigenvectors();
