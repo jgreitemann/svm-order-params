@@ -65,6 +65,13 @@ int main(int argc, char** argv)
     double radius;
     cmdl({"-R", "--radius"}, std::numeric_limits<double>::max()) >> radius;
 
+    auto weight = [&](double rho) {
+        return 1. - exp(-0.5 * pow((std::abs(rho) - 1.) / rhoc, 2.));
+    };
+    // auto weight = [&](double rho) {
+    //     return std::abs(std::abs(rho) - 1.) > rhoc;
+    // };
+
     std::string arname = parameters.get_archive_name();
     bool verbose = cmdl[{"-v", "--verbose"}];
     auto log_msg = [verbose] (std::string const& msg) {
@@ -111,29 +118,26 @@ int main(int argc, char** argv)
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
             size_t i = index_map[labels.first], j = index_map[labels.second];
-            double rho = std::abs(std::abs(transition.rho()) - 1);
+            double w = weight(transition.rho());
 
             auto l = transition.labels();
             if (dist(phase_points[l.first], phase_points[l.second]) > radius)
                 continue;
 
-            if (rho > rhoc) {
-                std::copy(phase_points[labels.first].begin(),
-                          phase_points[labels.first].end(),
-                          std::ostream_iterator<double> {os2, "\t"});
-                os2 << '\n';
-                std::copy(phase_points[labels.second].begin(),
-                          phase_points[labels.second].end(),
-                          std::ostream_iterator<double> {os2, "\t"});
-                os2 << "\n\n";
+            os << std::abs(transition.rho()) << '\t' << w << '\n';
 
-                L(i,j) = -1;
-                L(j,i) = -1;
-                L(i,i) += 1;
-                L(j,j) += 1;
-            }
+            std::copy(phase_points[labels.first].begin(),
+              phase_points[labels.first].end(),
+              std::ostream_iterator<double> {os2, "\t"});
+            std::copy(phase_points[labels.second].begin(),
+              phase_points[labels.second].end(),
+              std::ostream_iterator<double> {os2, "\t"});
+            os2 << w << '\n';
 
-            os << std::abs(transition.rho()) << '\n';
+            L(i,j) = -w;
+            L(j,i) = -w;
+            L(i,i) += w;
+            L(j,j) += w;
         }
     }
 
