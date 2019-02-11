@@ -41,7 +41,7 @@ using model_t = svm::model<kernel_t, label_t>;
 
 int main(int argc, char** argv)
 {
-    argh::parser cmdl({"r", "rhoc", "R", "radius", "m", "mask"});
+    argh::parser cmdl({"r", "rhoc", "R", "radius"});
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
     alps::params parameters = [&] {
         if (cmdl[1].empty())
@@ -60,12 +60,10 @@ int main(int argc, char** argv)
     }
 
     double rhoc;
-    if (!(cmdl({"-r", "--rhoc"}) >> rhoc))
-        rhoc = 1.75;
+    cmdl({"-r", "--rhoc"}, 1.) >> rhoc;
 
     double radius;
-    if (!(cmdl({"-R", "--radius"}) >> radius))
-        radius = std::numeric_limits<double>::max();
+    cmdl({"-R", "--radius"}, std::numeric_limits<double>::max()) >> radius;
 
     std::string arname = parameters.get_archive_name();
     bool verbose = cmdl[{"-v", "--verbose"}];
@@ -104,28 +102,12 @@ int main(int argc, char** argv)
         }
     }
 
-    auto check_mask = [&] {
-        std::string mask_filename;
-        std::vector<bool> mask;
-        if (cmdl({"-m", "--mask"}) >> mask_filename) {
-            std::ifstream is(mask_filename);
-            std::copy(std::istream_iterator<bool>{is},
-                std::istream_iterator<bool>{},
-                std::back_inserter(mask));
-        }
-        return [no_mask = mask.empty(), mask](size_t k) {
-            return no_mask || mask[k];
-        };
-    }();
-
     using matrix_t = Eigen::MatrixXd;
     matrix_t L(phase_points.size(), phase_points.size());
     {
         std::ofstream os("rho.txt");
         std::ofstream os2("edges.txt");
-        std::ofstream os3("mask.txt");
         phase_space::point::distance<phase_point> dist{};
-        size_t k = 0;
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
             size_t i = index_map[labels.first], j = index_map[labels.second];
@@ -135,8 +117,7 @@ int main(int argc, char** argv)
             if (dist(phase_points[l.first], phase_points[l.second]) > radius)
                 continue;
 
-            if (check_mask(k++) && rho > rhoc) {
-                os3 << true << '\n';
+            if (rho > rhoc) {
                 std::copy(phase_points[labels.first].begin(),
                           phase_points[labels.first].end(),
                           std::ostream_iterator<double> {os2, "\t"});
@@ -150,13 +131,8 @@ int main(int argc, char** argv)
                 L(j,i) = -1;
                 L(i,i) += 1;
                 L(j,j) += 1;
-            } else {
-                os3 << false << '\n';
             }
 
-            // auto diag = phase_space::classifier::D2h_map.at("D2h");
-            // bool is_transition = diag(phase_points[labels.first]) == diag(phase_points[labels.second]);
-            // os << is_transition << '\t' << rho << std::endl;
             os << std::abs(transition.rho()) << '\n';
         }
     }
