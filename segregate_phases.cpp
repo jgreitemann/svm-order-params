@@ -43,7 +43,7 @@ using model_t = svm::model<kernel_t, label_t>;
 
 int main(int argc, char** argv)
 {
-    argh::parser cmdl({"r", "rhoc", "R", "radius",
+    argh::parser cmdl({"r", "rhoc", "R", "radius", "m", "mask",
         "t", "threshold", "w", "weight"});
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
     alps::params parameters = [&] {
@@ -129,24 +129,58 @@ int main(int argc, char** argv)
     std::map<label_t, phase_point> phase_points;
     std::map<label_t, size_t> index_map;
     std::vector<label_t> labels;
-    {
+    size_t graph_dim = [&] {
         using classifier_t = typename sim_base::phase_classifier;
         auto grid_sweep = phase_space::sweep::from_parameters<phase_point>(parameters);
+
+        // read mask if specified
+        std::vector<int> mask = [&] {
+            std::string mask_name;
+            if (cmdl({"-m", "--mask"}) >> mask_name) {
+                std::ifstream is{mask_name};
+                if (!is) {
+                    std::cerr << "unable to open mask file: " << mask_name
+                              << "\tskipping...\n";
+                    return std::vector<int>(grid_sweep->size(), 1);
+                }
+                phase_point p;
+                std::vector<int> mask;
+                while (true) {
+                    for (double & x : p)
+                        if (!(is >> x))
+                            break;
+                    if (!is)
+                        break;
+                    mask.emplace_back();
+                    is >> mask.back();
+                }
+                if (mask.size() != grid_sweep->size())
+                    throw std::runtime_error("inconsistent mask size");
+                return mask;
+            }
+            return std::vector<int>(grid_sweep->size(), 1);
+        }();
+
         classifier_t classifier(parameters);
         phase_point p;
         std::ofstream os("vertices.txt");
         std::mt19937 dummy_rng(42);
+        bool invert_mask = cmdl["--invert-mask"];
+        size_t j = 0;
         for (size_t i = 0; i < grid_sweep->size(); ++i) {
             grid_sweep->yield(p, dummy_rng);
             auto l = classifier(p);
             phase_points[l] = p;
-            index_map[l] = i;
+            if (!(mask[i] ^ invert_mask))
+                continue;
             labels.push_back(l);
+            index_map[l] = j++;
             os << l << '\t';
             std::copy(p.begin(), p.end(), std::ostream_iterator<double>{os, "\t"});
             os << '\n';
         }
-    }
+        return j;
+    }();
 
     log_msg("Accessing auxiliary graphs to combine...");
     std::vector<std::vector<double>> aux_weights;
@@ -171,7 +205,7 @@ int main(int argc, char** argv)
 
     log_msg("Constructing graph...");
     using matrix_t = Eigen::MatrixXd;
-    matrix_t L(phase_points.size(), phase_points.size());
+    matrix_t L(graph_dim, graph_dim);
     {
         // get auxiliary weights iterators
         using iter_t = typename std::vector<double>::const_iterator;
@@ -185,7 +219,6 @@ int main(int argc, char** argv)
         phase_space::point::distance<phase_point> dist{};
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
-            size_t i = index_map[labels.first], j = index_map[labels.second];
             double w = weight(transition.rho());
 
             // combine weights from auxiliary graphs
@@ -197,6 +230,12 @@ int main(int argc, char** argv)
             if (dist(phase_points[labels.first], phase_points[labels.second]) > radius)
                 continue;
 
+            if (index_map.find(labels.first) == index_map.end()
+                || index_map.find(labels.second) == index_map.end())
+            {
+                continue;
+            }
+            size_t i = index_map[labels.first], j = index_map[labels.second];
             std::copy(phase_points[labels.first].begin(),
                 phase_points[labels.first].end(),
                 std::ostream_iterator<double> {os2, "\t"});
@@ -218,7 +257,7 @@ int main(int argc, char** argv)
 
     std::vector<std::pair<size_t, double>> evals;
     evals.reserve(phase_points.size());
-    for (size_t i = 0; i < phase_points.size(); ++i)
+    for (size_t i = 0; i < graph_dim; ++i)
         evals.emplace_back(i, eigen.eigenvalues()(i));
     std::sort(evals.begin(), evals.end(),
               [](auto const& lhs, auto const& rhs) { return lhs.second < rhs.second; });
@@ -227,11 +266,11 @@ int main(int argc, char** argv)
     size_t degen = 0;
     {
         std::ofstream os("phases.txt");
-        for (size_t i = 0; i < phase_points.size(); ++i) {
+        for (size_t i = 0; i < graph_dim; ++i) {
             os << "# eval = " << evals[i].second << '\n';
             if (evals[i].second < 1e-10)
                 ++degen;
-            for (size_t j = 0; j < phase_points.size(); ++j) {
+            for (size_t j = 0; j < graph_dim; ++j) {
                 auto const& p = phase_points[labels[j]];
                 std::copy(p.begin(), p.end(),
                           std::ostream_iterator<double>{os, "\t"});
@@ -246,11 +285,16 @@ int main(int argc, char** argv)
     if (cmdl({"-t", "--threshold"}) >> threshold) {
         std::ofstream os("mask.txt");
         auto const& fiedler_vec = evecs.col(evals[degen].first);
-        for (size_t j = 0; j < phase_points.size(); ++j) {
-            auto const& p = phase_points[labels[j]];
+        for (auto it = phase_points.begin(); it != phase_points.end(); ++it) {
+            auto const& l = it->first;
+            auto const& p = it->second;
             std::copy(p.begin(), p.end(),
                 std::ostream_iterator<double>{os, "\t"});
-            os << (fiedler_vec(j) >= threshold) << '\n';
+            auto idx_it = index_map.find(l);
+            if (idx_it == index_map.end())
+                os << 0 << '\n';
+            else
+                os << (fiedler_vec(idx_it->second) >= threshold) << '\n';
         }
     }
 
