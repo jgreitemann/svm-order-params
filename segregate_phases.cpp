@@ -110,7 +110,7 @@ int main(int argc, char** argv)
     }
 
     using matrix_t = Eigen::MatrixXd;
-    matrix_t L(phase_points.size(), phase_points.size());
+    matrix_t L = matrix_t::Zero(phase_points.size(), phase_points.size());
     {
         std::ofstream os("rho.txt");
         std::ofstream os2("edges.txt");
