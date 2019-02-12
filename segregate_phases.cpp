@@ -43,7 +43,8 @@ using model_t = svm::model<kernel_t, label_t>;
 
 int main(int argc, char** argv)
 {
-    argh::parser cmdl({"r", "rhoc", "R", "radius", "w", "weight"});
+    argh::parser cmdl({"r", "rhoc", "R", "radius",
+        "t", "threshold", "w", "weight"});
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
     alps::params parameters = [&] {
         if (cmdl[1].empty())
@@ -213,6 +214,7 @@ int main(int argc, char** argv)
 
     log_msg("Diagonalizing Laplacian...");
     auto eigen = Eigen::SelfAdjointEigenSolver<matrix_t>(L);
+    auto const& evecs = eigen.eigenvectors();
 
     std::vector<std::pair<size_t, double>> evals;
     evals.reserve(phase_points.size());
@@ -223,19 +225,33 @@ int main(int argc, char** argv)
 
     log_msg("Writing phases...");
     size_t degen = 0;
-    std::ofstream os("phases.txt");
-    auto const& evecs = eigen.eigenvectors();
-    for (size_t i = 0; i < phase_points.size(); ++i) {
-        os << "# eval = " << evals[i].second << '\n';
-        if (evals[i].second < 1e-10)
-            ++degen;
+    {
+        std::ofstream os("phases.txt");
+        for (size_t i = 0; i < phase_points.size(); ++i) {
+            os << "# eval = " << evals[i].second << '\n';
+            if (evals[i].second < 1e-10)
+                ++degen;
+            for (size_t j = 0; j < phase_points.size(); ++j) {
+                auto const& p = phase_points[labels[j]];
+                std::copy(p.begin(), p.end(),
+                          std::ostream_iterator<double>{os, "\t"});
+                os << evecs(j, evals[i].first) << '\n';
+            }
+            os << "\n\n";
+        }
+    }
+
+    log_msg("Writing mask...");
+    double threshold;
+    if (cmdl({"-t", "--threshold"}) >> threshold) {
+        std::ofstream os("mask.txt");
+        auto const& fiedler_vec = evecs.col(evals[degen].first);
         for (size_t j = 0; j < phase_points.size(); ++j) {
             auto const& p = phase_points[labels[j]];
             std::copy(p.begin(), p.end(),
-                      std::ostream_iterator<double>{os, "\t"});
-            os << evecs(j, evals[i].first) << '\n';
+                std::ostream_iterator<double>{os, "\t"});
+            os << (fiedler_vec(j) >= threshold) << '\n';
         }
-        os << "\n\n";
     }
 
     std::cout << "Degeneracy of smallest eval: " << degen << std::endl;
