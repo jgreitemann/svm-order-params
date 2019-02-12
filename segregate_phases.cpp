@@ -77,34 +77,47 @@ int main(int argc, char** argv)
         ar["model"] >> serial;
     }
 
-    log_msg("Calculating bias RMS...");
-    double rho_std = [&] {
+    log_msg("Calculating bias statistics...");
+    double rho_std, median, hiqs;
+    {
         std::ofstream os("rho.txt");
         double variance = 0;
         size_t n = 0;
+        std::vector<double> rhos;
         for (auto const& transition : model.classifiers()) {
             ++n;
             double rho = std::abs(transition.rho());
+            rhos.push_back(rho);
             variance = (1. * (n - 1) / n) * variance + pow(rho - 1., 2.) / n;
             os << rho << '\n';
         }
-        return sqrt(variance);
-    }();
-    std::cout << "RMS bias deviation from unity: " << rho_std << '\n';
+        rho_std = sqrt(variance);
 
-    double rhoc;
-    cmdl({"-r", "--rhoc"}, rho_std) >> rhoc;
+        std::sort(rhos.begin(), rhos.end());
+        median = rhos[rhos.size() / 2];
+        hiqs = 0.5 * (rhos[rhos.size() * 3 / 4] - rhos[rhos.size() / 4]);
+    }
+    std::cout << "RMS bias deviation from unity: " << rho_std << '\n'
+              << "Median bias: " << median << '\n'
+              << "Half interquartile spacing: " << hiqs << '\n';
 
     auto weight = [&]() -> std::function<double(double)> {
-        std::string weight_name;
-        cmdl({"-w", "--weight"}, "box") >> weight_name;
+        double rhoc;
+        std::string weight_name = cmdl({"-w", "--weight"}, "box").str();
         if (weight_name == "box") {
-            return [&](double rho) {
+            cmdl({"-r", "--rhoc"}, 1.) >> rhoc;
+            return [rhoc](double rho) {
                 return std::abs(std::abs(rho) - 1.) > rhoc;
             };
         } else if (weight_name == "gaussian") {
-            return [&](double rho) {
+            cmdl({"-r", "--rhoc"}, rho_std) >> rhoc;
+            return [rhoc](double rho) {
                 return 1. - exp(-0.5 * pow((std::abs(rho) - 1.) / rhoc, 2.));
+            };
+        } else if (weight_name == "lorentzian") {
+            cmdl({"-r", "--rhoc"}, hiqs) >> rhoc;
+            return [&, gamma_sq = rhoc * rhoc](double rho) {
+                return 1. - gamma_sq / (pow(std::abs(rho) - 1., 2.) + gamma_sq);
             };
         } else {
             throw std::runtime_error("unknown weight function: " + weight_name);
