@@ -80,7 +80,6 @@ int main(int argc, char** argv)
     log_msg("Calculating bias statistics...");
     double rho_std, median, hiqs;
     {
-        std::ofstream os("rho.txt");
         double variance = 0;
         size_t n = 0;
         std::vector<double> rhos;
@@ -89,7 +88,6 @@ int main(int argc, char** argv)
             double rho = std::abs(transition.rho());
             rhos.push_back(rho);
             variance = (1. * (n - 1) / n) * variance + pow(rho - 1., 2.) / n;
-            os << rho << '\n';
         }
         rho_std = sqrt(variance);
 
@@ -151,12 +149,15 @@ int main(int argc, char** argv)
     using matrix_t = Eigen::MatrixXd;
     matrix_t L(phase_points.size(), phase_points.size());
     {
+        std::ofstream os("rho.txt");
         std::ofstream os2("edges.txt");
         phase_space::point::distance<phase_point> dist{};
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
             size_t i = index_map[labels.first], j = index_map[labels.second];
             double w = weight(transition.rho());
+
+            os << std::abs(transition.rho()) << '\t' << w << '\n';
 
             auto l = transition.labels();
             if (dist(phase_points[l.first], phase_points[l.second]) > radius)
