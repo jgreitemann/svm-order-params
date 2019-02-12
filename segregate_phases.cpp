@@ -205,7 +205,7 @@ int main(int argc, char** argv)
 
     log_msg("Constructing graph...");
     using matrix_t = Eigen::MatrixXd;
-    matrix_t L(graph_dim, graph_dim);
+    matrix_t L = matrix_t::Zero(graph_dim, graph_dim);
     {
         // get auxiliary weights iterators
         using iter_t = typename std::vector<double>::const_iterator;
