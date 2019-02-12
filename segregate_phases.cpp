@@ -41,7 +41,7 @@ using model_t = svm::model<kernel_t, label_t>;
 
 int main(int argc, char** argv)
 {
-    argh::parser cmdl({"r", "rhoc", "R", "radius"});
+    argh::parser cmdl({"r", "rhoc", "R", "radius", "w", "weight"});
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
     alps::params parameters = [&] {
         if (cmdl[1].empty())
@@ -65,12 +65,21 @@ int main(int argc, char** argv)
     double radius;
     cmdl({"-R", "--radius"}, std::numeric_limits<double>::max()) >> radius;
 
-    auto weight = [&](double rho) {
-        return 1. - exp(-0.5 * pow((std::abs(rho) - 1.) / rhoc, 2.));
-    };
-    // auto weight = [&](double rho) {
-    //     return std::abs(std::abs(rho) - 1.) > rhoc;
-    // };
+    auto weight = [&]() -> std::function<double(double)> {
+        std::string weight_name;
+        cmdl({"-w", "--weight"}, "box") >> weight_name;
+        if (weight_name == "box") {
+            return [&](double rho) {
+                return std::abs(std::abs(rho) - 1.) > rhoc;
+            };
+        } else if (weight_name == "gaussian") {
+            return [&](double rho) {
+                return 1. - exp(-0.5 * pow((std::abs(rho) - 1.) / rhoc, 2.));
+            };
+        } else {
+            throw std::runtime_error("unknown weight function: " + weight_name);
+        }
+    }();
 
     std::string arname = parameters.get_archive_name();
     bool verbose = cmdl[{"-v", "--verbose"}];
