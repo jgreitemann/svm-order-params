@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <iterator>
 #include <limits>
@@ -29,6 +30,7 @@
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include <Eigen/Eigenvalues>
 
@@ -145,10 +147,38 @@ int main(int argc, char** argv)
         }
     }
 
+    log_msg("Accessing auxiliary graphs to combine...");
+    std::vector<std::vector<double>> aux_weights;
+    auto const& args = cmdl.pos_args();
+    for (auto it = std::next(args.begin(), 2); it != args.end(); ++it) {
+        double rho, w;
+        std::ifstream is{it->c_str()};
+        if (is) {
+            std::cout << "Reading auxiliary graph: " << it->c_str() << '\n';
+        } else {
+            std::cerr << "Could not open file: " << it->c_str()
+                      << "\tskipping...\n";
+            continue;
+        }
+        aux_weights.emplace_back();
+        while (is >> rho >> w)
+            aux_weights.back().push_back(w);
+        if (aux_weights.back().size() != model.nr_classifiers())
+            throw std::runtime_error("inconsistent number of graph edges in "
+                + *it);
+    }
+
     log_msg("Constructing graph...");
     using matrix_t = Eigen::MatrixXd;
     matrix_t L(phase_points.size(), phase_points.size());
     {
+        // get auxiliary weights iterators
+        using iter_t = typename std::vector<double>::const_iterator;
+        std::vector<iter_t> aux_iters;
+        std::transform(aux_weights.begin(), aux_weights.end(),
+            std::back_inserter(aux_iters),
+            std::mem_fn(&std::vector<double>::cbegin));
+
         std::ofstream os("rho.txt");
         std::ofstream os2("edges.txt");
         phase_space::point::distance<phase_point> dist{};
@@ -157,18 +187,21 @@ int main(int argc, char** argv)
             size_t i = index_map[labels.first], j = index_map[labels.second];
             double w = weight(transition.rho());
 
+            // combine weights from auxiliary graphs
+            for (auto & it : aux_iters)
+                w *= *(it++);
+
             os << std::abs(transition.rho()) << '\t' << w << '\n';
 
-            auto l = transition.labels();
-            if (dist(phase_points[l.first], phase_points[l.second]) > radius)
+            if (dist(phase_points[labels.first], phase_points[labels.second]) > radius)
                 continue;
 
             std::copy(phase_points[labels.first].begin(),
-              phase_points[labels.first].end(),
-              std::ostream_iterator<double> {os2, "\t"});
+                phase_points[labels.first].end(),
+                std::ostream_iterator<double> {os2, "\t"});
             std::copy(phase_points[labels.second].begin(),
-              phase_points[labels.second].end(),
-              std::ostream_iterator<double> {os2, "\t"});
+                phase_points[labels.second].end(),
+                std::ostream_iterator<double> {os2, "\t"});
             os2 << w << '\n';
 
             L(i,j) = -w;
