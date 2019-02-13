@@ -22,12 +22,15 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
 #include <sstream>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include <Eigen/Eigenvalues>
 
@@ -40,7 +43,8 @@ using model_t = svm::model<kernel_t, label_t>;
 
 int main(int argc, char** argv)
 {
-    argh::parser cmdl({"r", "rhoc", "p", "phase", "m", "mask"});
+    argh::parser cmdl({"r", "rhoc", "R", "radius", "m", "mask",
+        "t", "threshold", "w", "weight"});
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
     alps::params parameters = [&] {
         if (cmdl[1].empty())
@@ -58,16 +62,15 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    double rhoc;
-    if (!(cmdl({"-r", "--rhoc"}) >> rhoc))
-        rhoc = 1.75;
-
     std::string arname = parameters.get_archive_name();
     bool verbose = cmdl[{"-v", "--verbose"}];
     auto log_msg = [verbose] (std::string const& msg) {
         if (verbose)
             std::cout << msg << std::endl;
     };
+
+    double radius;
+    cmdl({"-R", "--radius"}, std::numeric_limits<double>::max()) >> radius;
 
     log_msg("Reading model...");
     model_t model;
@@ -77,103 +80,225 @@ int main(int argc, char** argv)
         ar["model"] >> serial;
     }
 
+    log_msg("Calculating bias statistics...");
+    double rho_std, median, hiqs;
+    {
+        double variance = 0;
+        size_t n = 0;
+        std::vector<double> rhos;
+        for (auto const& transition : model.classifiers()) {
+            ++n;
+            double rho = std::abs(transition.rho());
+            rhos.push_back(rho);
+            variance = (1. * (n - 1) / n) * variance + pow(rho - 1., 2.) / n;
+        }
+        rho_std = sqrt(variance);
+
+        std::sort(rhos.begin(), rhos.end());
+        median = rhos[rhos.size() / 2];
+        hiqs = 0.5 * (rhos[rhos.size() * 3 / 4] - rhos[rhos.size() / 4]);
+    }
+    std::cout << "RMS bias deviation from unity: " << rho_std << '\n'
+              << "Median bias: " << median << '\n'
+              << "Half interquartile spacing: " << hiqs << '\n';
+
+    auto weight = [&]() -> std::function<double(double)> {
+        double rhoc;
+        std::string weight_name = cmdl({"-w", "--weight"}, "box").str();
+        if (weight_name == "box") {
+            cmdl({"-r", "--rhoc"}, 1.) >> rhoc;
+            return [rhoc](double rho) {
+                return std::abs(std::abs(rho) - 1.) > rhoc;
+            };
+        } else if (weight_name == "gaussian") {
+            cmdl({"-r", "--rhoc"}, rho_std) >> rhoc;
+            return [rhoc](double rho) {
+                return 1. - exp(-0.5 * pow((std::abs(rho) - 1.) / rhoc, 2.));
+            };
+        } else if (weight_name == "lorentzian") {
+            cmdl({"-r", "--rhoc"}, hiqs) >> rhoc;
+            return [&, gamma_sq = rhoc * rhoc](double rho) {
+                return 1. - gamma_sq / (pow(std::abs(rho) - 1., 2.) + gamma_sq);
+            };
+        } else {
+            throw std::runtime_error("unknown weight function: " + weight_name);
+        }
+    }();
+
+    log_msg("Collecting phase space points...");
     std::map<label_t, phase_point> phase_points;
     std::map<label_t, size_t> index_map;
     std::vector<label_t> labels;
-    {
+    size_t graph_dim = [&] {
         using classifier_t = typename sim_base::phase_classifier;
         auto grid_sweep = phase_space::sweep::from_parameters<phase_point>(parameters);
+
+        // read mask if specified
+        std::vector<int> mask = [&] {
+            std::string mask_name;
+            if (cmdl({"-m", "--mask"}) >> mask_name) {
+                std::ifstream is{mask_name};
+                if (!is) {
+                    std::cerr << "unable to open mask file: " << mask_name
+                              << "\tskipping...\n";
+                    return std::vector<int>(grid_sweep->size(), 1);
+                }
+                phase_point p;
+                std::vector<int> mask;
+                while (true) {
+                    for (double & x : p)
+                        if (!(is >> x))
+                            break;
+                    if (!is)
+                        break;
+                    mask.emplace_back();
+                    is >> mask.back();
+                }
+                if (mask.size() != grid_sweep->size())
+                    throw std::runtime_error("inconsistent mask size");
+                return mask;
+            }
+            return std::vector<int>(grid_sweep->size(), 1);
+        }();
+
         classifier_t classifier(parameters);
         phase_point p;
         std::ofstream os("vertices.txt");
         std::mt19937 dummy_rng(42);
+        size_t j = 0;
         for (size_t i = 0; i < grid_sweep->size(); ++i) {
             grid_sweep->yield(p, dummy_rng);
             auto l = classifier(p);
             phase_points[l] = p;
-            index_map[l] = i;
+            if (!mask[i])
+                continue;
             labels.push_back(l);
+            index_map[l] = j++;
             os << l << '\t';
             std::copy(p.begin(), p.end(), std::ostream_iterator<double>{os, "\t"});
             os << '\n';
         }
-    }
-
-    auto check_mask = [&] {
-        std::string mask_filename;
-        std::vector<bool> mask;
-        if (cmdl({"-m", "--mask"}) >> mask_filename) {
-            std::ifstream is(mask_filename);
-            std::copy(std::istream_iterator<bool>{is},
-                std::istream_iterator<bool>{},
-                std::back_inserter(mask));
-        }
-        return [no_mask = mask.empty(), mask](size_t k) {
-            return no_mask || mask[k];
-        };
+        return j;
     }();
 
+    log_msg("Accessing auxiliary graphs to combine...");
+    std::vector<std::vector<double>> aux_weights;
+    auto const& args = cmdl.pos_args();
+    for (auto it = std::next(args.begin(), 2); it != args.end(); ++it) {
+        double rho, w;
+        std::ifstream is{it->c_str()};
+        if (is) {
+            std::cout << "Reading auxiliary graph: " << it->c_str() << '\n';
+        } else {
+            std::cerr << "Could not open file: " << it->c_str()
+                      << "\tskipping...\n";
+            continue;
+        }
+        aux_weights.emplace_back();
+        while (is >> rho >> w)
+            aux_weights.back().push_back(w);
+        if (aux_weights.back().size() != model.nr_classifiers())
+            throw std::runtime_error("inconsistent number of graph edges in "
+                + *it);
+    }
+
+    log_msg("Constructing graph...");
     using matrix_t = Eigen::MatrixXd;
-    matrix_t L(phase_points.size(), phase_points.size());
+    matrix_t L = matrix_t::Zero(graph_dim, graph_dim);
     {
+        // get auxiliary weights iterators
+        using iter_t = typename std::vector<double>::const_iterator;
+        std::vector<iter_t> aux_iters;
+        std::transform(aux_weights.begin(), aux_weights.end(),
+            std::back_inserter(aux_iters),
+            std::mem_fn(&std::vector<double>::cbegin));
+
         std::ofstream os("rho.txt");
         std::ofstream os2("edges.txt");
-        std::ofstream os3("mask.txt");
-        size_t k = 0;
+        phase_space::point::distance<phase_point> dist{};
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
+            double w = weight(transition.rho());
+
+            // combine weights from auxiliary graphs
+            for (auto & it : aux_iters)
+                w *= *(it++);
+
+            os << std::abs(transition.rho()) << '\t' << w << '\n';
+
+            if (dist(phase_points[labels.first], phase_points[labels.second]) > radius)
+                continue;
+
+            if (index_map.find(labels.first) == index_map.end()
+                || index_map.find(labels.second) == index_map.end())
+            {
+                continue;
+            }
             size_t i = index_map[labels.first], j = index_map[labels.second];
-            double rho = std::abs(std::abs(transition.rho()) - 1);
-
-            if (check_mask(k++) && rho > rhoc) {
-                os3 << true << '\n';
+            if (w > 0) {
                 std::copy(phase_points[labels.first].begin(),
-                          phase_points[labels.first].end(),
-                          std::ostream_iterator<double> {os2, "\t"});
-                os2 << '\n';
+                    phase_points[labels.first].end(),
+                    std::ostream_iterator<double> {os2, "\t"});
                 std::copy(phase_points[labels.second].begin(),
-                          phase_points[labels.second].end(),
-                          std::ostream_iterator<double> {os2, "\t"});
-                os2 << "\n\n";
-
-                L(i,j) = -1;
-                L(j,i) = -1;
-                L(i,i) += 1;
-                L(j,j) += 1;
-            } else {
-                os3 << false << '\n';
+                    phase_points[labels.second].end(),
+                    std::ostream_iterator<double> {os2, "\t"});
+                os2 << w << '\n';
             }
 
-            // auto diag = phase_space::classifier::D2h_map.at("D2h");
-            // bool is_transition = diag(phase_points[labels.first]) == diag(phase_points[labels.second]);
-            // os << is_transition << '\t' << rho << std::endl;
-            os << std::abs(transition.rho()) << '\n';
+            L(i,j) = -w;
+            L(j,i) = -w;
+            L(i,i) += w;
+            L(j,j) += w;
         }
     }
 
+    log_msg("Diagonalizing Laplacian...");
     auto eigen = Eigen::SelfAdjointEigenSolver<matrix_t>(L);
+    auto const& evecs = eigen.eigenvectors();
 
     std::vector<std::pair<size_t, double>> evals;
     evals.reserve(phase_points.size());
-    for (size_t i = 0; i < phase_points.size(); ++i)
+    for (size_t i = 0; i < graph_dim; ++i)
         evals.emplace_back(i, eigen.eigenvalues()(i));
     std::sort(evals.begin(), evals.end(),
               [](auto const& lhs, auto const& rhs) { return lhs.second < rhs.second; });
 
+    log_msg("Writing phases...");
     size_t degen = 0;
-    std::ofstream os("phases.txt");
-    auto const& evecs = eigen.eigenvectors();
-    for (size_t i = 0; i < phase_points.size(); ++i) {
-        os << "# eval = " << evals[i].second << '\n';
-        if (evals[i].second < 1e-10)
-            ++degen;
-        for (size_t j = 0; j < phase_points.size(); ++j) {
-            auto const& p = phase_points[labels[j]];
-            std::copy(p.begin(), p.end(),
-                      std::ostream_iterator<double>{os, "\t"});
-            os << evecs(j, evals[i].first) << '\n';
+    {
+        std::ofstream os("phases.txt");
+        for (size_t i = 0; i < graph_dim; ++i) {
+            os << "# eval = " << evals[i].second << '\n';
+            if (evals[i].second < 1e-10)
+                ++degen;
+            for (size_t j = 0; j < graph_dim; ++j) {
+                auto const& p = phase_points[labels[j]];
+                std::copy(p.begin(), p.end(),
+                          std::ostream_iterator<double>{os, "\t"});
+                os << evecs(j, evals[i].first) << '\n';
+            }
+            os << "\n\n";
         }
-        os << "\n\n";
+    }
+
+    log_msg("Writing mask...");
+    double threshold;
+    if (cmdl({"-t", "--threshold"}) >> threshold) {
+        bool invert_mask = cmdl["--invert-mask"];
+        std::ofstream os("mask.txt");
+        auto const& fiedler_vec = evecs.col(evals[degen].first);
+        for (auto it = phase_points.begin(); it != phase_points.end(); ++it) {
+            auto const& l = it->first;
+            auto const& p = it->second;
+            std::copy(p.begin(), p.end(),
+                std::ostream_iterator<double>{os, "\t"});
+            auto idx_it = index_map.find(l);
+            if (idx_it == index_map.end())
+                os << 0 << '\n';
+            else
+                os << ((fiedler_vec(idx_it->second) >= threshold) ^ invert_mask)
+                   << '\n';
+        }
     }
 
     std::cout << "Degeneracy of smallest eval: " << degen << std::endl;
