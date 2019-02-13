@@ -165,13 +165,12 @@ int main(int argc, char** argv)
         phase_point p;
         std::ofstream os("vertices.txt");
         std::mt19937 dummy_rng(42);
-        bool invert_mask = cmdl["--invert-mask"];
         size_t j = 0;
         for (size_t i = 0; i < grid_sweep->size(); ++i) {
             grid_sweep->yield(p, dummy_rng);
             auto l = classifier(p);
             phase_points[l] = p;
-            if (!(mask[i] ^ invert_mask))
+            if (!mask[i])
                 continue;
             labels.push_back(l);
             index_map[l] = j++;
@@ -283,6 +282,7 @@ int main(int argc, char** argv)
     log_msg("Writing mask...");
     double threshold;
     if (cmdl({"-t", "--threshold"}) >> threshold) {
+        bool invert_mask = cmdl["--invert-mask"];
         std::ofstream os("mask.txt");
         auto const& fiedler_vec = evecs.col(evals[degen].first);
         for (auto it = phase_points.begin(); it != phase_points.end(); ++it) {
@@ -294,7 +294,8 @@ int main(int argc, char** argv)
             if (idx_it == index_map.end())
                 os << 0 << '\n';
             else
-                os << (fiedler_vec(idx_it->second) >= threshold) << '\n';
+                os << ((fiedler_vec(idx_it->second) >= threshold) ^ invert_mask)
+                   << '\n';
         }
     }
 
