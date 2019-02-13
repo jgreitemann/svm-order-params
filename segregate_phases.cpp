@@ -235,13 +235,15 @@ int main(int argc, char** argv)
                 continue;
             }
             size_t i = index_map[labels.first], j = index_map[labels.second];
-            std::copy(phase_points[labels.first].begin(),
-                phase_points[labels.first].end(),
-                std::ostream_iterator<double> {os2, "\t"});
-            std::copy(phase_points[labels.second].begin(),
-                phase_points[labels.second].end(),
-                std::ostream_iterator<double> {os2, "\t"});
-            os2 << w << '\n';
+            if (w > 0) {
+                std::copy(phase_points[labels.first].begin(),
+                    phase_points[labels.first].end(),
+                    std::ostream_iterator<double> {os2, "\t"});
+                std::copy(phase_points[labels.second].begin(),
+                    phase_points[labels.second].end(),
+                    std::ostream_iterator<double> {os2, "\t"});
+                os2 << w << '\n';
+            }
 
             L(i,j) = -w;
             L(j,i) = -w;
