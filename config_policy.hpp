@@ -353,14 +353,15 @@ protected:
 
 private:
     size_t rearranged_index (indices_t const& ind) const {
-        size_t n_component = ElementPolicy::range() / ElementPolicy::n_block();
+        size_t n_block = ElementPolicy::n_block();
+        size_t n_component = ElementPolicy::range() / n_block;
         size_t components = 0;
         size_t blocks = 0;
         size_t shift = 1;
         for (auto it = ind.begin(); it != ind.end(); ++it) {
             components *= n_component;
             components += component(*it);
-            blocks *= n_component;
+            blocks *= n_block;
             blocks += block(*it);
             shift *= n_component;
         }
