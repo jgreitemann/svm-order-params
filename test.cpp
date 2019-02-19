@@ -82,6 +82,7 @@ int main(int argc, char** argv)
         using vecpair_t = std::pair<std::vector<double>, std::vector<double>>;
         std::vector<pair_t> label(points.size());
         std::vector<vecpair_t> svm(points.size());
+        std::vector<vecpair_t> svm_var(points.size());
         std::vector<vecpair_t> mag(points.size());
 
         // get the bias parameters
@@ -149,8 +150,11 @@ int main(int argc, char** argv)
                     mag[i].first.push_back(results[opname].mean<double>());
                     mag[i].second.push_back(results[opname].error<double>());
                 }
+                auto variance = results["SVM^2"] - results["SVM"] * results["SVM"];
                 svm[i] = {results["SVM"].mean<std::vector<double>>(),
                           results["SVM"].error<std::vector<double>>()};
+                svm_var[i] = {variance.mean<std::vector<double>>(),
+                              variance.error<std::vector<double>>()};
                 label[i] = {results["label"].mean<double>(),
                             results["label"].error<double>()};
 #pragma omp atomic
@@ -189,11 +193,12 @@ int main(int argc, char** argv)
                       std::ostream_iterator<double> {os, "\t"});
             os << label[i].first << '\t'
                << label[i].second << '\t';
-            for (size_t j = 0; j < svm[i].first.size(); ++j)
+            for (size_t j = 0; j < svm[i].first.size(); ++j) {
                 os << svm[i].first[j] << '\t'
                    << svm[i].second[j] << '\t';
-                // os << sqrt(svm[i].first[j]) << '\t'
-                //    << svm[i].second[j] / 2. / sqrt(svm[i].first[j]) << '\t';
+                os << svm_var[i].first[j] << '\t'
+                   << svm_var[i].second[j] << '\t';
+            }
             for (size_t j = 0; j < mag[i].first.size(); ++j)
                 os << mag[i].first[j] << '\t'
                    << mag[i].second[j] << '\t';

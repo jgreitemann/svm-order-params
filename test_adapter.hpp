@@ -66,8 +66,10 @@ public:
             ar["model"] >> serial;
         }
 
-        measurements << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
-                     << alps::accumulators::FullBinningAccumulator<double>("label");
+        measurements
+        << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
+        << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM^2")
+        << alps::accumulators::FullBinningAccumulator<double>("label");
     }
 
     virtual void measure () override {
@@ -76,8 +78,14 @@ public:
             auto res = model(svm::dataset(confpol->configuration(Simulation::configuration())));
             measurements["label"] << double(res.first);
 
+            // measure decision functions
             auto decs = svm::detail::container_factory<std::vector<double>>::copy(res.second);
             measurements["SVM"] << decs;
+
+            // measure decision function squares
+            std::transform(decs.begin(), decs.end(), decs.begin(), decs.begin(),
+                std::multiplies<>{});
+            measurements["SVM^2"] << decs;
         }
     }
 
