@@ -86,13 +86,13 @@ public:
         if (parameters.is_restored()) {
             return;
         }
-    
+
         // Adds the parameters of the base class
         alps::mcbase::define_parameters(parameters);
         // Adds the convenience parameters (for save/load)
         // followed by simulation control parameters
         define_convenience_parameters(parameters)
-            .description("Simulation of the TODO")
+            .description("Simulation of frustrated magnetism")
             .define<size_t>("total_sweeps", 0,
                             "maximum number of sweeps (0 means indefinite)")
             .define<size_t>("thermalization_sweeps", 10000,
@@ -145,7 +145,7 @@ public:
             return (sweeps - thermalization_sweeps) / double(total_sweeps);
         }
         return 0;
-        
+
     }
 
     using alps::mcbase::save;
