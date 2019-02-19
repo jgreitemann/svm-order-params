@@ -29,6 +29,7 @@
 #include <map>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -43,7 +44,7 @@ using model_t = svm::model<kernel_t, label_t>;
 
 int main(int argc, char** argv)
 {
-    argh::parser cmdl({"r", "rhoc", "R", "radius", "m", "mask",
+    argh::parser cmdl({"r", "rhoc", "R", "radius", "m", "mask", "masked-value",
         "t", "threshold", "w", "weight"});
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
     alps::params parameters = [&] {
@@ -267,15 +268,30 @@ int main(int argc, char** argv)
     size_t degen = 0;
     {
         std::ofstream os("phases.txt");
+        double masked_value;
+        bool use_masked_value = bool(cmdl("--masked-value") >> masked_value);
         for (size_t i = 0; i < graph_dim; ++i) {
             os << "# eval = " << evals[i].second << '\n';
             if (evals[i].second < 1e-10)
                 ++degen;
-            for (size_t j = 0; j < graph_dim; ++j) {
-                auto const& p = phase_points[labels[j]];
-                std::copy(p.begin(), p.end(),
-                          std::ostream_iterator<double>{os, "\t"});
-                os << evecs(j, evals[i].first) << '\n';
+            label_t l;
+            phase_point p;
+            for (auto const& label_point_pair : phase_points) {
+                std::tie(l, p) = label_point_pair;
+                auto idx_it = index_map.find(l);
+                if (idx_it == index_map.end()) {
+                    if (use_masked_value) {
+                        std::copy(p.begin(), p.end(),
+                            std::ostream_iterator<double>{os, "\t"});
+                        os << masked_value << '\n';
+                    } else {
+                        continue;
+                    }
+                } else {
+                    std::copy(p.begin(), p.end(),
+                        std::ostream_iterator<double>{os, "\t"});
+                    os << evecs(idx_it->second, evals[i].first) << '\n';
+                }
             }
             os << "\n\n";
         }
