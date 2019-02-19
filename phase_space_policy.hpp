@@ -745,7 +745,10 @@ namespace phase_space {
                      itc != coords.end();
                      ++itc, ++its, ++ita, ++itb, ++itp)
                 {
-                    *itc = (*itp - *ita) / (*itb - *ita) * (*its - 1) + 0.5;
+                    if (*its > 1)
+                        *itc = (*itp - *ita) / (*itb - *ita) * (*its - 1) + 0.5;
+                    else
+                        *itc = 0;
                 }
 
                 long tot = 0;
