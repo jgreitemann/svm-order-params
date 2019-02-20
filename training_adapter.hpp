@@ -46,6 +46,7 @@ public:
     using introspec_t = svm::tensor_introspector<typename model_t::classifier_type, 2>;
 
     using config_policy_t = typename Simulation::template config_policy_type<introspec_t>;
+    using config_array = typename config_policy_t::config_array;
 
     static void define_parameters(parameters_type & parameters) {
         // If the parameters are restored, they are already defined
@@ -106,7 +107,8 @@ public:
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
-            sample_config();
+            sample_config(Simulation::configuration(),
+                          Simulation::phase_space_point());
             ++i_temp;
         }
     }
@@ -159,12 +161,14 @@ public:
         return other_problem;
     }
 
+    virtual void sample_config(config_array const& config,
+                               phase_point const& ppoint)
+    {
+        problem.add_sample(confpol->configuration(config), ppoint);
+    }
+
 protected:
     std::unique_ptr<config_policy_t> confpol;
-    virtual void sample_config() {
-        problem.add_sample(confpol->configuration(Simulation::configuration()),
-                           Simulation::phase_space_point());
-    }
 
 private:
     using Simulation::parameters;

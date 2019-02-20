@@ -103,10 +103,10 @@ public:
         return problem;
     }
 
-protected:
-    virtual void sample_config() override {
-        config_buffer.emplace_back(Simulation::configuration(),
-                                   Simulation::phase_space_point());
+    virtual void sample_config(config_array const& config,
+                               phase_point const& ppoint) override
+    {
+        config_buffer.emplace_back(config, ppoint);
     }
 
 private:

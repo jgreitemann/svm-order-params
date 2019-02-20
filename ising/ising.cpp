@@ -7,6 +7,7 @@
 #include "ising.hpp"
 #include "convenience_params.hpp"
 
+#include <algorithm>
 #include <sstream>
 
 
@@ -93,6 +94,15 @@ bool ising_sim::is_thermalized() const {
 
 storage_type const& ising_sim::configuration() const {
     return spins;
+}
+
+storage_type ising_sim::random_configuration() {
+    auto random_spins = spins;
+    std::generate(random_spins.begin(), random_spins.end(),
+        [&]() {
+            return std::bernoulli_distribution{}(rng) ? 1. : -1;
+        });
+    return random_spins;
 }
 
 ising_sim::phase_point ising_sim::phase_space_point () const {

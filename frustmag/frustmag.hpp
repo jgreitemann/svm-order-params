@@ -192,8 +192,16 @@ public:
         return sweeps > thermalization_sweeps;
     }
 
-    auto const& configuration() const {
+    lattice_type const& configuration() const {
         return hamiltonian_.lattice();
+    }
+
+    lattice_type random_configuration() {
+        lattice_type random_lattice = hamiltonian_.lattice();
+        using site_t = typename lattice_type::value_type;
+        std::generate(random_lattice.begin(), random_lattice.end(),
+            [&] { return site_t::random(rng); });
+        return random_lattice;
     }
 
     phase_point phase_space_point() const {

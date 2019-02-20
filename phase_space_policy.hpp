@@ -701,6 +701,8 @@ namespace phase_space {
                 }
             }
             label_type operator() (point_type pp) {
+                if (pp == infty)
+                    return sweep::cycle<point_type>::MAX_CYCLE;
                 size_t i = 0;
                 double d = std::numeric_limits<double>::max();
                 point::distance<point_type> dist{};
@@ -715,6 +717,7 @@ namespace phase_space {
             }
         private:
             std::vector<point_type> points;
+            const point_type infty = point::infinity<point_type>{}();
         };
 
         template <typename Point>

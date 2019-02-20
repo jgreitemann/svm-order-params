@@ -606,6 +606,13 @@ void gauge_sim::load(alps::hdf5::archive & ar) {
 
 }
 
+gauge_sim::Rt_array gauge_sim::random_configuration() {
+    Rt_array R_random(boost::extents[L3]);
+    for (auto & Rt : R_random)
+        random_R(Rt);
+    return R_random;
+}
+
 void gauge_sim::reset_sweeps(bool skip_therm) {
     if (skip_therm)
         sweeps = thermalization_sweeps;

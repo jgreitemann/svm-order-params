@@ -55,6 +55,7 @@ public:
     void reset_sweeps(bool skip_therm = false);
     bool is_thermalized() const;
     storage_type const& configuration() const;
+    storage_type random_configuration();
     phase_point phase_space_point () const;
     void update_phase_point (phase_sweep_policy_type & sweep_policy);
 

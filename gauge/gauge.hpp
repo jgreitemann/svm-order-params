@@ -195,6 +195,7 @@ public:
     Rt_array const& configuration() const {
         return R;
     }
+    Rt_array random_configuration();
     void reset_sweeps(bool skip_therm);
     bool is_thermalized() const;
     phase_point phase_space_point () const;
