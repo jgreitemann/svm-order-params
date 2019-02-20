@@ -86,13 +86,13 @@ public:
         if (parameters.is_restored()) {
             return;
         }
-    
+
         // Adds the parameters of the base class
         alps::mcbase::define_parameters(parameters);
         // Adds the convenience parameters (for save/load)
         // followed by simulation control parameters
         define_convenience_parameters(parameters)
-            .description("Simulation of the TODO")
+            .description("Simulation of frustrated magnetism")
             .define<size_t>("total_sweeps", 0,
                             "maximum number of sweeps (0 means indefinite)")
             .define<size_t>("thermalization_sweeps", 10000,
@@ -145,7 +145,7 @@ public:
             return (sweeps - thermalization_sweeps) / double(total_sweeps);
         }
         return 0;
-        
+
     }
 
     using alps::mcbase::save;
@@ -192,8 +192,16 @@ public:
         return sweeps > thermalization_sweeps;
     }
 
-    auto const& configuration() const {
+    lattice_type const& configuration() const {
         return hamiltonian_.lattice();
+    }
+
+    lattice_type random_configuration() {
+        lattice_type random_lattice = hamiltonian_.lattice();
+        using site_t = typename lattice_type::value_type;
+        std::generate(random_lattice.begin(), random_lattice.end(),
+            [&] { return site_t::random(rng); });
+        return random_lattice;
     }
 
     phase_point phase_space_point() const {

@@ -53,7 +53,7 @@ int main(int argc, char** argv)
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
         alps::params parameters(argc, argv);
-        argh::parser cmdl(argc, argv);
+        argh::parser cmdl(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
 
         // define parameters
         sim_type::define_parameters(parameters);
@@ -154,6 +154,21 @@ int main(int argc, char** argv)
                     }
                 }
             }
+        }
+
+        if (cmdl[{"-i", "--infinite-temperature"}]) {
+            using phase_point = typename classifier_t::point_type;
+            phase_point ppoint = phase_space::point::infinity<phase_point>{}();
+
+            training_adapter<sim_base> sim(parameters, 0);
+            // phase_space::sweep::cycle<phase_point> single_point{ppoint};
+            // sim.update_phase_point(single_point);
+
+            size_t N_samples = parameters["sweep.samples"].as<size_t>();
+            for (size_t i = 0; i < N_samples; ++i) {
+                sim.sample_config(sim.random_configuration(), ppoint);
+            }
+            prob.append_problem(sim.surrender_problem(), classifier);
         }
 
         /* print label statistics */ {
