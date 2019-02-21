@@ -196,3 +196,17 @@ target_link_libraries(output-contractions ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
+
+install(TARGETS
+  ising-learn
+  ising-test
+  ising-coeffs
+  gauge-learn
+  gauge-test
+  gauge-coeffs
+  gauge-segregate-phases
+  output-contractions
+  frustmag-learn
+  frustmag-test
+  frustmag-coeffs
+  DESTINATION bin)
