@@ -117,3 +117,14 @@ target_link_libraries(gauge-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-segregate-phases ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(output-contractions ${ALPSCore_LIBRARIES} svm stdc++fs)
+
+install(TARGETS
+  ising-learn
+  ising-test
+  ising-coeffs
+  gauge-learn
+  gauge-test
+  gauge-coeffs
+  gauge-segregate-phases
+  output-contractions
+  DESTINATION bin)
