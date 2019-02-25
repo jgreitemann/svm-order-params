@@ -163,6 +163,13 @@ add_executable(output-contractions
     )
 
 include_directories(frustmag)
+
+add_executable(frustmag-sample
+    sample.cpp
+    phase_space_policy.cpp
+    )
+target_compile_definitions(frustmag-sample PUBLIC -DFRUSTMAG -DHAS_SVM)
+
 add_executable(frustmag-learn
     learn.cpp
     phase_space_policy.cpp
@@ -193,6 +200,7 @@ target_link_libraries(gauge-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(gauge-segregate-phases ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(output-contractions ${ALPSCore_LIBRARIES} svm stdc++fs)
 
+target_link_libraries(frustmag-sample ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
@@ -206,6 +214,7 @@ install(TARGETS
   gauge-coeffs
   gauge-segregate-phases
   output-contractions
+  frustmag-sample
   frustmag-learn
   frustmag-test
   frustmag-coeffs
