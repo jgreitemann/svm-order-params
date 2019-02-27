@@ -16,6 +16,7 @@
 
 #include "checkpointing_stop_callback.hpp"
 #include "config_sim_base.hpp"
+#include "mpi.hpp"
 #include "phase_space_policy.hpp"
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
@@ -36,93 +37,6 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/mpiadapter.hpp>
 #include <alps/mc/stop_callback.hpp>
-
-template <typename...>
-using void_t = void;
-
-template <class T, class = void>
-struct is_iterator : std::false_type { };
-
-template <class T>
-struct is_iterator<T, void_t<
-    typename std::iterator_traits<T>::iterator_category
-    >> : std::true_type {};
-
-template <class T>
-constexpr bool is_iterator_v = is_iterator<T>::value;
-
-namespace mpi {
-    using namespace alps::mpi;
-    template <typename T>
-    void send(communicator const& comm,
-        T const* vals,
-        size_t count,
-        int dest,
-        int tag)
-    {
-        MPI_Send(vals, count, alps::mpi::detail::mpi_type<T>(), dest, tag, comm);
-    }
-
-    template <typename ContiguousIterator,
-              typename = std::enable_if_t<is_iterator_v<ContiguousIterator>>>
-    void send(communicator const& comm,
-        ContiguousIterator begin,
-        ContiguousIterator end,
-        int dest,
-        int tag)
-    {
-        send(comm, &(*begin), end - begin, dest, tag);
-    }
-
-    template <typename T>
-    void send(communicator const& comm, T const& val, int dest, int tag) {
-        send(comm, &val, 1, dest, tag);
-    }
-
-    void send(communicator const& comm, int dest, int tag) {
-        send<int>(comm, nullptr, 0, dest, tag);
-    }
-
-    template <typename T>
-    int receive(communicator const& comm,
-        T * vals,
-        size_t count,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG)
-    {
-        MPI_Status status;
-        MPI_Recv(vals, count, alps::mpi::detail::mpi_type<T>(), source, tag, comm, &status);
-        return status.MPI_SOURCE;
-    }
-
-    template <typename ContiguousIterator,
-              typename = std::enable_if_t<is_iterator_v<ContiguousIterator>>>
-    int receive(communicator const& comm,
-        ContiguousIterator begin,
-        ContiguousIterator end,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG)
-    {
-        return receive(comm, &(*begin), end - begin, source, tag);
-    }
-
-    template <typename T>
-    int receive(communicator const& comm,
-        T & val,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG)
-    {
-        return receive(comm, &val, 1, source, tag);
-    }
-
-    int receive(communicator const& comm,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG)
-    {
-        return receive(comm, static_cast<int *>(nullptr), 0, source, tag);
-    }
-
-}
 
 #ifdef CONFIG_MAPPING_LAZY
 #include "procrastination_adapter.hpp"
@@ -185,7 +99,6 @@ int main(int argc, char** argv)
             std::mt19937 rng{parameters["SEED"].as<size_t>()};
             phase_point pp;
             sweep_pol->yield(pp, rng);
-            std::cout << "Hello, world!" << std::endl;
             std::generate_n(std::back_inserter(batches), sweep_pol->size(),
                 [&]() -> std::vector<phase_point> {
                     sweep_pol->yield(pp, rng);
