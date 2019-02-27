@@ -56,9 +56,9 @@ constexpr int request_batch_tag = 43;
 int main(int argc, char** argv)
 {
     mpi::environment env(argc, argv, mpi::environment::threading::multiple);
-    alps::mpi::communicator comm_world;
+    mpi::communicator comm_world;
 
-    const int is_master = (comm_world.rank() == 0);
+    const bool is_master = (comm_world.rank() == 0);
     try {
         std::cout << "Initializing parameters..." << std::endl;
         alps::params parameters(argc, argv, comm_world);
@@ -106,11 +106,12 @@ int main(int argc, char** argv)
                 });
         }
 
-        size_t batch_size = 1;
+        size_t batch_size = batches.front().size();
         size_t n_group = comm_world.size() / batch_size;
         int this_group = comm_world.rank() / batch_size;
 
         auto comm_group = mpi::split_communicator(comm_world, this_group);
+        const bool is_group_leader = (comm_group.rank() == 0);
 
         std::cout << "n_group: " << n_group << std::endl;
         auto log = [&](std::ostream & os = std::cout) -> std::ostream & {
@@ -143,13 +144,17 @@ int main(int argc, char** argv)
 
         int batch_index;
         auto request_batch = [&] {
-            mpi::send(comm_world, 0, report_idle_tag);
-            mpi::receive(comm_world, batch_index, 0, request_batch_tag);
+            if (is_group_leader) {
+                mpi::send(comm_world, 0, report_idle_tag);
+                mpi::receive(comm_world, batch_index, 0, request_batch_tag);
+            }
+            mpi::broadcast(comm_group, batch_index, 0);
             return batch_index >= 0;
         };
 
         std::mt19937 rng{static_cast<size_t>(comm_world.rank())};
         while (request_batch()) {
+            size_t slice_index = comm_group.rank();
             log() << "beginning work on batch " << batch_index << '\n';
             std::this_thread::sleep_for(std::chrono::milliseconds(std::uniform_int_distribution<size_t>{3000, 4000}(rng)));
             log() << "finished work on batch " << batch_index << '\n';
