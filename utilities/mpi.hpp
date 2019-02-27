@@ -191,4 +191,13 @@ namespace mpi {
         return receive(comm, static_cast<int *>(nullptr), 0, source, tag);
     }
 
+    communicator split_communicator(communicator const& comm,
+        int color,
+        int key = 0)
+    {
+        MPI_Comm sub;
+        MPI_Comm_split(comm, color, key, &sub);
+        return {sub, alps::mpi::take_ownership};
+    }
+
 }

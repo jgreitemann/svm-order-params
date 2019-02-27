@@ -108,24 +108,33 @@ int main(int argc, char** argv)
 
         size_t batch_size = 1;
         size_t n_group = comm_world.size() / batch_size;
+        int this_group = comm_world.rank() / batch_size;
+
+        auto comm_group = mpi::split_communicator(comm_world, this_group);
 
         std::cout << "n_group: " << n_group << std::endl;
+        auto log = [&](std::ostream & os = std::cout) -> std::ostream & {
+            return os << '[' << comm_world.rank() << '/' << comm_world.size()
+            << ';' << comm_group.rank() << '/' << comm_group.size() << "]\t";
+        };
 
         std::thread dispatcher = [&] {
             if (is_master) {
                 return std::thread{[&] {
                     for (size_t batch_index = 0; batch_index < batches.size(); ++batch_index) {
-                        std::cout << "waiting for idle process\n";
+                        log() << "waiting for idle process\n";
                         int idle = mpi::receive(comm_world, MPI_ANY_SOURCE, report_idle_tag);
-                        std::cout << "process " << idle << " is idle\n";
-                        mpi::send(comm_world, static_cast<int>(batch_index), idle, request_batch_tag);
+                        log() << "process " << idle << " is idle\n";
+                        mpi::send(comm_world, static_cast<int>(batch_index),
+                            idle, request_batch_tag);
                     }
                     for (size_t group = 0; group < n_group; ++group) {
-                        std::cout << "waiting for idle process\n";
+                        log() << "waiting for idle process\n";
                         int idle = mpi::receive(comm_world, MPI_ANY_SOURCE, report_idle_tag);
-                        std::cout << "process " << idle << " will be told to terminate\n";
+                        log() << "process " << idle << " will be told to terminate\n";
                         mpi::send(comm_world, -1, idle, request_batch_tag);
                     }
+                    log() << "dispatcher terminates.\n";
                 }};
             } else {
                 return std::thread{};
@@ -141,14 +150,12 @@ int main(int argc, char** argv)
 
         std::mt19937 rng{static_cast<size_t>(comm_world.rank())};
         while (request_batch()) {
-            std::cout << "process " << comm_world.rank()
-                      << " begins work on batch " << batch_index << '\n';
+            log() << "beginning work on batch " << batch_index << '\n';
             std::this_thread::sleep_for(std::chrono::milliseconds(std::uniform_int_distribution<size_t>{3000, 4000}(rng)));
-            std::cout << "process " << comm_world.rank()
-                      << " finished work on batch " << batch_index << '\n';
+            log() << "finished work on batch " << batch_index << '\n';
         }
 
-        std::cout << "process " << comm_world.rank() << " terminates.\n";
+        log() << "terminating.\n";
 
         if (is_master)
             dispatcher.join();
