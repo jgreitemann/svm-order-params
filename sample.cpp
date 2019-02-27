@@ -55,7 +55,7 @@ constexpr int request_batch_tag = 43;
 
 int main(int argc, char** argv)
 {
-    alps::mpi::environment env(argc, argv);
+    mpi::environment env(argc, argv, mpi::environment::threading::multiple);
     alps::mpi::communicator comm_world;
 
     const int is_master = (comm_world.rank() == 0);

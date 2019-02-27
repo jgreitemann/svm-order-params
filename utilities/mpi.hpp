@@ -43,6 +43,81 @@ namespace mpi {
     using alps::mpi::communicator;
     using alps::mpi::broadcast;
 
+    struct environment {
+
+        enum struct threading {
+            single = MPI_THREAD_SINGLE,
+            funneled = MPI_THREAD_FUNNELED,
+            serialized = MPI_THREAD_SERIALIZED,
+            multiple = MPI_THREAD_MULTIPLE,
+        };
+
+        static void abort(int rc=0)
+        {
+            MPI_Abort(MPI_COMM_WORLD,rc);
+        }
+
+        static bool initialized()
+        {
+            int ini;
+            MPI_Initialized(&ini);
+            return ini;
+        }
+
+        static bool finalized()
+        {
+            int fin;
+            MPI_Finalized(&fin);
+            return fin;
+        }
+
+        environment(int& argc, char**& argv,
+            threading thr = threading::single,
+            bool abort_on_exception=true)
+        : initialized_(false)
+        , abort_on_exception_(abort_on_exception)
+        {
+            if (!initialized()) {
+                int prov;
+                MPI_Init_thread(&argc, &argv, static_cast<int>(thr), &prov);
+                if (prov < static_cast<int>(thr))
+                    throw std::runtime_error(
+                        "requested threading mode not supported by MPI "
+                        "implementation");
+                initialized_=true;
+            }
+        }
+
+        environment(threading thr = threading::single,
+            bool abort_on_exception=true)
+        : initialized_(false)
+        , abort_on_exception_(abort_on_exception)
+        {
+            if (!initialized()) {
+                int prov;
+                MPI_Init_thread(nullptr, nullptr, static_cast<int>(thr), &prov);
+                if (prov < static_cast<int>(thr))
+                    throw std::runtime_error(
+                        "requested threading mode not supported by MPI "
+                        "implementation");
+                initialized_=true;
+            }
+        }
+
+        ~environment()
+        {
+            if (!initialized_) return; // we are not in control, don't mess up other's logic.
+            if (finalized()) return; // MPI is finalized --- don't touch it.
+            if (abort_on_exception_ && std::uncaught_exception()) {
+                this->abort(255); // FIXME: make the return code configurable?
+            }
+            MPI_Finalize();
+        }
+    private:
+        bool initialized_;
+        bool abort_on_exception_;
+    };
+
     template <typename T>
     void send(communicator const& comm,
         T const* vals,
