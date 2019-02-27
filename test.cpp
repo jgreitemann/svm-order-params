@@ -142,8 +142,7 @@ int main(int argc, char** argv)
                 progress_report();
 
                 sim_type sim(parameters);
-                phase_space::sweep::cycle<phase_point> one_point {{points[i]}};
-                sim.update_phase_point(one_point);
+                sim.update_phase_point(points[i]);
                 sim.run(alps::stop_callback(size_t(parameters["timelimit"])));
 
                 alps::results_type<sim_type>::type results = alps::collect_results(sim);

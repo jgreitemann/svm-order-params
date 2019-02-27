@@ -199,7 +199,7 @@ public:
     void reset_sweeps(bool skip_therm);
     bool is_thermalized() const;
     phase_point phase_space_point () const;
-    void update_phase_point (phase_sweep_policy_type & sweep_policy);
+    void update_phase_point(phase_point);
 };
 
 template <>

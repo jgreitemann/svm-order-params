@@ -26,7 +26,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
-#include <random>
+#include <stdexcept>
 #include <thread>
 #include <type_traits>
 #include <utility>
@@ -52,6 +52,8 @@ using phase_point = typename classifier_t::point_type;
 
 constexpr int report_idle_tag = 42;
 constexpr int request_batch_tag = 43;
+constexpr int read_checkpoint_tag = 44;
+constexpr int write_checkpoint_tag = 45;
 
 int main(int argc, char** argv)
 {
@@ -60,7 +62,8 @@ int main(int argc, char** argv)
 
     const bool is_master = (comm_world.rank() == 0);
     try {
-        std::cout << "Initializing parameters..." << std::endl;
+        if (is_master)
+            std::cout << "Initializing parameters..." << std::endl;
         alps::params parameters(argc, argv, comm_world);
 
         // define parameters
@@ -72,30 +75,20 @@ int main(int argc, char** argv)
                                       "time in sec between progress reports");
         }
 
-        if (parameters.help_requested(std::cout) ||
-            parameters.has_missing(std::cout)) {
+        if (parameters.help_requested(std::cout)
+            || parameters.has_missing(std::cout))
+        {
             return 1;
         }
 
         std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
 
-        int n_clones = comm_world.size();
-        if (is_master && parameters.is_restored()) {
-            int n_clones_saved;
-            alps::hdf5::archive cp(checkpoint_file, "r");
-
-            cp["simulation/n_clones"] >> n_clones_saved;
-            if (n_clones != n_clones_saved) {
-                throw std::runtime_error(
-                    "MPI world size must match saved number of clones");
-            }
-        }
+        const bool resumed = parameters.is_restored();
 
         // Collect phase points
         std::vector<std::vector<phase_point>> batches;
         {
             auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(parameters);
-            std::cout << "sweep size: " << sweep_pol->size() << std::endl;
             std::mt19937 rng{parameters["SEED"].as<size_t>()};
             phase_point pp;
             sweep_pol->yield(pp, rng);
@@ -113,34 +106,103 @@ int main(int argc, char** argv)
         auto comm_group = mpi::split_communicator(comm_world, this_group);
         const bool is_group_leader = (comm_group.rank() == 0);
 
-        std::cout << "n_group: " << n_group << std::endl;
         auto log = [&](std::ostream & os = std::cout) -> std::ostream & {
             return os << '[' << comm_world.rank() << '/' << comm_world.size()
             << ';' << comm_group.rank() << '/' << comm_group.size() << "]\t";
         };
 
+        alps::stop_callback stop_cb(parameters["timelimit"].as<size_t>());
+
         std::thread dispatcher = [&] {
             if (is_master) {
                 return std::thread{[&] {
-                    for (size_t batch_index = 0; batch_index < batches.size(); ++batch_index) {
-                        log() << "waiting for idle process\n";
-                        int idle = mpi::receive(comm_world, MPI_ANY_SOURCE, report_idle_tag);
-                        log() << "process " << idle << " is idle\n";
+                    size_t batch_index = 0;
+                    std::vector<size_t> active_batches;
+                    if (resumed) {
+                        {
+                            alps::hdf5::archive cp(checkpoint_file, "r");
+                            cp["simulation/active_batches"] >> active_batches;
+                        }
+                        if (n_group != active_batches.size()) {
+                            throw std::runtime_error(
+                                "MPI world size must match saved number of groups");
+                        }
+                        mpi::send(comm_world, 0, read_checkpoint_tag);
+                        // dispatch the active batches to the initial round of
+                        // idle groups
+                        for (size_t i = 0; i < n_group; ++i) {
+                            int idle = mpi::receive(comm_world, MPI_ANY_SOURCE,
+                                report_idle_tag);
+                            mpi::send(comm_world,
+                                static_cast<int>(active_batches[idle]),
+                                idle, request_batch_tag);
+                        }
+                        batch_index = *std::max_element(active_batches.begin(),
+                            active_batches.end()) + 1;
+                    } else {
+                        active_batches.resize(n_group);
+                    }
+
+                    // dispatch batches until exhausted or stopped
+                    size_t n_cleanup = n_group;
+                    for (; batch_index < batches.size(); ++batch_index) {
+                        int idle = mpi::receive(comm_world, MPI_ANY_SOURCE,
+                            report_idle_tag);
+                        if (stop_cb()) { // we have been stopped; shut down
+                            mpi::send(comm_world, -1, idle, request_batch_tag);
+                            --n_cleanup;
+                            break;
+                        }
                         mpi::send(comm_world, static_cast<int>(batch_index),
                             idle, request_batch_tag);
+                        active_batches[idle] = batch_index;
                     }
-                    for (size_t group = 0; group < n_group; ++group) {
-                        log() << "waiting for idle process\n";
-                        int idle = mpi::receive(comm_world, MPI_ANY_SOURCE, report_idle_tag);
-                        log() << "process " << idle << " will be told to terminate\n";
+
+                    // no more work left -- tell idle groups to shut down
+                    for (size_t group = 0; group < n_cleanup; ++group) {
+                        int idle = mpi::receive(comm_world, MPI_ANY_SOURCE,
+                            report_idle_tag);
                         mpi::send(comm_world, -1, idle, request_batch_tag);
                     }
-                    log() << "dispatcher terminates.\n";
+
+                    // wait for the last process to checkpoint, then write
+                    // the last active batches
+                    mpi::receive(comm_world, comm_world.size() - 1,
+                        write_checkpoint_tag);
+                    alps::hdf5::archive cp(checkpoint_file, "w");
+                    cp["simulation/active_batches"] << active_batches;
                 }};
             } else {
                 return std::thread{};
             }
         }();
+
+        sim_type sim(parameters, comm_world.rank());
+
+        if (resumed) {
+            // Ring lock for reading checkpoints
+            if (is_master)
+                mpi::receive(comm_world, 0, read_checkpoint_tag);
+            else
+                mpi::receive(comm_world, comm_world.rank() - 1,
+                    read_checkpoint_tag);
+
+            std::string checkpoint_path = [&] {
+                std::stringstream ss;
+                ss << "simulation/clones/" << comm_world.rank();
+                return ss.str();
+            } ();
+            std::cout << "Restoring simulation from " << checkpoint_file
+                      << " (process " << comm_world.rank() << ")"
+                      << std::endl;
+            {
+                alps::hdf5::archive cp(checkpoint_file, "r");
+                cp[checkpoint_path] >> sim;
+            }
+
+            if (comm_world.rank() + 1 < comm_world.size())
+                mpi::send(comm_world, comm_world.rank() + 1, read_checkpoint_tag);
+        }
 
         int batch_index;
         auto request_batch = [&] {
@@ -152,15 +214,49 @@ int main(int argc, char** argv)
             return batch_index >= 0;
         };
 
-        std::mt19937 rng{static_cast<size_t>(comm_world.rank())};
+        bool freshly_restored = resumed;
         while (request_batch()) {
             size_t slice_index = comm_group.rank();
-            log() << "beginning work on batch " << batch_index << '\n';
-            std::this_thread::sleep_for(std::chrono::milliseconds(std::uniform_int_distribution<size_t>{3000, 4000}(rng)));
-            log() << "finished work on batch " << batch_index << '\n';
+            auto slice_point = batches[batch_index][slice_index];
+            log() << "working on batch " << batch_index << ": "
+                  << slice_point << '\n';
+            if (freshly_restored) {
+                freshly_restored = false;
+                if (slice_point != sim.phase_space_point()) {
+                    std::stringstream ss;
+                    ss << "Inconsistent phase space point found when restoring "
+                       << " from checkpoint: expected " << sim.phase_space_point()
+                       << ", found " << slice_point << ".";
+                    throw std::runtime_error(ss.str());
+                }
+            } else {
+                sim.update_phase_point(slice_point);
+            }
+            sim.run(stop_cb);
         }
 
-        log() << "terminating.\n";
+        {
+            // Ring lock for writing checkpoints
+            if (!is_master)
+                mpi::receive(comm_world, comm_world.rank() - 1, write_checkpoint_tag);
+            std::string checkpoint_path = [&] {
+                std::stringstream ss;
+                ss << "simulation/clones/" << comm_world.rank();
+                return ss.str();
+            } ();
+            std::cout << "Checkpointing simulation to " << checkpoint_file
+                      << " (process " << comm_world.rank() << ")"
+                      << std::endl;
+            {
+                alps::hdf5::archive cp(checkpoint_file, "w");
+                cp["simulation/n_clones"] << comm_world.size();
+                cp[checkpoint_path] << sim;
+            }
+            mpi::send(comm_world, (comm_world.rank() + 1) % comm_world.size(),
+                write_checkpoint_tag);
+            // This ring lock cycles back to the beginning to signal the
+            // dispatcher to write active batches.
+        }
 
         if (is_master)
             dispatcher.join();

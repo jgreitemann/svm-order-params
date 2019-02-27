@@ -208,13 +208,11 @@ public:
         return hamiltonian_.phase_space_point();
     }
 
-#ifdef HAS_SVM
-    void update_phase_point(phase_sweep_policy_type & sweep_policy) {
-        auto current_pp = hamiltonian_.phase_space_point();
-        bool changed = sweep_policy.yield(current_pp, rng);
+    void update_phase_point(phase_point const& pp) {
+        auto const& current_pp = hamiltonian_.phase_space_point();
+        bool changed = (current_pp != pp);
         if (changed)
-            hamiltonian_.phase_space_point(current_pp);
+            hamiltonian_.phase_space_point(pp);
         reset_sweeps(!changed);
     }
-#endif
 };

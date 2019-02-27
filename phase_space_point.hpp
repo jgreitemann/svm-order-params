@@ -102,6 +102,11 @@ namespace phase_space {
             return std::equal(lhs.begin(), lhs.end(), rhs.begin());
         }
 
+        template <typename Point>
+        bool operator!= (Point const& lhs, Point const& rhs) {
+            return !(lhs == rhs);
+        }
+
         template <typename Point,
                   typename = std::enable_if_t<(Point::label_dim > 0)>>
         std::ostream& operator<< (std::ostream & os, Point const& p) {

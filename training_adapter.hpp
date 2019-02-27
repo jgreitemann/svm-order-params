@@ -38,7 +38,6 @@ public:
     using phase_point = typename Simulation::phase_point;
     using phase_classifier = typename Simulation::phase_classifier;
     using label_t = typename Simulation::phase_label;
-    using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 
     using kernel_t = svm::kernel::polynomial<2>;
     using problem_t = svm::problem<kernel_t, phase_point>;
@@ -67,49 +66,24 @@ public:
             ;
     }
 
-    training_adapter (parameters_type & parms,
-                      double const& global_progress,
-                      std::size_t seed_offset = 0)
+    training_adapter(parameters_type & parms,
+        std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
         , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
-        , global_progress(global_progress)
         , N_sample(size_t(parameters["sweep.samples"]))
         , problem(confpol->size())
         , prob_serializer(problem)
-        , sweep_policy(phase_space::sweep::from_parameters<phase_point>(parms, seed_offset))
-        , N_phase(sweep_policy->size())
     {
-        Simulation::update_phase_point(*sweep_policy);
-    }
-
-    double local_fraction_completed() const {
-        return (n_temp + Simulation::fraction_completed()) / N_phase;
-    }
-
-    virtual double fraction_completed() const {
-        double atomic_progress;
-#pragma omp atomic read
-        atomic_progress = global_progress;
-        return atomic_progress;
-    }
-
-    virtual void update () override {
-        if (Simulation::fraction_completed() >= 1.) {
-            Simulation::update_phase_point(*sweep_policy);
-            i_temp = 0;
-            ++n_temp;
-        }
-        Simulation::update();
     }
 
     virtual void measure () final override {
         double frac = Simulation::fraction_completed();
         Simulation::measure();
         if (frac == 0.) return;
-        if (frac + 1e-3 >= 1. * (i_temp + 1) / N_sample) {
+        if (frac + 1e-3 >= 1. * (i_sample + 1) / N_sample) {
             sample_config(Simulation::configuration(),
                           Simulation::phase_space_point());
-            ++i_temp;
+            ++i_sample;
         }
     }
 
@@ -121,9 +95,7 @@ public:
         ar["training/N_sample"] << N_sample;
 
         // state
-        ar["training/i_temp"] << i_temp;
-        ar["training/n_temp"] << n_temp;
-        ar["training/sweep"] << *sweep_policy;
+        ar["training/i_sample"] << i_sample;
 
         if (problem.size() > 0)
             ar["training/problem"] << prob_serializer;
@@ -137,9 +109,7 @@ public:
         ar["training/N_sample"] >> N_sample;
 
         // state
-        ar["training/i_temp"] >> i_temp;
-        ar["training/n_temp"] >> n_temp;
-        ar["training/sweep"] >> *sweep_policy;
+        ar["training/i_sample"] >> i_sample;
 
         if (ar.is_group("training/problem"))
             ar["training/problem"] >> prob_serializer;
@@ -147,12 +117,6 @@ public:
             problem = {confpol->size()};
         if (problem.dim() != confpol->size())
             throw std::runtime_error("invalid problem dimension");
-
-        // flatten
-        if (i_temp == N_sample) {
-            Simulation::update_phase_point(*sweep_policy);
-            i_temp = 0;
-        }
     }
 
     problem_t surrender_problem () {
@@ -167,6 +131,11 @@ public:
         problem.add_sample(confpol->configuration(config), ppoint);
     }
 
+    void update_phase_point(phase_point const& pp) {
+        Simulation::update_phase_point(pp);
+        i_sample = 0;
+    }
+
 protected:
     std::unique_ptr<config_policy_t> confpol;
 
@@ -174,16 +143,9 @@ private:
     using Simulation::parameters;
     using Simulation::random;
 
-    double const& global_progress;
-
     size_t N_sample;
-
-    size_t n_temp = 0;
-    size_t i_temp = 0;
+    size_t i_sample = 0;
 
     problem_t problem;
     svm::problem_serializer<svm::hdf5_tag, problem_t> prob_serializer;
-
-    std::unique_ptr<phase_sweep_policy_type> sweep_policy;
-    size_t N_phase;
 };
