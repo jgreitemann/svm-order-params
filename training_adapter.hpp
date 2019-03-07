@@ -53,7 +53,7 @@ public:
         phase_classifier::define_parameters(parameters);
         phase_space::sweep::define_parameters<phase_point>(parameters);
         parameters
-            .define<std::string>("sweep.dist", "cycle",
+            .define<std::string>("sweep.policy", "cycle",
                                  "phase space point distribution")
             .define<size_t>("sweep.N", 1000, "number of attempted phase point updates")
             .define<size_t>("sweep.samples", 1000,
@@ -72,7 +72,7 @@ public:
         , problem(Simulation::configuration_size())
         , prob_serializer(problem)
         , sweep_policy([&] () -> phase_sweep_policy_type * {
-                std::string dist_name = parameters["sweep.dist"];
+                std::string dist_name = parameters["sweep.policy"];
                 if (std::is_same<phase_point, phase_space::point::temperature>::value) {
                     if (dist_name == "gaussian")
                         return dynamic_cast<phase_sweep_policy_type*>(
