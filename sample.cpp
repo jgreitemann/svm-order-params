@@ -118,51 +118,47 @@ int main(int argc, char** argv)
                 return std::thread{[&] {
                     size_t batch_index = 0;
                     std::vector<size_t> active_batches;
+                    std::vector<bool> to_resume_flag;
                     if (resumed) {
                         {
                             alps::hdf5::archive cp(checkpoint_file, "r");
                             cp["simulation/active_batches"] >> active_batches;
                         }
+                        mpi::send(comm_world, 0, read_checkpoint_tag);
                         if (n_group != active_batches.size()) {
                             throw std::runtime_error(
-                                "MPI world size must match saved number of groups");
+                                "number of groups mustn't change on resumption");
                         }
-                        mpi::send(comm_world, 0, read_checkpoint_tag);
-                        // dispatch the active batches to the initial round of
-                        // idle groups
-                        for (size_t i = 0; i < n_group; ++i) {
-                            int idle = mpi::receive(comm_world, MPI_ANY_SOURCE,
-                                report_idle_tag);
-                            mpi::send(comm_world,
-                                static_cast<int>(active_batches[idle]),
-                                idle, request_batch_tag);
-                        }
+                        to_resume_flag.resize(n_group, true);
                         batch_index = *std::max_element(active_batches.begin(),
                             active_batches.end()) + 1;
                     } else {
                         active_batches.resize(n_group);
+                        to_resume_flag.resize(n_group, false);
                     }
 
                     // dispatch batches until exhausted or stopped
                     size_t n_cleanup = n_group;
-                    for (; batch_index < batches.size(); ++batch_index) {
+                    while (n_cleanup > 0) {
                         int idle = mpi::receive(comm_world, MPI_ANY_SOURCE,
                             report_idle_tag);
-                        if (stop_cb()) { // we have been stopped; shut down
+                        if (to_resume_flag[idle]) {
+                            // tell group to resume its active batch
+                            mpi::send(comm_world,
+                                static_cast<int>(active_batches[idle]),
+                                idle, request_batch_tag);
+                            to_resume_flag[idle] = false;
+                        } else if (stop_cb() || batch_index >= batches.size()) {
                             mpi::send(comm_world, -1, idle, request_batch_tag);
                             --n_cleanup;
-                            break;
+                        } else {
+                            // dispatch a new batch
+                            mpi::send(comm_world,
+                                static_cast<int>(batch_index),
+                                idle, request_batch_tag);
+                            active_batches[idle] = batch_index;
+                            ++batch_index;
                         }
-                        mpi::send(comm_world, static_cast<int>(batch_index),
-                            idle, request_batch_tag);
-                        active_batches[idle] = batch_index;
-                    }
-
-                    // no more work left -- tell idle groups to shut down
-                    for (size_t group = 0; group < n_cleanup; ++group) {
-                        int idle = mpi::receive(comm_world, MPI_ANY_SOURCE,
-                            report_idle_tag);
-                        mpi::send(comm_world, -1, idle, request_batch_tag);
                     }
 
                     // wait for the last process to checkpoint, then write
@@ -213,6 +209,8 @@ int main(int argc, char** argv)
             mpi::broadcast(comm_group, batch_index, 0);
             return batch_index >= 0;
         };
+
+        mpi::barrier(comm_world);
 
         bool freshly_restored = resumed;
         while (request_batch()) {

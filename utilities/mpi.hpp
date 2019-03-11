@@ -118,6 +118,10 @@ namespace mpi {
         bool abort_on_exception_;
     };
 
+    inline void barrier(communicator const& comm) {
+        MPI_Barrier(comm);
+    }
+
     template <typename T>
     void send(communicator const& comm,
         T const* vals,
