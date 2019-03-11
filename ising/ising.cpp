@@ -7,6 +7,7 @@
 #include "ising.hpp"
 #include "convenience_params.hpp"
 
+#include <algorithm>
 #include <sstream>
 
 
@@ -27,6 +28,9 @@ void ising_sim::define_parameters(parameters_type & parameters) {
         .define<int>("total_sweeps", 0, "maximum number of sweeps (0 means indefinite)")
         .define<int>("thermalization_sweeps", 10000, "number of sweeps for thermalization")
         .define<double>("temperature", "temperature of the system");
+    phase_point::define_parameters(parameters);
+
+    define_ising_config_policy_parameters(parameters);
 }
 
 // Creates a new simulation.
@@ -88,12 +92,17 @@ bool ising_sim::is_thermalized() const {
     return sweeps > thermalization_sweeps;
 }
 
-size_t ising_sim::configuration_size() const {
-    return length * length;
+storage_type const& ising_sim::configuration() const {
+    return spins;
 }
 
-std::vector<int> const& ising_sim::configuration() const {
-    return spins.data();
+storage_type ising_sim::random_configuration() {
+    auto random_spins = spins;
+    std::generate(random_spins.begin(), random_spins.end(),
+        [&]() {
+            return std::bernoulli_distribution{}(rng) ? 1. : -1;
+        });
+    return random_spins;
 }
 
 ising_sim::phase_point ising_sim::phase_space_point () const {

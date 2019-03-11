@@ -16,17 +16,20 @@
 
 #pragma once
 #include "label.hpp"
+#include "phase_space_point.hpp"
 #include "polygon.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <numeric>
 #include <random>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -85,105 +88,6 @@ namespace phase_space {
         };
 
     };
-
-    namespace point {
-
-        struct temperature {
-            static const size_t label_dim = 1;
-            using iterator = double *;
-            using const_iterator = double const *;
-
-            static void define_parameters(alps::params & params, std::string prefix="") {
-                params.define<double>(prefix + "temp", 1., "temperature");
-            }
-
-            static bool supplied(alps::params const& params, std::string prefix="") {
-                return params.supplied(prefix + "temp");
-            }
-
-            temperature() : temp(-1) {}
-            temperature(double temp) : temp(temp) {}
-            temperature(alps::params const& params, std::string prefix="")
-                : temp(params[prefix + "temp"].as<double>()) {}
-
-            template <class Iterator>
-            temperature(Iterator begin) : temp(*begin) {}
-
-            const_iterator begin() const { return &temp; }
-            iterator begin() { return &temp; }
-            const_iterator end() const { return &temp + 1; }
-            iterator end() { return &temp + 1; }
-
-            double temp;
-        };
-
-        struct J1J3 {
-            static const size_t label_dim = 2;
-            using iterator = double *;
-            using const_iterator = double const *;
-
-            static void define_parameters(alps::params & params, std::string prefix="") {
-                params
-                    .define<double>(prefix + "J1", 0., "J1 coupling")
-                    .define<double>(prefix + "J3", 0., "J3 coupling");
-            }
-
-            static bool supplied(alps::params const& params, std::string prefix="") {
-                return params.supplied(prefix + "J1")
-                    && params.supplied(prefix + "J3");
-            }
-
-            J1J3(alps::params const& params, std::string prefix="")
-                : J{params[prefix + "J1"].as<double>(),
-                    params[prefix + "J3"].as<double>()} {}
-
-            J1J3() : J{-1, -1} {}
-            J1J3(double J1, double J3) : J{J1, J3} {}
-
-            template <class Iterator>
-            J1J3(Iterator begin) : J {*begin, *(++begin)} {}
-
-            const_iterator begin() const { return J; }
-            iterator begin() { return J; }
-            const_iterator end() const { return J + 2; }
-            iterator end() { return J + 2; }
-
-            double const& J1() const { return J[0]; }
-            double & J1() { return J[0]; }
-            double const& J3() const { return J[1]; }
-            double & J3() { return J[1]; }
-
-            double J[2];
-        };
-
-        template <typename Point>
-        bool operator== (Point const& lhs, Point const& rhs) {
-            return std::equal(lhs.begin(), lhs.end(), rhs.begin());
-        }
-
-        template <typename Point, typename = typename std::enable_if_t<(Point::label_dim > 0)>>
-        std::ostream& operator<< (std::ostream & os, Point const& p) {
-            auto it = p.begin();
-            os << '(' << *(it++);
-            for (; it != p.end(); ++it)
-                os << ", " << *it;
-            return os << ')';
-        }
-
-        template <typename Point>
-        struct distance {
-            double operator() (Point const& lhs, Point const& rhs) const {
-                double d = 0.;
-                auto itl = lhs.begin();
-                auto itr = rhs.begin();
-                for (; itl != lhs.end(); ++itl, ++itr) {
-                    d += pow(*itl - *itr, 2);
-                }
-                return sqrt(d);
-            }
-        };
-
-    }
 
     namespace classifier {
 
@@ -321,6 +225,7 @@ namespace phase_space {
             using point_type = Point;
             using rng_type = RNG;
 
+            virtual size_t size() const = 0;
             virtual bool yield (point_type & point, rng_type & rng) = 0;
             virtual void save (alps::hdf5::archive & ar) const {}
             virtual void load (alps::hdf5::archive & ar) {}
@@ -329,8 +234,10 @@ namespace phase_space {
         struct gaussian_temperatures : public policy<point::temperature> {
             static void define_parameters(alps::params & params);
             gaussian_temperatures (alps::params const& params);
+            virtual size_t size() const final override;
             virtual bool yield (point_type & point, rng_type & rng) final override;
         private:
+            size_t N;
             double temp_center;
             double temp_min;
             double temp_max;
@@ -341,8 +248,10 @@ namespace phase_space {
         struct uniform_temperatures : public policy<point::temperature> {
             static void define_parameters(alps::params & params);
             uniform_temperatures (alps::params const& params);
+            virtual size_t size() const final override;
             virtual bool yield (point_type & point, rng_type & rng) final override;
         private:
+            size_t N;
             double temp_min;
             double temp_max;
             double temp_step;
@@ -351,6 +260,7 @@ namespace phase_space {
         struct equidistant_temperatures : public policy<point::temperature> {
             static void define_parameters(alps::params & params);
             equidistant_temperatures (alps::params const& params, size_t N, size_t n=0);
+            virtual size_t size() const final override;
             virtual bool yield (point_type & point, rng_type &) final override;
             virtual void save (alps::hdf5::archive & ar) const final override;
             virtual void load (alps::hdf5::archive & ar) final override;
@@ -390,6 +300,10 @@ namespace phase_space {
                 n = n % points.size();
             }
 
+            virtual size_t size() const final override {
+                return points.size();
+            }
+
             virtual bool yield (point_type & point, rng_type &) final override {
                 point = points[n];
                 n = (n + 1) % points.size();
@@ -422,21 +336,24 @@ namespace phase_space {
 
             static const size_t dim = point_type::label_dim;
 
-            static void define_parameters(alps::params & params) {
-                point_type::define_parameters(params, "sweep.grid.a.");
-                point_type::define_parameters(params, "sweep.grid.b.");
+            static void define_parameters(alps::params & params,
+                                          std::string prefix = "sweep.")
+            {
+                point_type::define_parameters(params, prefix + "grid.a.");
+                point_type::define_parameters(params, prefix + "grid.b.");
                 for (size_t i = 1; i <= dim; ++i)
-                    params.define<size_t>(format_subdiv(i), 1,
+                    params.define<size_t>(format_subdiv(i, prefix), 1,
                                           "number of grid subdivisions");
             }
 
-            grid (alps::params const& params, size_t offset = 0)
-                : a(params, "sweep.grid.a.")
-                , b(params, "sweep.grid.b.")
+            grid (alps::params const& params, size_t offset = 0,
+                  std::string prefix = "sweep.")
+                : a(params, prefix + "grid.a.")
+                , b(params, prefix + "grid.b.")
                 , n(offset)
             {
                 for (size_t i = 1; i <= dim; ++i)
-                    subdivs[i-1] = params[format_subdiv(i)].as<size_t>();
+                    subdivs[i-1] = params[format_subdiv(i, prefix)].as<size_t>();
 
                 double frac = 0.;
                 for (double p = 0.5; offset != 0; offset >>= 1, p /= 2)
@@ -445,7 +362,7 @@ namespace phase_space {
                 n = size() * frac;
             }
 
-            size_t size() const {
+            virtual size_t size() const final override {
                 return std::accumulate(subdivs.begin(), subdivs.end(),
                                        1, std::multiplies<>{});
             }
@@ -456,7 +373,88 @@ namespace phase_space {
                 auto ita = a.begin();
                 auto itb = b.begin();
                 for (size_t i = 0; i < dim; ++i, ++it, ++ita, ++itb) {
-                    *it = *ita + (*itb - *ita) / (subdivs[i] - 1) * (x % subdivs[i]);
+                    if (subdivs[i] == 1) {
+                        *it = *ita;
+                    } else {
+                        *it = *ita + (*itb - *ita) / (subdivs[i] - 1) * (x % subdivs[i]);
+                        x /= subdivs[i];
+                    }
+                }
+                n = (n + 1) % size();
+                return true;
+            }
+
+            virtual bool yield (point_type & point, rng_type &) final override {
+                return yield(point);
+            }
+
+            virtual void save (alps::hdf5::archive & ar) const final override {
+                ar["n"] << n;
+            }
+
+            virtual void load (alps::hdf5::archive & ar) final override {
+                ar["n"] >> n;
+            }
+
+            static std::string format_subdiv(size_t i,
+                                             std::string const& prefix)
+            {
+                std::stringstream ss;
+                ss << prefix + "grid.N" << i;
+                return ss.str();
+            }
+
+        private:
+            std::array<size_t, dim> subdivs;
+            point_type a, b;
+            size_t n;
+        };
+
+        template <typename Point>
+        struct nonuniform_grid : public policy<Point> {
+            using point_type = typename policy<Point>::point_type;
+            using rng_type = typename policy<Point>::rng_type;
+
+            static const size_t dim = point_type::label_dim;
+            static const size_t MAX_GRID = 10;
+
+            static void define_parameters(alps::params & params,
+                                          std::string prefix = "sweep.")
+            {
+                for (size_t i = 1; i <= MAX_GRID; ++i)
+                    point_type::define_parameters(params, format_stop(i, prefix));
+                for (size_t i = 1; i <= dim; ++i)
+                    params.define<size_t>(format_subdiv(i, prefix), 1,
+                                          "number of grid subdivisions");
+            }
+
+            nonuniform_grid (alps::params const& params, size_t offset = 0,
+                             std::string prefix = "sweep.")
+                : n(offset)
+            {
+                for (size_t i = 1; i <= dim; ++i)
+                    subdivs[i-1] = params[format_subdiv(i, prefix)].as<size_t>();
+                auto max = *std::max_element(subdivs.begin(), subdivs.end());
+                for (size_t i = 1; i <= max; ++i)
+                    ppoints.emplace_back(params, format_stop(i, prefix));
+
+                double frac = 0.;
+                for (double p = 0.5; offset != 0; offset >>= 1, p /= 2)
+                    if (offset & 1)
+                        frac += p;
+                n = size() * frac;
+            }
+
+            virtual size_t size() const final override {
+                return std::accumulate(subdivs.begin(), subdivs.end(),
+                                       1, std::multiplies<>{});
+            }
+
+            bool yield (point_type & point) {
+                size_t x = n;
+                auto it = point.begin();
+                for (size_t i = 0; i < dim; ++i, ++it) {
+                    *it = *std::next(ppoints[x % subdivs[i]].begin(), i);
                     x /= subdivs[i];
                 }
                 n = (n + 1) % size();
@@ -475,15 +473,25 @@ namespace phase_space {
                 ar["n"] >> n;
             }
 
-            static std::string format_subdiv(size_t i) {
+            static std::string format_subdiv(size_t i,
+                                             std::string const& prefix)
+            {
                 std::stringstream ss;
-                ss << "sweep.grid.N" << i;
+                ss << prefix + "nonuniform_grid.N" << i;
+                return ss.str();
+            }
+
+            static std::string format_stop(size_t i,
+                                           std::string const& prefix)
+            {
+                std::stringstream ss;
+                ss << prefix + "nonuniform_grid.stop" << i << '.';
                 return ss.str();
             }
 
         private:
             std::array<size_t, dim> subdivs;
-            point_type a, b;
+            std::vector<point_type> ppoints;
             size_t n;
         };
 
@@ -497,12 +505,17 @@ namespace phase_space {
                 point_type::define_parameters(params, "sweep.uniform.b.");
             }
 
-            uniform (point_type a, point_type b)
-                : a(a), b(b) {}
+            uniform (size_t N, point_type a, point_type b)
+                : N(N), a(a), b(b) {}
 
             uniform (alps::params const& params)
-                : a(params, "sweep.uniform.a.")
+                : N(params["sweep.N"].as<size_t>())
+                , a(params, "sweep.uniform.a.")
                 , b(params, "sweep.uniform.b.") {}
+
+            virtual size_t size() const final override {
+                return N;
+            }
 
             virtual bool yield (point_type & point, rng_type & rng) final override {
                 auto ita = a.begin();
@@ -515,6 +528,7 @@ namespace phase_space {
             }
 
         private:
+            size_t N;
             point_type a, b;
         };
 
@@ -528,12 +542,17 @@ namespace phase_space {
                 point_type::define_parameters(params, "sweep.uniform_line.b.");
             }
 
-            uniform_line (point_type a, point_type b)
-                : a(a), b(b) {}
+            uniform_line (size_t N, point_type a, point_type b)
+                : N(N), a(a), b(b) {}
 
             uniform_line (alps::params const& params)
-                : a(params, "sweep.uniform_line.a.")
+                : N(params["sweep.N"].as<size_t>())
+                , a(params, "sweep.uniform_line.a.")
                 , b(params, "sweep.uniform_line.b.") {}
+
+            virtual size_t size() const final override {
+                return N;
+            }
 
             virtual bool yield (point_type & point, rng_type & rng) final override {
                 double x = std::uniform_real_distribution<double>{}(rng);
@@ -547,6 +566,7 @@ namespace phase_space {
             }
 
         private:
+            size_t N;
             point_type a, b;
         };
 
@@ -555,8 +575,30 @@ namespace phase_space {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
 
+            static void define_parameters(alps::params & params,
+                                          std::string prefix = "sweep.")
+                {
+                    point_type::define_parameters(params, prefix + "line_scan.a.");
+                    point_type::define_parameters(params, prefix + "line_scan.b.");
+                    params.define<size_t>(prefix + "line_scan.N", 8,
+                                          "number of phase points on line");
+                }
+
+            line_scan (alps::params const& params, size_t offset = 0,
+                       std::string prefix = "sweep.")
+                : a(params, prefix + "line_scan.a.")
+                , b(params, prefix + "line_scan.b.")
+                , n(offset)
+                , N(params[prefix + "line_scan.N"].as<size_t>())
+            {
+            }
+
             line_scan (point_type const& a, point_type const& b, size_t N)
                 : a(a), b(b), n(0), N(N) {}
+
+            virtual size_t size() const final override {
+                return N;
+            }
 
             virtual bool yield (point_type & point, rng_type &) final override {
                 return yield(point);
@@ -591,6 +633,7 @@ namespace phase_space {
 
         template <typename Point>
         void define_parameters (alps::params & params) {
+            params.define<size_t>("sweep.N", 1, "number of phase space points");
             if (std::is_same<Point, point::temperature>::value) {
                 gaussian_temperatures::define_parameters(params);
                 uniform_temperatures::define_parameters(params);
@@ -598,8 +641,45 @@ namespace phase_space {
             }
             cycle<Point>::define_parameters(params);
             grid<Point>::define_parameters(params);
+            nonuniform_grid<Point>::define_parameters(params);
             uniform<Point>::define_parameters(params);
             uniform_line<Point>::define_parameters(params);
+        }
+
+        template <typename Point>
+        auto from_parameters(alps::params const& parms, size_t seed_offset = 0)
+        {
+            return std::unique_ptr<policy<Point>>{[&] () -> policy<Point>* {
+                std::string dist_name = parms["sweep.policy"];
+                if (std::is_same<Point, phase_space::point::temperature>::value) {
+                    if (dist_name == "gaussian")
+                        return dynamic_cast<policy<Point>*>(
+                            new gaussian_temperatures(parms));
+                    if (dist_name == "uniform")
+                        return dynamic_cast<policy<Point>*>(
+                            new uniform_temperatures(parms));
+                    if (dist_name == "bimodal")
+                        return dynamic_cast<policy<Point>*>(
+                            new equidistant_temperatures(parms, 2, seed_offset));
+                }
+                if (dist_name == "cycle")
+                    return dynamic_cast<policy<Point>*>(
+                        new cycle<Point> (parms, seed_offset));
+                if (dist_name == "grid")
+                    return dynamic_cast<policy<Point>*>(
+                        new grid<Point> (parms, seed_offset));
+                if (dist_name == "nonuniform_grid")
+                    return dynamic_cast<policy<Point>*>(
+                        new nonuniform_grid<Point>(parms, seed_offset));
+                if (dist_name == "uniform")
+                    return dynamic_cast<policy<Point>*>(
+                        new uniform<Point> (parms));
+                if (dist_name == "uniform_line")
+                    return dynamic_cast<policy<Point>*>(
+                        new uniform_line<Point> (parms));
+                throw std::runtime_error("Invalid sweep policy \"" + dist_name + "\"");
+                return nullptr;
+            }()};
         }
 
     }
@@ -621,8 +701,9 @@ namespace phase_space {
                 }
             }
             label_type operator() (point_type pp) {
-                auto it = pp.begin();
-                size_t i;
+                if (pp == infty)
+                    return sweep::cycle<point_type>::MAX_CYCLE;
+                size_t i = 0;
                 double d = std::numeric_limits<double>::max();
                 point::distance<point_type> dist{};
                 for (size_t j = 0; j < points.size(); ++j) {
@@ -636,6 +717,7 @@ namespace phase_space {
             }
         private:
             std::vector<point_type> points;
+            const point_type infty = point::infinity<point_type>{}();
         };
 
         template <typename Point>
@@ -654,7 +736,7 @@ namespace phase_space {
                 , b(params, "sweep.grid.b.")
             {
                 for (size_t i = 1; i <= dim; ++i)
-                    subdivs[i-1] = params[grid_type::format_subdiv(i)];
+                    subdivs[i-1] = params[grid_type::format_subdiv(i, "sweep.")];
                 size = std::accumulate(subdivs.begin(), subdivs.end(),
                                        1, std::multiplies<>());
             }
@@ -666,7 +748,10 @@ namespace phase_space {
                      itc != coords.end();
                      ++itc, ++its, ++ita, ++itb, ++itp)
                 {
-                    *itc = (*itp - *ita) / (*itb - *ita) * (*its - 1) + 0.5;
+                    if (*its > 1)
+                        *itc = (*itp - *ita) / (*itb - *ita) * (*its - 1) + 0.5;
+                    else
+                        *itc = 0;
                 }
 
                 long tot = 0;
@@ -689,6 +774,64 @@ namespace phase_space {
         private:
             std::array<size_t, dim> subdivs;
             point_type a, b;
+            size_t size;
+        };
+
+        template <typename Point>
+        struct fixed_from_nonuniform_grid {
+            using point_type = Point;
+            using grid_type = sweep::nonuniform_grid<point_type>;
+            using label_type = label::numeric_label<svm::DYNAMIC>;
+
+            static const size_t dim = point_type::label_dim;
+
+            static void define_parameters(alps::params & params) {
+            }
+
+            fixed_from_nonuniform_grid (alps::params const& params) {
+                std::string prefix = "sweep.";
+                for (size_t i = 1; i <= dim; ++i)
+                    subdivs[i-1] = params[grid_type::format_subdiv(i, prefix)];
+                size = std::accumulate(subdivs.begin(), subdivs.end(),
+                                       1, std::multiplies<>());
+                auto max = *std::max_element(subdivs.begin(), subdivs.end());
+                for (size_t i = 1; i <= max; ++i)
+                    ppoints.emplace_back(params,
+                                         grid_type::format_stop(i, prefix));
+            }
+
+            label_type operator() (point_type pp) {
+                std::array<long, dim> coords;
+                std::vector<double> dists(ppoints.size());
+
+                auto itc = coords.begin(), its = subdivs.begin(), itp = pp.begin();
+                for (size_t i = 0; itc != coords.end(); ++itc, ++its, ++itp, ++i) {
+                    for (size_t j = 0; j < *its; ++j)
+                        dists[j] = std::abs(*itp - *std::next(ppoints[j].begin(), i));
+                    *itc = std::min_element(dists.begin(), dists.begin() + *its)
+                            - dists.begin();
+                }
+
+                long tot = 0;
+                for (auto itc = coords.rbegin(), its = subdivs.rbegin();
+                     itc != coords.rend();
+                     ++itc, ++its)
+                {
+                    tot = *itc + *its * tot;
+                }
+
+                if (tot < 0 || size <= tot)
+                    throw std::runtime_error([&pp] {
+                            std::stringstream ss;
+                            ss << "phase point " << pp
+                               << " exceeds limits of grid";
+                            return ss.str();
+                        }());
+                return tot;
+            }
+        private:
+            std::array<size_t, dim> subdivs;
+            std::vector<point_type> ppoints;
             size_t size;
         };
 

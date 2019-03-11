@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "config_sim_base.hpp"
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
 #include "filesystem.hpp"
@@ -37,18 +38,6 @@
 #include <alps/hdf5/multi_array.hpp>
 
 #include <boost/multi_array.hpp>
-
-#ifdef ISING
-    #include "ising.hpp"
-    using sim_base = ising_sim;
-#else
-#ifdef GAUGE
-    #include "gauge.hpp"
-    using sim_base = gauge_sim;
-#else
-    #error Unknown model
-#endif
-#endif
 
 
 int main(int argc, char** argv)
@@ -79,26 +68,29 @@ int main(int argc, char** argv)
 
         using phase_point = sim_base::phase_point;
         auto points = [&parameters] {
-            std::vector<phase_point> ps;
-            phase_point p;
-            ps.reserve(parameters["test.N_scan"].as<size_t>());
-            using scan_t = phase_space::sweep::line_scan<phase_point>;
-            scan_t scan(phase_point(parameters, "test.a."),
-                        phase_point(parameters, "test.b."),
-                        parameters["test.N_scan"].as<size_t>());
-            while (scan.yield(p)) {
-                ps.push_back(p);
-            }
+            using scan_t = typename sim_base::test_sweep_type;
+            scan_t scan{parameters, 0, "test."};
+            std::vector<phase_point> ps(scan.size());
+            std::generate(ps.begin(), ps.end(),
+                          [p=phase_point{}, &scan]() mutable {
+                              scan.yield(p);
+                              return p;
+                          });
             return ps;
         } ();
         using pair_t = std::pair<double, double>;
         using vecpair_t = std::pair<std::vector<double>, std::vector<double>>;
         std::vector<pair_t> label(points.size());
         std::vector<vecpair_t> svm(points.size());
+        std::vector<vecpair_t> svm_var(points.size());
         std::vector<vecpair_t> mag(points.size());
 
         // get the bias parameters
-        auto rhos = [&] {
+        struct skeleton_classifier {
+            sim_base::phase_label label1, label2;
+            double rho;
+        };
+        auto classifiers = [&] {
             using kernel_t = svm::kernel::polynomial<2>;
             using phase_label = sim_base::phase_label;
             using model_t = svm::model<kernel_t, phase_label>;
@@ -109,7 +101,10 @@ int main(int argc, char** argv)
             model_t model;
             svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
             ar["model"] >> serial;
-            return svm::detail::container_factory<std::vector<double>>::copy(model.rho());
+            std::vector<skeleton_classifier> cl;
+            for (auto const& c : model.classifiers())
+                cl.push_back({c.labels().first, c.labels().second, c.rho()});
+            return cl;
         }();
 
         alps::hdf5::archive ar(parameters["test.filename"].as<std::string>(), "w");
@@ -122,6 +117,7 @@ int main(int argc, char** argv)
 
         size_t done = 0;
         std::vector<phase_point> current_points;
+        std::vector<std::string> order_param_names;
 #pragma omp parallel
         {
 #pragma omp single
@@ -158,12 +154,17 @@ int main(int argc, char** argv)
                     ar[ss.str()] << results;
                 }
 
+                if (i == 0)
+                    order_param_names = sim.order_param_names();
                 for (std::string const& opname : sim.order_param_names()) {
                     mag[i].first.push_back(results[opname].mean<double>());
                     mag[i].second.push_back(results[opname].error<double>());
                 }
+                auto variance = results["SVM^2"] - results["SVM"] * results["SVM"];
                 svm[i] = {results["SVM"].mean<std::vector<double>>(),
                           results["SVM"].error<std::vector<double>>()};
+                svm_var[i] = {variance.mean<std::vector<double>>(),
+                              variance.error<std::vector<double>>()};
                 label[i] = {results["label"].mean<double>(),
                             results["label"].error<double>()};
 #pragma omp atomic
@@ -188,7 +189,7 @@ int main(int argc, char** argv)
                 }
                 double fac = 1. / (max - min);
                 for (size_t i = 0; i < points.size(); ++i) {
-                    svm[i].first[j] += rhos[j];
+                    svm[i].first[j] += classifiers[j].rho;
                     svm[i].first[j] *= fac;
                     svm[i].second[j] *= fac;
                 }
@@ -196,21 +197,45 @@ int main(int argc, char** argv)
         }
 
         // output
-        std::ofstream os(parameters["test.txtname"].as<std::string>());
-        for (size_t i = 0; i < points.size(); ++i) {
-            std::copy(points[i].begin(), points[i].end(),
-                      std::ostream_iterator<double> {os, "\t"});
-            os << label[i].first << '\t'
-               << label[i].second << '\t';
-            for (size_t j = 0; j < svm[i].first.size(); ++j)
-                os << svm[i].first[j] << '\t'
-                   << svm[i].second[j] << '\t';
-                // os << sqrt(svm[i].first[j]) << '\t'
-                //    << svm[i].second[j] / 2. / sqrt(svm[i].first[j]) << '\t';
-            for (size_t j = 0; j < mag[i].first.size(); ++j)
-                os << mag[i].first[j] << '\t'
-                   << mag[i].second[j] << '\t';
-            os << '\n';
+        {
+            std::ofstream os(parameters["test.txtname"].as<std::string>());
+
+            // column key
+            size_t k = phase_point::label_dim;
+            os << "# column(s): quantity\n";
+            os << "# 1-" << k++ << ": phase space point\n";
+            auto annotate = [&] (std::string const& name) {
+                os << "# " << k << " (" << (k + 1) << "): "
+                   << name << " (error)\n";
+                k += 2;
+            };
+            annotate("SVM classification label");
+            for (auto const& cl : classifiers) {
+                std::stringstream ss;
+                ss << "decision function " << cl.label1 << " / " << cl.label2;
+                annotate(ss.str());
+                annotate(ss.str() + " variance");
+            }
+            for (std::string const& opname : order_param_names)
+                annotate(opname);
+
+            // data
+            for (size_t i = 0; i < points.size(); ++i) {
+                std::copy(points[i].begin(), points[i].end(),
+                          std::ostream_iterator<double> {os, "\t"});
+                os << label[i].first << '\t'
+                   << label[i].second << '\t';
+                for (size_t j = 0; j < svm[i].first.size(); ++j) {
+                    os << svm[i].first[j] << '\t'
+                       << svm[i].second[j] << '\t';
+                    os << svm_var[i].first[j] << '\t'
+                       << svm_var[i].second[j] << '\t';
+                }
+                for (size_t j = 0; j < mag[i].first.size(); ++j)
+                    os << mag[i].first[j] << '\t'
+                       << mag[i].second[j] << '\t';
+                os << '\n';
+            }
         }
 
         return 0;

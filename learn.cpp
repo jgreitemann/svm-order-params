@@ -15,8 +15,8 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "checkpointing_stop_callback.hpp"
+#include "config_sim_base.hpp"
 #include "svm-wrapper.hpp"
-#include "training_adapter.hpp"
 #include "test_adapter.hpp"
 #include "argh.h"
 
@@ -31,20 +31,14 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
 
-#ifdef ISING
-    #include "ising.hpp"
-    using sim_base = ising_sim;
+#ifdef CONFIG_MAPPING_LAZY
+#include "procrastination_adapter.hpp"
+using sim_type = procrastination_adapter<sim_base>;
 #else
-#ifdef GAUGE
-    #include "gauge.hpp"
-    using sim_base = gauge_sim;
-#else
-    #error Unknown model
-#endif
-#endif
-
-
+#include "training_adapter.hpp"
 using sim_type = training_adapter<sim_base>;
+#endif
+
 using kernel_t = typename sim_type::kernel_t;
 using label_t = typename sim_type::phase_label;
 using classifier_t = typename sim_type::phase_classifier;
@@ -59,7 +53,7 @@ int main(int argc, char** argv)
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
         alps::params parameters(argc, argv);
-        argh::parser cmdl(argc, argv);
+        argh::parser cmdl(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
 
         // define parameters
         sim_type::define_parameters(parameters);
@@ -162,6 +156,21 @@ int main(int argc, char** argv)
             }
         }
 
+        if (cmdl[{"-i", "--infinite-temperature"}]) {
+            using phase_point = typename classifier_t::point_type;
+            phase_point ppoint = phase_space::point::infinity<phase_point>{}();
+
+            training_adapter<sim_base> sim(parameters, 0);
+            // phase_space::sweep::cycle<phase_point> single_point{ppoint};
+            // sim.update_phase_point(single_point);
+
+            size_t N_samples = parameters["sweep.samples"].as<size_t>();
+            for (size_t i = 0; i < N_samples; ++i) {
+                sim.sample_config(sim.random_configuration(), ppoint);
+            }
+            prob.append_problem(sim.surrender_problem(), classifier);
+        }
+
         /* print label statistics */ {
             std::map<label_t, size_t> label_stat;
             label_t l;
@@ -185,7 +194,7 @@ int main(int argc, char** argv)
             cp["simulation/n_clones"] << n_clones;
         }
 
-        {
+        if (!cmdl[{"--skip-svm"}]) {
             // create the model
             svm::parameters<kernel_t> kernel_params(parameters["nu"].as<double>(),
                                                     svm::machine_type::NU_SVC);

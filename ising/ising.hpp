@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "ising_config_policy.hpp"
 #include "storage_type.hpp"
 #include "exp_beta.hpp"
 #include "phase_space_policy.hpp"
@@ -25,6 +26,7 @@ public:
     using phase_label = phase_classifier::label_type;
     using phase_point = phase_classifier::point_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
+    using test_sweep_type = phase_space::sweep::line_scan<phase_point>;
 private:
     int length; // the same in both dimensions
     int sweeps;
@@ -52,10 +54,22 @@ public:
     }
     void reset_sweeps(bool skip_therm = false);
     bool is_thermalized() const;
-    size_t configuration_size() const;
-    std::vector<int> const& configuration() const;
+    storage_type const& configuration() const;
+    storage_type random_configuration();
     phase_point phase_space_point () const;
     void update_phase_point (phase_sweep_policy_type & sweep_policy);
+
+    template <typename Introspector>
+    using config_policy_type = config_policy<storage_type, Introspector>;
+
+    template <typename Introspector>
+    static auto config_policy_from_parameters(parameters_type const& parameters,
+                                              bool unsymmetrize = true)
+        -> std::unique_ptr<config_policy_type<Introspector>>
+    {
+        return ising_config_policy_from_parameters<storage_type, Introspector>(
+            parameters, unsymmetrize);
+    }
 
     virtual void update();
     virtual void measure();

@@ -16,8 +16,10 @@
 
 #pragma once
 
+#include "config_serialization.hpp"
 #include "point_groups.hpp"
 #include "phase_space_policy.hpp"
+#include "gauge_config_policy.hpp"
 
 #include <cmath>
 #include <memory>
@@ -35,9 +37,6 @@
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
 
-// forward declaration
-struct config_policy;
-
 class gauge_sim : public alps::mcbase {
 public:
     using phase_point = phase_space::point::J1J3;
@@ -51,11 +50,14 @@ public:
     using phase_classifier = phase_space::classifier::D3h_phase_diagram;
 #elif defined(GAUGE_CLASSIFIER_GRID)
     using phase_classifier = phase_space::classifier::fixed_from_grid<phase_point>;
+#elif defined(GAUGE_CLASSIFIER_NONUNIFORM_GRID)
+    using phase_classifier = phase_space::classifier::fixed_from_nonuniform_grid<phase_point>;
 #else
     #error unknown / missing gauge classifier
 #endif
     using phase_label = phase_classifier::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
+    using test_sweep_type = phase_space::sweep::line_scan<phase_point>;
 private:
     int L;
     int L2;
@@ -82,9 +84,11 @@ private:
     double spacing_E;
     double spacing_nem;
 
+public:
     /**  degrees of freedoms **/
     typedef Eigen::Matrix<double, 3, 3, Eigen::RowMajor> Rt3;
     typedef boost::multi_array<Rt3, 1> Rt_array;
+private:
 
     Rt_array R; //matter fields
 
@@ -125,7 +129,17 @@ public:
 
     static void define_parameters(parameters_type & parameters);
 
-    static std::unique_ptr<config_policy> config_policy_from_parameters(parameters_type const&, bool);
+    template <typename Introspector>
+    using config_policy_type = config_policy<Rt_array, Introspector>;
+
+    template <typename Introspector>
+    static auto config_policy_from_parameters(parameters_type const& parameters,
+                                              bool unsymmetrize = true)
+        -> std::unique_ptr<config_policy_type<Introspector>>
+    {
+        return gauge_config_policy_from_parameters<Rt_array, Introspector>(
+            parameters, unsymmetrize);
+    }
 
     virtual void update();
     virtual void measure();
@@ -178,13 +192,38 @@ public:
             names.push_back("NematicityB2");
         return names;
     }
+    Rt_array const& configuration() const {
+        return R;
+    }
+    Rt_array random_configuration();
     void reset_sweeps(bool skip_therm);
     bool is_thermalized() const;
-    size_t configuration_size() const;
-    std::vector<double> configuration() const;
     phase_point phase_space_point () const;
     void update_phase_point (phase_sweep_policy_type & sweep_policy);
+};
 
-private:
-    std::unique_ptr<config_policy> confpol;
+template <>
+struct config_serializer<gauge_sim::Rt_array> {
+    using config_t = gauge_sim::Rt_array;
+    template <typename OutputIterator>
+    void serialize(config_t const& conf, OutputIterator it) const {
+        for (auto const& mat : conf) {
+            for (size_t i = 0; i < 3; ++i) {
+                for (size_t j = 0; j < 3; ++j) {
+                    *(it++) = mat(i, j);
+                }
+            }
+        }
+    }
+
+    template <typename InputIterator>
+    void deserialize(InputIterator it, config_t & conf) const {
+        for (auto & mat : conf) {
+            for (size_t i = 0; i < 3; ++i) {
+                for (size_t j = 0; j < 3; ++j) {
+                    mat(i, j) = *(it++);
+                }
+            }
+        }
+    }
 };

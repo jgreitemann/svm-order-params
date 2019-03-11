@@ -13,20 +13,26 @@
         "SublimeLinter.linters.gcc.extra_flags": [
         	"-std=c++14",
             "-fopenmp",
+            "-fconcepts",
             "-DGAUGE",
             "-DGAUGE_CLASSIFIER_D2H",
+            "-DHEISENBERG",
+            "-DKAGOME",
         ],
         "SublimeLinter.linters.gcc.include_dirs": [
             "${project_path}",
         	"${project_path}/colormap",
             "${project_path}/colormap/test/doctest",
+            "${project_path}/frustmag",
         	"${project_path}/gauge",
         	"${project_path}/ising",
         	"${project_path}/svm",
         	"${project_path}/svm/libsvm",
         	"${project_path}/utilities",
             "/usr/include/openmpi-x86_64",
-            "/usr/local/include/eigen3"
+            "/usr/include/openmpi",
+            "/usr/local/include/eigen3",
+            "~/.local/include/eigen3",
         ]
     }
 }

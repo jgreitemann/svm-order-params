@@ -33,16 +33,17 @@ public:
     using phase_label = typename Simulation::phase_label;
     using model_t = svm::model<kernel_t, phase_label>;
     using problem_t = svm::problem<kernel_t>;
+    using introspec_t = svm::tensor_introspector<typename model_t::classifier_type, 2>;
+
+    using config_policy_t = typename Simulation::template config_policy_type<introspec_t>;
 
     static void define_test_parameters(alps::params & parameters) {
         if (!parameters.is_restored()) {
             parameters
-                .define<size_t>("test.N_scan", 10, "number of temperatures to test at")
                 .define<std::string>("test.filename", "", "test output file name")
                 .define<std::string>("test.txtname", "", "test output txt name")
                 ;
-            Simulation::phase_point::define_parameters(parameters, "test.a.");
-            Simulation::phase_point::define_parameters(parameters, "test.b.");
+            Simulation::test_sweep_type::define_parameters(parameters, "test.");
         }
     }
 
@@ -53,6 +54,7 @@ public:
 
     test_adapter (parameters_type & parms, std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
+        , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
     {
         std::string arname = parms.get_archive_name();
 
@@ -64,22 +66,31 @@ public:
             ar["model"] >> serial;
         }
 
-        measurements << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
-                     << alps::accumulators::FullBinningAccumulator<double>("label");
+        measurements
+        << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
+        << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM^2")
+        << alps::accumulators::FullBinningAccumulator<double>("label");
     }
 
     virtual void measure () override {
         Simulation::measure();
         if (Simulation::is_thermalized()) {
-            auto res = model(svm::dataset(Simulation::configuration()));
+            auto res = model(svm::dataset(confpol->configuration(Simulation::configuration())));
             measurements["label"] << double(res.first);
 
+            // measure decision functions
             auto decs = svm::detail::container_factory<std::vector<double>>::copy(res.second);
             measurements["SVM"] << decs;
+
+            // measure decision function squares
+            std::transform(decs.begin(), decs.end(), decs.begin(), decs.begin(),
+                std::multiplies<>{});
+            measurements["SVM^2"] << decs;
         }
     }
 
 private:
     using Simulation::measurements;
     model_t model;
+    std::unique_ptr<config_policy_t> confpol;
 };
