@@ -288,15 +288,20 @@ namespace phase_space {
             {
                 for (auto p : il)
                     points.push_back(p);
+                if (points.empty())
+                    throw std::runtime_error("cycle sweep policy "
+                        "list-initialized but no points supplied");
                 n = n % points.size();
             }
 
             cycle (alps::params const& params, size_t offset = 0)
                 : n(offset)
             {
-                for (size_t i = 1; i <= MAX_CYCLE && point_type::supplied(params, format_prefix(i)); ++i) {
+                for (size_t i = 1; i <= MAX_CYCLE && point_type::supplied(params, format_prefix(i)); ++i)
                     points.emplace_back(params, format_prefix(i));
-                }
+                if (points.empty())
+                    throw std::runtime_error("cycle sweep policy initialized "
+                        "but no points supplied in parameters");
                 n = n % points.size();
             }
 
