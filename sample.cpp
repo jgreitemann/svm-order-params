@@ -140,8 +140,11 @@ int main(int argc, char** argv)
                     // dispatch batches until exhausted or stopped
                     size_t n_cleanup = n_group;
                     while (n_cleanup > 0) {
-                        int idle = mpi::receive(comm_world, MPI_ANY_SOURCE,
-                            report_idle_tag);
+                        int idle = mpi::spin_receive(comm_world, MPI_ANY_SOURCE,
+                            report_idle_tag, [&] {
+                                std::this_thread::sleep_for(
+                                    std::chrono::milliseconds(100));
+                            });
                         if (to_resume_flag[idle]) {
                             // tell group to resume its active batch
                             mpi::send(comm_world,

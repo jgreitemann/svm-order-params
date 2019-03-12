@@ -36,6 +36,10 @@ namespace {
     template <class T>
     constexpr bool is_iterator_v = is_iterator<T>::value;
 
+    struct no_op_t {
+        void operator()() const {}
+    };
+
 }
 
 namespace mpi {
@@ -193,6 +197,109 @@ namespace mpi {
         int tag = MPI_ANY_TAG)
     {
         return receive(comm, static_cast<int *>(nullptr), 0, source, tag);
+    }
+
+    template <typename T, typename Func = no_op_t>
+    void spin_send(communicator const& comm,
+        T const* vals,
+        size_t count,
+        int dest,
+        int tag,
+        Func && spin_op = no_op_t{})
+    {
+        MPI_Request request;
+        int flag;
+        MPI_Isend(vals, count, alps::mpi::detail::mpi_type<T>(), dest, tag,
+            comm, &request);
+        while (MPI_Test(&request, &flag, MPI_STATUS_IGNORE), !flag)
+            spin_op();
+    }
+
+    template <typename ContiguousIterator,
+              typename Func = no_op_t,
+              typename = std::enable_if_t<is_iterator_v<ContiguousIterator>>>
+    void spin_send(communicator const& comm,
+        ContiguousIterator begin,
+        ContiguousIterator end,
+        int dest,
+        int tag,
+        Func && spin_op = no_op_t{})
+    {
+        spin_send(comm, &(*begin), end - begin, dest, tag,
+            std::forward<Func>(spin_op));
+    }
+
+    template <typename T, typename Func = no_op_t>
+    void spin_send(communicator const& comm,
+        T const& val,
+        int dest,
+        int tag,
+        Func && spin_op = no_op_t{})
+    {
+        spin_send(comm, &val, 1, dest, tag, std::forward<Func>(spin_op));
+    }
+
+    template <typename Func = no_op_t>
+    inline void spin_send(communicator const& comm,
+        int dest,
+        int tag,
+        Func && spin_op = no_op_t{})
+    {
+        spin_send<int>(comm, nullptr, 0, dest, tag,
+            std::forward<Func>(spin_op));
+    }
+
+    template <typename T, typename Func = no_op_t>
+    int spin_receive(communicator const& comm,
+        T * vals,
+        size_t count,
+        int source = MPI_ANY_SOURCE,
+        int tag = MPI_ANY_TAG,
+        Func && spin_op = no_op_t{})
+    {
+        MPI_Request request;
+        MPI_Status status;
+        int flag;
+        MPI_Irecv(vals, count, alps::mpi::detail::mpi_type<T>(), source, tag,
+            comm, &request);
+        while (MPI_Test(&request, &flag, &status), !flag)
+            spin_op();
+        return status.MPI_SOURCE;
+    }
+
+    template <typename ContiguousIterator,
+              typename Func = no_op_t,
+              typename = std::enable_if_t<is_iterator_v<ContiguousIterator>>>
+    int spin_receive(communicator const& comm,
+        ContiguousIterator begin,
+        ContiguousIterator end,
+        int source = MPI_ANY_SOURCE,
+        int tag = MPI_ANY_TAG,
+        Func && spin_op = no_op_t{})
+    {
+        return spin_receive(comm, &(*begin), end - begin, source, tag,
+            std::forward<Func>(spin_op));
+    }
+
+    template <typename T, typename Func = no_op_t>
+    int spin_receive(communicator const& comm,
+        T & val,
+        int source = MPI_ANY_SOURCE,
+        int tag = MPI_ANY_TAG,
+        Func && spin_op = no_op_t{})
+    {
+        return spin_receive(comm, &val, 1, source, tag,
+            std::forward<Func>(spin_op));
+    }
+
+    template <typename Func = no_op_t>
+    inline int spin_receive(communicator const& comm,
+        int source = MPI_ANY_SOURCE,
+        int tag = MPI_ANY_TAG,
+        Func && spin_op = no_op_t{})
+    {
+        return spin_receive(comm, static_cast<int *>(nullptr), 0, source, tag,
+            std::forward<Func>(spin_op));
     }
 
     communicator split_communicator(communicator const& comm,
