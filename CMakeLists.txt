@@ -130,6 +130,7 @@ target_compile_definitions(gauge-sample PUBLIC -DGAUGE)
 
 add_executable(gauge-learn
     learn.cpp
+    phase_space_policy.cpp
     checkpointing_stop_callback.cpp
     gauge/gauge.cpp
     gauge/nematicities.cpp
