@@ -14,13 +14,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "argh.h"
 #include "config_sim_base.hpp"
+#include "dispatcher.hpp"
+#include "filesystem.hpp"
+#include "mpi.hpp"
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
-#include "filesystem.hpp"
-#include "argh.h"
-
-#include <omp.h>
 
 #include <algorithm>
 #include <cmath>
@@ -39,16 +39,19 @@
 
 #include <boost/multi_array.hpp>
 
+using sim_type = test_adapter<sim_base>;
 
 int main(int argc, char** argv)
 {
-    typedef test_adapter<sim_base> sim_type;
+    mpi::environment env(argc, argv, mpi::environment::threading::multiple);
+    mpi::communicator comm_world;
 
+    const bool is_master = (comm_world.rank() == 0);
     try {
-
         // Creates the parameters for the simulation
         // If an hdf5 file is supplied, reads the parameters there
-        std::cout << "Initializing parameters..." << std::endl;
+        if (is_master)
+            std::cout << "Initializing parameters..." << std::endl;
         alps::params parameters(argc, argv);
         argh::parser cmdl(argc, argv);
 
@@ -61,29 +64,39 @@ int main(int argc, char** argv)
             parameters["test.txtname"] =
                 replace_extension(alps::origin_name(parameters), ".test.txt");
 
-        if (parameters.help_requested(std::cout) ||
-            parameters.has_missing(std::cout)) {
+        if (parameters.help_requested(std::cout)
+            || parameters.has_missing(std::cout))
+        {
             return 1;
         }
 
+        auto log = [&](std::ostream & os = std::cout) -> std::ostream & {
+            return os << '[' << comm_world.rank() << '/' << comm_world.size()
+                      << "]\t";
+        };
+
+        // Collect phase points
         using phase_point = sim_base::phase_point;
-        auto points = [&parameters] {
+        using batches_type = std::vector<std::vector<phase_point>>;
+        auto get_batches = [&] {
             using scan_t = typename sim_base::test_sweep_type;
+            batches_type batches;
             scan_t scan{parameters, 0, "test."};
-            std::vector<phase_point> ps(scan.size());
-            std::generate(ps.begin(), ps.end(),
-                          [p=phase_point{}, &scan]() mutable {
-                              scan.yield(p);
-                              return p;
-                          });
-            return ps;
-        } ();
+            std::generate_n(std::back_inserter(batches), scan.size(),
+                [&, p=phase_point{}]() mutable -> std::vector<phase_point> {
+                    scan.yield(p);
+                    return {p};
+                });
+            return batches;
+        };
+
         using pair_t = std::pair<double, double>;
         using vecpair_t = std::pair<std::vector<double>, std::vector<double>>;
-        std::vector<pair_t> label(points.size());
-        std::vector<vecpair_t> svm(points.size());
-        std::vector<vecpair_t> svm_var(points.size());
-        std::vector<vecpair_t> mag(points.size());
+        std::vector<phase_point> points;
+        std::vector<pair_t> label;
+        std::vector<vecpair_t> svm;
+        std::vector<vecpair_t> svm_var;
+        std::vector<vecpair_t> mag;
 
         // get the bias parameters
         struct skeleton_classifier {
@@ -95,7 +108,7 @@ int main(int argc, char** argv)
             using phase_label = sim_base::phase_label;
             using model_t = svm::model<kernel_t, phase_label>;
 
-            std::string arname = parameters.get_archive_name();
+            std::string arname = parameters["outputfile"];
             alps::hdf5::archive ar(arname, "r");
 
             model_t model;
@@ -107,72 +120,83 @@ int main(int argc, char** argv)
             return cl;
         }();
 
-        alps::hdf5::archive ar(parameters["test.filename"].as<std::string>(), "w");
-        ar["parameters"] << parameters;
+        mpi::mutex archive_mutex(comm_world);
 
-        boost::multi_array<double, 2> phase_points(boost::extents[points.size()][phase_point::label_dim]);
-        for (size_t i = 0; i < points.size(); ++i)
-            std::copy(points[i].begin(), points[i].end(), phase_points[i].begin());
-        ar["phase_points"] << phase_points;
+        sim_type sim = [&] {
+            std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+            return sim_type(parameters, comm_world.rank());
+        }();
 
-        size_t done = 0;
-        std::vector<phase_point> current_points;
-        std::vector<std::string> order_param_names;
-#pragma omp parallel
-        {
-#pragma omp single
-            current_points.resize(omp_get_num_threads());
-            size_t tid = omp_get_thread_num();
-            auto progress_report = [&] {
-                size_t now_done;
-                now_done = done;
-                std::cout << '[' << now_done << '/' << points.size() << "] ";
-                for (size_t j = 0; j < current_points.size(); ++j) {
-                    phase_point now_point;
-                    now_point = current_points[j];
-                    std::cout << std::setw(8) << std::setprecision(4)
-                              << now_point << ',';
+        const std::string test_filename = parameters["test.filename"];
+        const bool resumed = alps::origin_name(parameters) == test_filename;
+        alps::stop_callback stop_cb(parameters["timelimit"].as<size_t>());
+
+        using proxy_t = dispatcher<batches_type>::archive_proxy_type;
+
+        dispatcher<batches_type> dispatch(test_filename,
+            resumed,
+            get_batches(),
+            stop_cb,
+            [&](proxy_t ar) { log() << "restoring checkpoint\n"; ar >> sim; },
+            [&](proxy_t ar) { log() << "writing checkpoint\n"; ar << sim; });
+
+        while (dispatch.request_batch()) {
+            if (!dispatch.valid())
+                continue;
+            auto slice_point = dispatch.point();
+            log() << "working on batch " << dispatch.batch_index() << ": "
+                  << slice_point << '\n';
+            if (dispatch.point_resumed()) {
+                if (slice_point != sim.phase_space_point()) {
+                    std::stringstream ss;
+                    ss << "Inconsistent phase space point found when restoring "
+                       << " from checkpoint: expected " << sim.phase_space_point()
+                       << ", found " << slice_point << ".";
+                    throw std::runtime_error(ss.str());
                 }
-                std::cout << "           \r" << std::flush;
-            };
-#pragma omp for schedule(dynamic)
-            for (size_t i = 0; i < points.size(); ++i) {
-                current_points[tid] = points[i];
-#pragma omp critical
-                progress_report();
+            } else {
+                sim.update_phase_point(slice_point);
+            }
+            bool finished = sim.run(stop_cb);
 
-                sim_type sim(parameters);
-                sim.update_phase_point(points[i]);
-                sim.run(alps::stop_callback(size_t(parameters["timelimit"])));
-
+            // only process results if batch was completed
+            if (finished) {
                 alps::results_type<sim_type>::type results = alps::collect_results(sim);
-                std::stringstream ss;
-#pragma omp critical
+
+                // save the results
                 {
-                    ss << "results/" << i;
+                    std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+                    alps::hdf5::archive ar(test_filename, "w");
+                    std::stringstream ss;
+                    ss << "results/" << slice_point;
+                    log() << "writing " << ss.str() << '\n';
                     ar[ss.str()] << results;
                 }
 
-                if (i == 0)
-                    order_param_names = sim.order_param_names();
+                // log statistics
+                points.push_back(slice_point);
+                mag.emplace_back();
                 for (std::string const& opname : sim.order_param_names()) {
-                    mag[i].first.push_back(results[opname].mean<double>());
-                    mag[i].second.push_back(results[opname].error<double>());
+                    mag.back().first.push_back(results[opname].mean<double>());
+                    mag.back().second.push_back(results[opname].error<double>());
                 }
                 auto variance = results["SVM^2"] - results["SVM"] * results["SVM"];
-                svm[i] = {results["SVM"].mean<std::vector<double>>(),
-                          results["SVM"].error<std::vector<double>>()};
-                svm_var[i] = {variance.mean<std::vector<double>>(),
-                              variance.error<std::vector<double>>()};
-                label[i] = {results["label"].mean<double>(),
-                            results["label"].error<double>()};
-#pragma omp atomic
-                ++done;
+                svm.emplace_back(results["SVM"].mean<std::vector<double>>(),
+                    results["SVM"].error<std::vector<double>>());
+                svm_var.emplace_back(variance.mean<std::vector<double>>(),
+                    variance.error<std::vector<double>>());
+                label.emplace_back(results["label"].mean<double>(),
+                    results["label"].error<double>());
             }
-#pragma omp critical
-            progress_report();
         }
-        std::cout << std::endl;
+
+        // needed to ensure results written before dispatcher writes checkpoints
+        mpi::barrier(comm_world);
+
+        // gather results here!
+
+        if (!is_master)
+            return 0;
 
         // rescale the SVM decision function to unit interval
         if (cmdl[{"-r", "--rescale"}]) {
@@ -215,7 +239,7 @@ int main(int argc, char** argv)
                 annotate(ss.str());
                 annotate(ss.str() + " variance");
             }
-            for (std::string const& opname : order_param_names)
+            for (std::string const& opname : sim.order_param_names())
                 annotate(opname);
 
             // data

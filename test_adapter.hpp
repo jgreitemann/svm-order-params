@@ -56,7 +56,7 @@ public:
         : Simulation(parms, seed_offset)
         , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
     {
-        std::string arname = parms.get_archive_name();
+        std::string arname = parms["outputfile"];
 
 #pragma omp critical
         {

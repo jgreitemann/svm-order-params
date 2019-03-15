@@ -18,7 +18,11 @@
 
 #include <alps/utilities/mpi.hpp>
 
+#include <chrono>
 #include <stdexcept>
+#include <thread>
+#include <type_traits>
+#include <utility>
 
 namespace {
 
@@ -133,7 +137,7 @@ namespace mpi {
         int dest,
         int tag)
     {
-        MPI_Send(vals, count, alps::mpi::detail::mpi_type<T>(), dest, tag, comm);
+        MPI_Ssend(vals, count, alps::mpi::detail::mpi_type<T>(), dest, tag, comm);
     }
 
     template <typename ContiguousIterator,
@@ -164,8 +168,8 @@ namespace mpi {
     int receive(communicator const& comm,
         T * vals,
         size_t count,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG)
+        int source,
+        int tag)
     {
         MPI_Status status;
         MPI_Recv(vals, count, alps::mpi::detail::mpi_type<T>(), source, tag, comm, &status);
@@ -186,15 +190,15 @@ namespace mpi {
     template <typename T>
     int receive(communicator const& comm,
         T & val,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG)
+        int source,
+        int tag)
     {
         return receive(comm, &val, 1, source, tag);
     }
 
     inline int receive(communicator const& comm,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG)
+        int source,
+        int tag)
     {
         return receive(comm, static_cast<int *>(nullptr), 0, source, tag);
     }
@@ -209,7 +213,7 @@ namespace mpi {
     {
         MPI_Request request;
         int flag;
-        MPI_Isend(vals, count, alps::mpi::detail::mpi_type<T>(), dest, tag,
+        MPI_Issend(vals, count, alps::mpi::detail::mpi_type<T>(), dest, tag,
             comm, &request);
         while (MPI_Test(&request, &flag, MPI_STATUS_IGNORE), !flag)
             spin_op();
@@ -240,7 +244,7 @@ namespace mpi {
     }
 
     template <typename Func = no_op_t>
-    inline void spin_send(communicator const& comm,
+    void spin_send(communicator const& comm,
         int dest,
         int tag,
         Func && spin_op = no_op_t{})
@@ -253,8 +257,8 @@ namespace mpi {
     int spin_receive(communicator const& comm,
         T * vals,
         size_t count,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG,
+        int source,
+        int tag,
         Func && spin_op = no_op_t{})
     {
         MPI_Request request;
@@ -273,8 +277,8 @@ namespace mpi {
     int spin_receive(communicator const& comm,
         ContiguousIterator begin,
         ContiguousIterator end,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG,
+        int source,
+        int tag,
         Func && spin_op = no_op_t{})
     {
         return spin_receive(comm, &(*begin), end - begin, source, tag,
@@ -284,8 +288,8 @@ namespace mpi {
     template <typename T, typename Func = no_op_t>
     int spin_receive(communicator const& comm,
         T & val,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG,
+        int source,
+        int tag,
         Func && spin_op = no_op_t{})
     {
         return spin_receive(comm, &val, 1, source, tag,
@@ -293,14 +297,64 @@ namespace mpi {
     }
 
     template <typename Func = no_op_t>
-    inline int spin_receive(communicator const& comm,
-        int source = MPI_ANY_SOURCE,
-        int tag = MPI_ANY_TAG,
+    int spin_receive(communicator const& comm,
+        int source,
+        int tag,
         Func && spin_op = no_op_t{})
     {
         return spin_receive(comm, static_cast<int *>(nullptr), 0, source, tag,
             std::forward<Func>(spin_op));
     }
+
+    struct mutex {
+        mutex(communicator const& comm, int tag = 0)
+            : comm{comm}
+            , lock_tag{894323 + 2 * tag}
+            , unlock_tag{894323 + 2 * tag + 1}
+        {
+            if (comm.rank() == 0)
+                thread = std::thread{[&] {
+                    int proc, request;
+                    while (proc = mpi::spin_receive(comm, request,
+                        MPI_ANY_SOURCE, lock_tag, spinner), request)
+                    {
+                        mpi::spin_receive(comm, proc, unlock_tag, spinner);
+                    }
+                }};
+        }
+
+        mutex(mutex const&) = delete;
+        mutex& operator=(mutex const&) = delete;
+        mutex(mutex &&) = default;
+        mutex& operator=(mutex &&) = default;
+
+        ~mutex() {
+            mpi::barrier(comm);
+            if (comm.rank() == 0) {
+                mpi::spin_send(comm, 0, 0, lock_tag, spinner);
+                thread.join();
+            }
+        }
+
+        void lock() {
+            mpi::spin_send(comm, 1, 0, lock_tag, spinner);
+        }
+
+        void unlock() {
+            mpi::spin_send(comm, 0, unlock_tag, spinner);
+        }
+
+    private:
+        communicator const& comm;
+        const int lock_tag;
+        const int unlock_tag;
+
+        std::thread thread;
+
+        static void spinner() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    };
 
     communicator split_communicator(communicator const& comm,
         int color,
