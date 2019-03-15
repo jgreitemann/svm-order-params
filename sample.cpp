@@ -104,7 +104,10 @@ int main(int argc, char** argv)
 
         using proxy_t = dispatcher<batches_type>::archive_proxy_type;
 
+        mpi::mutex archive_mutex(comm_world);
+
         dispatcher<batches_type> dispatch(checkpoint_file,
+            archive_mutex,
             resumed,
             get_batches(),
             stop_cb,

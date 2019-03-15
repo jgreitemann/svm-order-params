@@ -22,6 +22,7 @@
 #include <chrono>
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -44,8 +45,6 @@ struct dispatcher {
 private:
 	static constexpr int report_idle_tag = 42;
 	static constexpr int request_batch_tag = 43;
-	static constexpr int read_checkpoint_tag = 44;
-	static constexpr int write_checkpoint_tag = 45;
 
 	mpi::communicator comm_world;
 
@@ -66,6 +65,7 @@ public:
 	const bool is_group_leader = (comm_group.rank() == 0);
 
 private:
+	mpi::mutex & archive_mutex;
 	int batch_int;
 
 	stop_callback_type stop_cb;
@@ -74,12 +74,14 @@ private:
 
 public:
 	dispatcher(std::string const& checkpoint_file,
+		mpi::mutex & archive_mutex,
 		bool resumed,
 		BatchesContainer && batches,
 		stop_callback_type && stop_cb,
 		checkpoint_callback_type const& read_cb,
 		checkpoint_callback_type && write_cb)
 	: checkpoint_file{checkpoint_file}
+	, archive_mutex{archive_mutex}
 	, resumed{resumed}
 	, batches{std::forward<BatchesContainer>(batches)}
 	, stop_cb{std::move(stop_cb)}
@@ -89,53 +91,40 @@ public:
 			background_thread = std::thread{[this] { dispatch_job(); }};
 
         if (resumed) {
-            // Ring lock for reading checkpoints
-            if (is_master)
-                mpi::receive(comm_world, 0, read_checkpoint_tag);
-            else
-                mpi::receive(comm_world, comm_world.rank() - 1,
-                    read_checkpoint_tag);
-
             std::string checkpoint_path = [&] {
                 std::stringstream ss;
                 ss << "simulation/clones/" << comm_world.rank();
                 return ss.str();
             } ();
             {
+            	std::lock_guard<mpi::mutex> archive_lock(archive_mutex);
                 alps::hdf5::archive cp(checkpoint_file, "r");
                 read_cb(cp[checkpoint_path]);
             }
-
-            if (comm_world.rank() + 1 < comm_world.size())
-                mpi::send(comm_world, comm_world.rank() + 1,
-                	read_checkpoint_tag);
         }
-
-        mpi::barrier(comm_world);
 	}
 
+	dispatcher(dispatcher const&) = delete;
+	dispatcher& operator=(dispatcher const&) = delete;
+	dispatcher(dispatcher &&) = delete;
+	dispatcher& operator=(dispatcher &&) = delete;
+
 	~dispatcher() {
-        // Ring lock for writing checkpoints
-        if (!is_master)
-            mpi::receive(comm_world, comm_world.rank() - 1,
-            	write_checkpoint_tag);
         std::string checkpoint_path = [&] {
             std::stringstream ss;
             ss << "simulation/clones/" << comm_world.rank();
             return ss.str();
         } ();
+
+        if (is_master)
+        	background_thread.join();
+
         {
+        	std::lock_guard<mpi::mutex> archive_lock(archive_mutex);
             alps::hdf5::archive cp(checkpoint_file, "w");
             cp["simulation/n_clones"] << comm_world.size();
             write_cb(cp[checkpoint_path]);
         }
-        mpi::send(comm_world, (comm_world.rank() + 1) % comm_world.size(),
-            write_checkpoint_tag);
-        // This ring lock cycles back to the beginning to signal the
-        // dispatcher to write active batches.
-
-        if (is_master)
-        	background_thread.join();
 	}
 
 	bool request_batch() {
@@ -172,10 +161,10 @@ private:
         std::vector<bool> to_resume_flag;
         if (resumed) {
             {
+            	std::lock_guard<mpi::mutex> archive_lock(archive_mutex);
                 alps::hdf5::archive cp(checkpoint_file, "r");
                 cp["simulation/active_batches"] >> active_batches;
             }
-            mpi::send(comm_world, 0, read_checkpoint_tag);
             if (n_group != active_batches.size()) {
                 throw std::runtime_error(
                     "number of groups mustn't change on resumption");
@@ -215,11 +204,10 @@ private:
             }
         }
 
-        // wait for the last process to checkpoint, then write
-        // the last active batches
-        mpi::receive(comm_world, comm_world.size() - 1,
-            write_checkpoint_tag);
-        alps::hdf5::archive cp(checkpoint_file, "w");
-        cp["simulation/active_batches"] << active_batches;
+        {
+        	std::lock_guard<mpi::mutex> archive_lock(archive_mutex);
+        	alps::hdf5::archive cp(checkpoint_file, "w");
+        	cp["simulation/active_batches"] << active_batches;
+        }
 	}
 };

@@ -28,6 +28,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <utility>
 
@@ -134,6 +135,7 @@ int main(int argc, char** argv)
         using proxy_t = dispatcher<batches_type>::archive_proxy_type;
 
         dispatcher<batches_type> dispatch(test_filename,
+            archive_mutex,
             resumed,
             get_batches(),
             stop_cb,
@@ -189,9 +191,6 @@ int main(int argc, char** argv)
                     results["label"].error<double>());
             }
         }
-
-        // needed to ensure results written before dispatcher writes checkpoints
-        mpi::barrier(comm_world);
 
         // gather results here!
 
