@@ -27,9 +27,11 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <tuple>
 #include <utility>
 
 #include <alps/accumulators.hpp>
@@ -41,6 +43,7 @@
 #include <boost/multi_array.hpp>
 
 using sim_type = test_adapter<sim_base>;
+using results_type = alps::results_type<sim_type>::type;
 
 int main(int argc, char** argv)
 {
@@ -91,14 +94,6 @@ int main(int argc, char** argv)
             return batches;
         };
 
-        using pair_t = std::pair<double, double>;
-        using vecpair_t = std::pair<std::vector<double>, std::vector<double>>;
-        std::vector<phase_point> points;
-        std::vector<pair_t> label;
-        std::vector<vecpair_t> svm;
-        std::vector<vecpair_t> svm_var;
-        std::vector<vecpair_t> mag;
-
         // get the bias parameters
         struct skeleton_classifier {
             sim_base::phase_label label1, label2;
@@ -142,6 +137,13 @@ int main(int argc, char** argv)
             [&](proxy_t ar) { log() << "restoring checkpoint\n"; ar >> sim; },
             [&](proxy_t ar) { log() << "writing checkpoint\n"; ar << sim; });
 
+        std::vector<size_t> available_results;
+        if (resumed && is_master) {
+            std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+            alps::hdf5::archive ar(test_filename, "r");
+            ar["results/available"] >> available_results;
+        }
+
         while (dispatch.request_batch()) {
             if (!dispatch.valid())
                 continue;
@@ -163,59 +165,96 @@ int main(int argc, char** argv)
 
             // only process results if batch was completed
             if (finished) {
-                alps::results_type<sim_type>::type results = alps::collect_results(sim);
+                results_type results = alps::collect_results(sim);
 
                 // save the results
                 {
                     std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
                     alps::hdf5::archive ar(test_filename, "w");
                     std::stringstream ss;
-                    ss << "results/" << slice_point;
-                    log() << "writing " << ss.str() << '\n';
-                    ar[ss.str()] << results;
+                    ss << "results/" << dispatch.batch_index() << "/";
+                    ar[ss.str() + "n_points"] << 1ul;
+                    ss << dispatch.comm_group.rank();
+                    ar[ss.str() + "/measurements"] << results;
+                    ar[ss.str() + "/point"]
+                        << std::vector<double>{slice_point.begin(),
+                            slice_point.end()};
+                    available_results.push_back(dispatch.batch_index());
                 }
-
-                // log statistics
-                points.push_back(slice_point);
-                mag.emplace_back();
-                for (std::string const& opname : sim.order_param_names()) {
-                    mag.back().first.push_back(results[opname].mean<double>());
-                    mag.back().second.push_back(results[opname].error<double>());
-                }
-                auto variance = results["SVM^2"] - results["SVM"] * results["SVM"];
-                svm.emplace_back(results["SVM"].mean<std::vector<double>>(),
-                    results["SVM"].error<std::vector<double>>());
-                svm_var.emplace_back(variance.mean<std::vector<double>>(),
-                    variance.error<std::vector<double>>());
-                label.emplace_back(results["label"].mean<double>(),
-                    results["label"].error<double>());
             }
         }
 
-        // gather results here!
+        auto gathered_results = [&] {
+            std::vector<size_t> res(dispatch.batches.size());
+            auto end = mpi::all_gather(comm_world,
+                available_results.begin(),
+                available_results.end(),
+                res.begin());
+            res.resize(end - res.begin());
+            return res;
+        }();
 
         if (!is_master)
             return 0;
 
+        std::cout << gathered_results.size() << " results available\n";
+
+        std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+        alps::hdf5::archive ar(test_filename, "w");
+        ar["results/available"] << gathered_results;
+
+        std::map<phase_point, results_type> all_results;
+        for (size_t batch_index : gathered_results) {
+            size_t n_points = [&] {
+                std::stringstream ss;
+                ss << "results/" << batch_index << "/n_points";
+                size_t np;
+                ar[ss.str()] >> np;
+                return np;
+            }();
+            for (size_t i = 0; i < n_points; ++i) {
+                std::stringstream ss;
+                ss << "results/" << batch_index << '/' << i;
+                std::vector<double> point_vec;
+                ar[ss.str() + "/point"] >> point_vec;
+                decltype(all_results)::iterator it;
+                bool inserted;
+                std::tie(it, inserted) =
+                    all_results.emplace(std::piecewise_construct,
+                        std::forward_as_tuple(point_vec.begin()),
+                        std::forward_as_tuple());
+                if (!inserted)
+                    std::cout << "warning: duplicate point " << it->first << '\n';
+                ar[ss.str() + "/measurements"] >> it->second;
+            }
+        }
+
         // rescale the SVM decision function to unit interval
+        std::function<void(std::vector<double>&, int, double)> rescale;
         if (cmdl[{"-r", "--rescale"}]) {
-            for (size_t j = 0; j < svm.front().first.size(); ++j) {
+            std::vector<double> scale_factors(
+                all_results.begin()->second["SVM"].mean<std::vector<double>>().size(),
+                1.);
+            for (size_t j = 0; j < scale_factors.size(); ++j) {
                 double min = std::numeric_limits<double>::max();
                 double max = std::numeric_limits<double>::min();
-                for (size_t i = 0; i < points.size(); ++i) {
-                    double x = svm[i].first[j];
-                    if (x < min)
-                        min = x;
-                    if (x > max)
-                        max = x;
+                for (auto const& p : all_results) {
+                    auto mean = p.second["SVM"].mean<std::vector<double>>();
+                    min = std::min(mean[j], min);
+                    max = std::max(mean[j], max);
                 }
-                double fac = 1. / (max - min);
-                for (size_t i = 0; i < points.size(); ++i) {
-                    svm[i].first[j] += classifiers[j].rho;
-                    svm[i].first[j] *= fac;
-                    svm[i].second[j] *= fac;
-                }
+                scale_factors[j] = 1. / (max - min);
             }
+            rescale = [=](std::vector<double>& vec, int exponent, double shift) {
+                for (size_t j = 0; j < vec.size(); ++j)
+                    vec[j] = pow(scale_factors[j], exponent)
+                        * (vec[j] + shift * classifiers[j].rho);
+                return vec;
+            };
+        } else {
+            rescale = [](std::vector<double>& vec, int, double) {
+                return vec;
+            };
         }
 
         // output
@@ -242,20 +281,29 @@ int main(int argc, char** argv)
                 annotate(opname);
 
             // data
-            for (size_t i = 0; i < points.size(); ++i) {
-                std::copy(points[i].begin(), points[i].end(),
-                          std::ostream_iterator<double> {os, "\t"});
-                os << label[i].first << '\t'
-                   << label[i].second << '\t';
-                for (size_t j = 0; j < svm[i].first.size(); ++j) {
-                    os << svm[i].first[j] << '\t'
-                       << svm[i].second[j] << '\t';
-                    os << svm_var[i].first[j] << '\t'
-                       << svm_var[i].second[j] << '\t';
+            for (auto const& p : all_results) {
+                phase_point const& pp = p.first;
+                results_type const& res = p.second;
+                std::copy(pp.begin(), pp.end(),
+                    std::ostream_iterator<double>{os, "\t"});
+                os << res["label"].mean<double>() << '\t'
+                   << res["label"].error<double>() << '\t';
+                auto svm_mean = res["SVM"].mean<std::vector<double>>();
+                rescale(svm_mean, 1, 1.);
+                auto svm_error = res["SVM"].error<std::vector<double>>();
+                rescale(svm_error, 1, 0.);
+                auto svm_var = res["SVM^2"] - res["SVM"] * res["SVM"];
+                auto svm_var_mean = svm_var.mean<std::vector<double>>();
+                rescale(svm_var_mean, 2, 0.);
+                auto svm_var_error = svm_var.error<std::vector<double>>();
+                rescale(svm_var_error, 2, 0.);
+                for (size_t i = 0; i < svm_mean.size(); ++i)
+                    os << svm_mean[i] << '\t' << svm_error[i] << '\t'
+                       << svm_var_mean[i] << '\t' << svm_var_error[i] << '\t';
+                for (std::string const& opname : sim.order_param_names()) {
+                    os << res[opname].mean<double>() << '\t'
+                       << res[opname].error<double>() << '\t';
                 }
-                for (size_t j = 0; j < mag[i].first.size(); ++j)
-                    os << mag[i].first[j] << '\t'
-                       << mag[i].second[j] << '\t';
                 os << '\n';
             }
         }

@@ -23,6 +23,7 @@
 #include <thread>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace {
 
@@ -50,6 +51,7 @@ namespace mpi {
 
     using alps::mpi::communicator;
     using alps::mpi::broadcast;
+    using alps::mpi::all_reduce;
 
     struct environment {
 
@@ -304,6 +306,39 @@ namespace mpi {
     {
         return spin_receive(comm, static_cast<int *>(nullptr), 0, source, tag,
             std::forward<Func>(spin_op));
+    }
+
+    template <typename T>
+    void all_gather(communicator const& comm,
+        T const* send_vals,
+        size_t send_count,
+        T * recv_vals,
+        size_t recv_count)
+    {
+        MPI_Allgather(send_vals, send_count, alps::mpi::detail::mpi_type<T>{},
+            recv_vals, recv_count, alps::mpi::detail::mpi_type<T>{}, comm);
+    }
+
+    template <typename ContiguousIterator>
+    auto all_gather(communicator const& comm,
+        ContiguousIterator send_begin,
+        ContiguousIterator send_end,
+        ContiguousIterator recv_begin)
+        -> ContiguousIterator
+    {
+        std::vector<int> recv_counts(comm.size());
+        int send_count = send_end - send_begin;
+        all_gather(comm, &send_count, 1, recv_counts.data(), 1);
+
+        std::vector<int> displ(recv_counts.size(), 0);
+        for (size_t i = 1; i < displ.size(); ++i)
+            displ[i] = displ[i - 1] + recv_counts[i - 1];
+        using T = typename ContiguousIterator::value_type;
+        MPI_Allgatherv(&(*send_begin), send_count,
+            alps::mpi::detail::mpi_type<T>{}, &(*recv_begin),
+            recv_counts.data(), displ.data(), alps::mpi::detail::mpi_type<T>{},
+            comm);
+        return recv_begin + (displ.back() + recv_counts.back());
     }
 
     struct mutex {

@@ -107,6 +107,13 @@ namespace phase_space {
             return !(lhs == rhs);
         }
 
+        template <typename Point>
+        bool operator< (Point const& lhs, Point const& rhs) {
+            return std::lexicographical_compare(
+                lhs.begin(), lhs.end(),
+                rhs.begin(), rhs.end());
+        }
+
         template <typename Point,
                   typename = std::enable_if_t<(Point::label_dim > 0)>>
         std::ostream& operator<< (std::ostream & os, Point const& p) {
