@@ -169,29 +169,33 @@ private:
                 throw std::runtime_error(
                     "number of groups mustn't change on resumption");
             }
-            to_resume_flag.resize(n_group, true);
+            to_resume_flag.resize(n_group + 1, true);
+            to_resume_flag[n_group] = false;
             batch_index = *std::max_element(active_batches.begin(),
                 active_batches.end()) + 1;
         } else {
             active_batches.resize(n_group);
-            to_resume_flag.resize(n_group, false);
+            to_resume_flag.resize(n_group + 1, false);
         }
 
         // dispatch batches until exhausted or stopped
-        size_t n_cleanup = n_group;
+        size_t n_cleanup = n_group + (n_group % batch_size != 0);
         while (n_cleanup > 0) {
             int idle = mpi::spin_receive(comm_world, MPI_ANY_SOURCE,
                 report_idle_tag, [&] {
                     std::this_thread::sleep_for(
                         std::chrono::milliseconds(100));
                 });
-            if (to_resume_flag[idle]) {
+            size_t idle_group = idle / batch_size;
+            if (to_resume_flag[idle_group]) {
                 // tell group to resume its active batch
                 mpi::send(comm_world,
                     static_cast<int>(active_batches[idle]),
                     idle, request_batch_tag);
                 to_resume_flag[idle] = false;
-            } else if (stop_cb() || batch_index >= batches.size()) {
+            } else if (stop_cb() || batch_index >= batches.size()
+            	|| idle_group == n_group)
+            {
                 mpi::send(comm_world, -1, idle, request_batch_tag);
                 --n_cleanup;
             } else {
@@ -199,7 +203,7 @@ private:
                 mpi::send(comm_world,
                     static_cast<int>(batch_index),
                     idle, request_batch_tag);
-                active_batches[idle] = batch_index;
+                active_batches[idle_group] = batch_index;
                 ++batch_index;
             }
         }
