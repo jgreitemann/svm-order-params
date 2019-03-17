@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "argh.h"
 #include "checkpointing_stop_callback.hpp"
 #include "config_sim_base.hpp"
 #include "dispatcher.hpp"
@@ -61,6 +62,7 @@ int main(int argc, char** argv)
         if (is_master)
             std::cout << "Initializing parameters..." << std::endl;
         alps::params parameters(argc, argv, comm_world);
+        argh::parser cmdl(argc, argv);
 
         // define parameters
         sim_type::define_parameters(parameters);
@@ -84,14 +86,16 @@ int main(int argc, char** argv)
 
         // Collect phase points
         using batches_type = std::vector<std::vector<phase_point>>;
-        auto get_batches = [&parameters] {
+        auto get_batches = [&] {
             batches_type batches;
             auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(parameters);
             std::mt19937 rng{parameters["SEED"].as<size_t>()};
+            size_t repeat;
+            cmdl("repeat", 1) >> repeat;
             std::generate_n(std::back_inserter(batches), sweep_pol->size(),
                 [&, p=phase_point{}]() mutable -> std::vector<phase_point> {
                     sweep_pol->yield(p, rng);
-                    return {p};
+                    return std::vector<phase_point>(repeat, p);
                 });
             return batches;
         };
