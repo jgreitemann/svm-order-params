@@ -185,11 +185,13 @@ int main(int argc, char** argv)
         }
 
         auto gathered_results = [&] {
-            std::vector<size_t> res(dispatch.batches.size());
+            std::vector<size_t> res(dispatch.batches.size() + comm_world.size());
             auto end = mpi::all_gather(comm_world,
                 available_results.begin(),
                 available_results.end(),
                 res.begin());
+            std::sort(res.begin(), end);
+            end = std::unique(res.begin(), end);
             res.resize(end - res.begin());
             return res;
         }();
