@@ -89,6 +89,11 @@ public:
         }
     }
 
+    void update_phase_point(typename Simulation::phase_point const& pp) {
+        Simulation::update_phase_point(pp);
+        measurements.reset();
+    }
+
 private:
     using Simulation::measurements;
     model_t model;
