@@ -66,7 +66,7 @@ public:
             ;
     }
 
-    training_adapter(parameters_type & parms,
+    training_adapter(parameters_type const& parms,
         std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
         , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
@@ -80,7 +80,7 @@ public:
         double frac = Simulation::fraction_completed();
         Simulation::measure();
         if (frac == 0.) return;
-        if (frac + 1e-3 >= 1. * (i_sample + 1) / N_sample) {
+        if (frac + 1e-3 >= 1. * (i_sample + 1) / N_sample && i_sample < N_sample) {
             sample_config(Simulation::configuration(),
                           Simulation::phase_space_point());
             ++i_sample;

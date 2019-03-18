@@ -17,6 +17,7 @@
 #include "argh.h"
 #include "config_sim_base.hpp"
 #include "dispatcher.hpp"
+#include "embarrassing_adapter.hpp"
 #include "filesystem.hpp"
 #include "mpi.hpp"
 #include "svm-wrapper.hpp"
@@ -42,7 +43,7 @@
 
 #include <boost/multi_array.hpp>
 
-using sim_type = test_adapter<sim_base>;
+using sim_type = embarrassing_adapter<test_adapter<sim_base>>;
 using results_type = alps::results_type<sim_type>::type;
 
 int main(int argc, char** argv)
@@ -122,7 +123,7 @@ int main(int argc, char** argv)
 
         sim_type sim = [&] {
             std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
-            return sim_type(parameters, comm_world.rank());
+            return sim_type(parameters, comm_world);
         }();
 
         const std::string test_filename = parameters["test.filename"];
@@ -149,8 +150,9 @@ int main(int argc, char** argv)
         while (dispatch.request_batch()) {
             bool valid = dispatch.valid();
             auto comm_valid = mpi::split_communicator(dispatch.comm_group, valid);
-            if (!dispatch.valid())
+            if (!valid)
                 continue;
+            sim.rebind_communicator(comm_valid);
             auto slice_point = dispatch.point();
             log() << "working on batch " << dispatch.batch_index() << ": "
                   << slice_point << '\n';
@@ -169,16 +171,17 @@ int main(int argc, char** argv)
 
             // only process results if batch was completed
             if (finished) {
+                int n_points = sim.number_of_points();
                 results_type results = alps::collect_results(sim);
 
                 // save the results
-                {
+                if (comm_valid.rank() < n_points) {
                     std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
                     alps::hdf5::archive ar(test_filename, "w");
                     std::stringstream ss;
                     ss << "results/" << dispatch.batch_index() << "/";
                     if (dispatch.is_group_leader)
-                        ar[ss.str() + "n_points"] << comm_valid.size();
+                        ar[ss.str() + "n_points"] << n_points;
                     ss << comm_valid.rank();
                     ar[ss.str() + "/measurements"] << results;
                     ar[ss.str() + "/point"]

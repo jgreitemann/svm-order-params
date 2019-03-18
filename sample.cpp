@@ -18,6 +18,7 @@
 #include "checkpointing_stop_callback.hpp"
 #include "config_sim_base.hpp"
 #include "dispatcher.hpp"
+#include "embarrassing_adapter.hpp"
 #include "mpi.hpp"
 #include "phase_space_policy.hpp"
 #include "svm-wrapper.hpp"
@@ -36,15 +37,14 @@
 #include <alps/accumulators.hpp>
 #include <alps/mc/api.hpp>
 #include <alps/mc/mcbase.hpp>
-#include <alps/mc/mpiadapter.hpp>
 #include <alps/mc/stop_callback.hpp>
 
 #ifdef CONFIG_MAPPING_LAZY
 #include "procrastination_adapter.hpp"
-using sim_type = procrastination_adapter<sim_base>;
+using sim_type = embarrassing_adapter<procrastination_adapter<sim_base>>;
 #else
 #include "training_adapter.hpp"
-using sim_type = training_adapter<sim_base>;
+using sim_type = embarrassing_adapter<training_adapter<sim_base>>;
 #endif
 
 using kernel_t = typename sim_type::kernel_t;
@@ -98,7 +98,7 @@ int main(int argc, char** argv)
             return batches;
         };
 
-        sim_type sim(parameters, comm_world.rank());
+        sim_type sim(parameters, comm_world);
 
         const std::string checkpoint_file = parameters["checkpoint"];
         const bool resumed = parameters.is_restored();
@@ -117,8 +117,11 @@ int main(int argc, char** argv)
             [&](proxy_t ar) { log() << "writing checkpoint\n"; ar << sim; });
 
         while (dispatch.request_batch()) {
-            if (!dispatch.valid())
+            bool valid = dispatch.valid();
+            auto comm_valid = mpi::split_communicator(dispatch.comm_group, valid);
+            if (!valid)
                 continue;
+            sim.rebind_communicator(comm_valid);
             auto slice_point = dispatch.point();
             log() << "working on batch " << dispatch.batch_index() << ": "
                   << slice_point << '\n';
