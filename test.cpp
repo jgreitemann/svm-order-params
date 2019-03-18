@@ -86,10 +86,12 @@ int main(int argc, char** argv)
             using scan_t = typename sim_base::test_sweep_type;
             batches_type batches;
             scan_t scan{parameters, 0, "test."};
+            size_t repeat;
+            cmdl("repeat", 1) >> repeat;
             std::generate_n(std::back_inserter(batches), scan.size(),
                 [&, p=phase_point{}]() mutable -> std::vector<phase_point> {
                     scan.yield(p);
-                    return {p};
+                    return std::vector<phase_point>(repeat, p);
                 });
             return batches;
         };
@@ -145,6 +147,8 @@ int main(int argc, char** argv)
         }
 
         while (dispatch.request_batch()) {
+            bool valid = dispatch.valid();
+            auto comm_valid = mpi::split_communicator(dispatch.comm_group, valid);
             if (!dispatch.valid())
                 continue;
             auto slice_point = dispatch.point();
@@ -173,8 +177,9 @@ int main(int argc, char** argv)
                     alps::hdf5::archive ar(test_filename, "w");
                     std::stringstream ss;
                     ss << "results/" << dispatch.batch_index() << "/";
-                    ar[ss.str() + "n_points"] << 1ul;
-                    ss << dispatch.comm_group.rank();
+                    if (dispatch.is_group_leader)
+                        ar[ss.str() + "n_points"] << comm_valid.size();
+                    ss << comm_valid.rank();
                     ar[ss.str() + "/measurements"] << results;
                     ar[ss.str() + "/point"]
                         << std::vector<double>{slice_point.begin(),
