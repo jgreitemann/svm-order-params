@@ -82,20 +82,17 @@ int main(int argc, char** argv)
 
         // Collect phase points
         using phase_point = sim_base::phase_point;
-        using batches_type = std::vector<std::vector<phase_point>>;
-        auto get_batches = [&] {
+        auto all_phase_points = [&] {
             using scan_t = typename sim_base::test_sweep_type;
-            batches_type batches;
+            std::vector<phase_point> points;
             scan_t scan{parameters, 0, "test."};
-            size_t repeat;
-            cmdl("repeat", 1) >> repeat;
-            std::generate_n(std::back_inserter(batches), scan.size(),
-                [&, p=phase_point{}]() mutable -> std::vector<phase_point> {
+            std::generate_n(std::back_inserter(points), scan.size(),
+                [&, p=phase_point{}]() mutable {
                     scan.yield(p);
-                    return std::vector<phase_point>(repeat, p);
+                    return p;
                 });
-            return batches;
-        };
+            return points;
+        }();
 
         // get the bias parameters
         struct skeleton_classifier {
@@ -130,12 +127,13 @@ int main(int argc, char** argv)
         const bool resumed = alps::origin_name(parameters) == test_filename;
         alps::stop_callback stop_cb(parameters["timelimit"].as<size_t>());
 
+        using batches_type = sim_type::batcher::batches_type;
         using proxy_t = dispatcher<batches_type>::archive_proxy_type;
 
         dispatcher<batches_type> dispatch(test_filename,
             archive_mutex,
             resumed,
-            get_batches(),
+            sim_type::batcher{parameters}(all_phase_points),
             stop_cb,
             [&](proxy_t ar) { log() << "restoring checkpoint\n"; ar >> sim; },
             [&](proxy_t ar) { log() << "writing checkpoint\n"; ar << sim; });

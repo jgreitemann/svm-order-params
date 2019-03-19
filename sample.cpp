@@ -83,20 +83,17 @@ int main(int argc, char** argv)
         };
 
         // Collect phase points
-        using batches_type = std::vector<std::vector<phase_point>>;
-        auto get_batches = [&] {
-            batches_type batches;
+        auto all_phase_points = [&] {
+            std::vector<phase_point> points;
             auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(parameters);
             std::mt19937 rng{parameters["SEED"].as<size_t>()};
-            size_t repeat;
-            cmdl("repeat", 1) >> repeat;
-            std::generate_n(std::back_inserter(batches), sweep_pol->size(),
-                [&, p=phase_point{}]() mutable -> std::vector<phase_point> {
+            std::generate_n(std::back_inserter(points), sweep_pol->size(),
+                [&, p=phase_point{}]() mutable {
                     sweep_pol->yield(p, rng);
-                    return std::vector<phase_point>(repeat, p);
+                    return p;
                 });
-            return batches;
-        };
+            return points;
+        }();
 
         sim_type sim(parameters, comm_world);
 
@@ -104,14 +101,15 @@ int main(int argc, char** argv)
         const bool resumed = parameters.is_restored();
         alps::stop_callback stop_cb(parameters["timelimit"].as<size_t>());
 
-        using proxy_t = dispatcher<batches_type>::archive_proxy_type;
-
         mpi::mutex archive_mutex(comm_world);
+
+        using batches_type = sim_type::batcher::batches_type;
+        using proxy_t = dispatcher<batches_type>::archive_proxy_type;
 
         dispatcher<batches_type> dispatch(checkpoint_file,
             archive_mutex,
             resumed,
-            get_batches(),
+            sim_type::batcher{parameters}(all_phase_points),
             stop_cb,
             [&](proxy_t ar) { log() << "restoring checkpoint\n"; ar >> sim; },
             [&](proxy_t ar) { log() << "writing checkpoint\n"; ar << sim; });

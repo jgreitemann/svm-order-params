@@ -18,20 +18,54 @@
 
 #include "mpi.hpp"
 
+#include <algorithm>
+#include <iterator>
+#include <vector>
+
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/mpiadapter.hpp>
 
 
 template <class Simulation>
-class embarrassing_adapter : public alps::mcmpiadapter<Simulation> {
-public:
+struct embarrassing_adapter : public alps::mcmpiadapter<Simulation> {
     using Base = alps::mcmpiadapter<Simulation>;
     using parameters_type = typename Simulation::parameters_type;
-    // using results_type = typename Simulation::results_type;
-    // using result_names_type = typename Simulation::result_names_type;
+    using phase_point = typename Simulation::phase_point;
 
-    static void define_parameters(alps::params & parameters) {
+    struct batcher {
+        using batch_type = std::vector<phase_point>;
+        using batches_type = std::vector<batch_type>;
+
+        static void define_parameters(parameters_type & parameters) {
+            parameters.template define<size_t>("batch.n_parallel", 0,
+                "number of parallel processes per batch (0 = optimum)");
+        }
+
+        batcher(parameters_type & parameters)
+            : n_parallel{parameters["batch.n_parallel"].template as<size_t>()}
+        {
+        }
+
+        template <typename Container>
+        batches_type operator()(Container points) const {
+            size_t np = n_parallel ? n_parallel
+                : std::max<size_t>(mpi::communicator{}.size() / points.size(), 1);
+            batches_type batches;
+            std::transform(points.begin(), points.end(),
+                std::back_inserter(batches),
+                [np](phase_point const& pp) {
+                    return batch_type(np, pp);
+                });
+            return batches;
+        }
+
+    private:
+        size_t n_parallel;
+    };
+
+    static void define_parameters(parameters_type & parameters) {
         Base::define_parameters(parameters);
+        batcher::define_parameters(parameters);
     }
 
     embarrassing_adapter(parameters_type & params,
