@@ -179,7 +179,7 @@ private:
         }
 
         // dispatch batches until exhausted or stopped
-        size_t n_cleanup = n_group + (n_group % batch_size != 0);
+        size_t n_cleanup = n_group + (comm_world.size() % batch_size != 0);
         while (n_cleanup > 0) {
             int idle = mpi::spin_receive(comm_world, MPI_ANY_SOURCE,
                 report_idle_tag, [&] {
