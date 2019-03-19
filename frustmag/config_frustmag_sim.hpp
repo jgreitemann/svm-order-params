@@ -30,10 +30,10 @@
 #include "update/overrelaxation.hpp"
 #include "update/mux.hpp"
 
-#if defined HEISENBERG
+#if defined HEISENBERG_HAMILTONIAN
 template <template <typename> typename Lattice>
 using hamiltonian_t_t = hamiltonian::heisenberg<Lattice>;
-#elif defined ISING
+#elif defined ISING_HAMILTONIAN
 template <template <typename> typename Lattice>
 using hamiltonian_t_t = hamiltonian::ising<Lattice>;
 #else

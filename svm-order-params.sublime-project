@@ -16,7 +16,7 @@
             "-fconcepts",
             "-DGAUGE",
             "-DGAUGE_CLASSIFIER_D2H",
-            "-DHEISENBERG",
+            "-DHEISENBERG_HAMILTONIAN",
             "-DKAGOME",
         ],
         "SublimeLinter.linters.gcc.include_dirs": [
