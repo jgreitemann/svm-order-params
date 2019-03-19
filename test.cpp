@@ -14,21 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include "argh.h"
 #include "config_sim_base.hpp"
+#include "dispatcher.hpp"
+#include "embarrassing_adapter.hpp"
+#include "filesystem.hpp"
+#include "mpi.hpp"
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
-#include "filesystem.hpp"
-#include "argh.h"
-
-#include <omp.h>
 
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <sstream>
+#include <tuple>
 #include <utility>
 
 #include <alps/accumulators.hpp>
@@ -39,16 +43,20 @@
 
 #include <boost/multi_array.hpp>
 
+using sim_type = embarrassing_adapter<test_adapter<sim_base>>;
+using results_type = alps::results_type<sim_type>::type;
 
 int main(int argc, char** argv)
 {
-    typedef test_adapter<sim_base> sim_type;
+    mpi::environment env(argc, argv, mpi::environment::threading::multiple);
+    mpi::communicator comm_world;
 
+    const bool is_master = (comm_world.rank() == 0);
     try {
-
         // Creates the parameters for the simulation
         // If an hdf5 file is supplied, reads the parameters there
-        std::cout << "Initializing parameters..." << std::endl;
+        if (is_master)
+            std::cout << "Initializing parameters..." << std::endl;
         alps::params parameters(argc, argv);
         argh::parser cmdl(argc, argv);
 
@@ -61,29 +69,30 @@ int main(int argc, char** argv)
             parameters["test.txtname"] =
                 replace_extension(alps::origin_name(parameters), ".test.txt");
 
-        if (parameters.help_requested(std::cout) ||
-            parameters.has_missing(std::cout)) {
+        if (parameters.help_requested(std::cout)
+            || parameters.has_missing(std::cout))
+        {
             return 1;
         }
 
+        auto log = [&](std::ostream & os = std::cout) -> std::ostream & {
+            return os << '[' << comm_world.rank() << '/' << comm_world.size()
+                      << "]\t";
+        };
+
+        // Collect phase points
         using phase_point = sim_base::phase_point;
-        auto points = [&parameters] {
+        auto all_phase_points = [&] {
             using scan_t = typename sim_base::test_sweep_type;
+            std::vector<phase_point> points;
             scan_t scan{parameters, 0, "test."};
-            std::vector<phase_point> ps(scan.size());
-            std::generate(ps.begin(), ps.end(),
-                          [p=phase_point{}, &scan]() mutable {
-                              scan.yield(p);
-                              return p;
-                          });
-            return ps;
-        } ();
-        using pair_t = std::pair<double, double>;
-        using vecpair_t = std::pair<std::vector<double>, std::vector<double>>;
-        std::vector<pair_t> label(points.size());
-        std::vector<vecpair_t> svm(points.size());
-        std::vector<vecpair_t> svm_var(points.size());
-        std::vector<vecpair_t> mag(points.size());
+            std::generate_n(std::back_inserter(points), scan.size(),
+                [&, p=phase_point{}]() mutable {
+                    scan.yield(p);
+                    return p;
+                });
+            return points;
+        }();
 
         // get the bias parameters
         struct skeleton_classifier {
@@ -95,7 +104,7 @@ int main(int argc, char** argv)
             using phase_label = sim_base::phase_label;
             using model_t = svm::model<kernel_t, phase_label>;
 
-            std::string arname = parameters.get_archive_name();
+            std::string arname = parameters["outputfile"];
             alps::hdf5::archive ar(arname, "r");
 
             model_t model;
@@ -107,93 +116,153 @@ int main(int argc, char** argv)
             return cl;
         }();
 
-        alps::hdf5::archive ar(parameters["test.filename"].as<std::string>(), "w");
-        ar["parameters"] << parameters;
+        mpi::mutex archive_mutex(comm_world);
 
-        boost::multi_array<double, 2> phase_points(boost::extents[points.size()][phase_point::label_dim]);
-        for (size_t i = 0; i < points.size(); ++i)
-            std::copy(points[i].begin(), points[i].end(), phase_points[i].begin());
-        ar["phase_points"] << phase_points;
+        sim_type sim = [&] {
+            std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+            return sim_type(parameters, comm_world);
+        }();
 
-        size_t done = 0;
-        std::vector<phase_point> current_points;
-        std::vector<std::string> order_param_names;
-#pragma omp parallel
-        {
-#pragma omp single
-            current_points.resize(omp_get_num_threads());
-            size_t tid = omp_get_thread_num();
-            auto progress_report = [&] {
-                size_t now_done;
-                now_done = done;
-                std::cout << '[' << now_done << '/' << points.size() << "] ";
-                for (size_t j = 0; j < current_points.size(); ++j) {
-                    phase_point now_point;
-                    now_point = current_points[j];
-                    std::cout << std::setw(8) << std::setprecision(4)
-                              << now_point << ',';
-                }
-                std::cout << "           \r" << std::flush;
-            };
-#pragma omp for schedule(dynamic)
-            for (size_t i = 0; i < points.size(); ++i) {
-                current_points[tid] = points[i];
-#pragma omp critical
-                progress_report();
+        const std::string test_filename = parameters["test.filename"];
+        const bool resumed = alps::origin_name(parameters) == test_filename;
+        alps::stop_callback stop_cb(parameters["timelimit"].as<size_t>());
 
-                sim_type sim(parameters);
-                phase_space::sweep::cycle<phase_point> one_point {{points[i]}};
-                sim.update_phase_point(one_point);
-                sim.run(alps::stop_callback(size_t(parameters["timelimit"])));
+        using batches_type = sim_type::batcher::batches_type;
+        using proxy_t = dispatcher<batches_type>::archive_proxy_type;
 
-                alps::results_type<sim_type>::type results = alps::collect_results(sim);
-                std::stringstream ss;
-#pragma omp critical
-                {
-                    ss << "results/" << i;
-                    ar[ss.str()] << results;
-                }
+        dispatcher<batches_type> dispatch(test_filename,
+            archive_mutex,
+            resumed,
+            sim_type::batcher{parameters}(all_phase_points),
+            stop_cb,
+            [&](proxy_t ar) { log() << "restoring checkpoint\n"; ar >> sim; },
+            [&](proxy_t ar) { log() << "writing checkpoint\n"; ar << sim; });
 
-                if (i == 0)
-                    order_param_names = sim.order_param_names();
-                for (std::string const& opname : sim.order_param_names()) {
-                    mag[i].first.push_back(results[opname].mean<double>());
-                    mag[i].second.push_back(results[opname].error<double>());
-                }
-                auto variance = results["SVM^2"] - results["SVM"] * results["SVM"];
-                svm[i] = {results["SVM"].mean<std::vector<double>>(),
-                          results["SVM"].error<std::vector<double>>()};
-                svm_var[i] = {variance.mean<std::vector<double>>(),
-                              variance.error<std::vector<double>>()};
-                label[i] = {results["label"].mean<double>(),
-                            results["label"].error<double>()};
-#pragma omp atomic
-                ++done;
-            }
-#pragma omp critical
-            progress_report();
+        std::vector<size_t> available_results;
+        if (resumed && is_master) {
+            std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+            alps::hdf5::archive ar(test_filename, "r");
+            ar["results/available"] >> available_results;
         }
-        std::cout << std::endl;
+
+        while (dispatch.request_batch()) {
+            bool valid = dispatch.valid();
+            auto comm_valid = mpi::split_communicator(dispatch.comm_group, valid);
+            if (!valid)
+                continue;
+            sim.rebind_communicator(comm_valid);
+            auto slice_point = dispatch.point();
+            log() << "working on batch " << dispatch.batch_index() << ": "
+                  << slice_point << '\n';
+            if (dispatch.point_resumed()) {
+                if (slice_point != sim.phase_space_point()) {
+                    std::stringstream ss;
+                    ss << "Inconsistent phase space point found when restoring "
+                       << " from checkpoint: expected " << sim.phase_space_point()
+                       << ", found " << slice_point << ".";
+                    throw std::runtime_error(ss.str());
+                }
+            } else {
+                sim.update_phase_point(slice_point);
+            }
+            bool finished = sim.run(stop_cb);
+
+            // only process results if batch was completed
+            if (finished) {
+                int n_points = sim.number_of_points();
+                results_type results = alps::collect_results(sim);
+
+                // save the results
+                if (comm_valid.rank() < n_points) {
+                    std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+                    alps::hdf5::archive ar(test_filename, "w");
+                    std::stringstream ss;
+                    ss << "results/" << dispatch.batch_index() << "/";
+                    if (dispatch.is_group_leader)
+                        ar[ss.str() + "n_points"] << n_points;
+                    ss << comm_valid.rank();
+                    ar[ss.str() + "/measurements"] << results;
+                    ar[ss.str() + "/point"]
+                        << std::vector<double>{slice_point.begin(),
+                            slice_point.end()};
+                    available_results.push_back(dispatch.batch_index());
+                }
+            }
+        }
+
+        auto gathered_results = [&] {
+            std::vector<size_t> res(dispatch.batches.size() + comm_world.size());
+            auto end = mpi::all_gather(comm_world,
+                available_results.begin(),
+                available_results.end(),
+                res.begin());
+            std::sort(res.begin(), end);
+            end = std::unique(res.begin(), end);
+            res.resize(end - res.begin());
+            return res;
+        }();
+
+        if (!is_master)
+            return 0;
+
+        std::cout << gathered_results.size() << " results available\n";
+
+        std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+        alps::hdf5::archive ar(test_filename, "w");
+        ar["results/available"] << gathered_results;
+
+        std::map<phase_point, results_type> all_results;
+        for (size_t batch_index : gathered_results) {
+            size_t n_points = [&] {
+                std::stringstream ss;
+                ss << "results/" << batch_index << "/n_points";
+                size_t np;
+                ar[ss.str()] >> np;
+                return np;
+            }();
+            for (size_t i = 0; i < n_points; ++i) {
+                std::stringstream ss;
+                ss << "results/" << batch_index << '/' << i;
+                std::vector<double> point_vec;
+                ar[ss.str() + "/point"] >> point_vec;
+                decltype(all_results)::iterator it;
+                bool inserted;
+                std::tie(it, inserted) =
+                    all_results.emplace(std::piecewise_construct,
+                        std::forward_as_tuple(point_vec.begin()),
+                        std::forward_as_tuple());
+                if (!inserted)
+                    std::cout << "warning: duplicate point " << it->first << '\n';
+                ar[ss.str() + "/measurements"] >> it->second;
+            }
+        }
 
         // rescale the SVM decision function to unit interval
+        std::function<void(std::vector<double>&, int, double)> rescale;
         if (cmdl[{"-r", "--rescale"}]) {
-            for (size_t j = 0; j < svm.front().first.size(); ++j) {
+            std::vector<double> scale_factors(
+                all_results.begin()->second["SVM"].mean<std::vector<double>>().size(),
+                1.);
+            for (size_t j = 0; j < scale_factors.size(); ++j) {
                 double min = std::numeric_limits<double>::max();
                 double max = std::numeric_limits<double>::min();
-                for (size_t i = 0; i < points.size(); ++i) {
-                    double x = svm[i].first[j];
-                    if (x < min)
-                        min = x;
-                    if (x > max)
-                        max = x;
+                for (auto const& p : all_results) {
+                    auto mean = p.second["SVM"].mean<std::vector<double>>();
+                    min = std::min(mean[j], min);
+                    max = std::max(mean[j], max);
                 }
-                double fac = 1. / (max - min);
-                for (size_t i = 0; i < points.size(); ++i) {
-                    svm[i].first[j] += classifiers[j].rho;
-                    svm[i].first[j] *= fac;
-                    svm[i].second[j] *= fac;
-                }
+                scale_factors[j] = 1. / (max - min);
             }
+            rescale = [=](std::vector<double>& vec, int exponent, double shift) {
+                for (size_t j = 0; j < vec.size(); ++j)
+                    vec[j] = pow(scale_factors[j], exponent)
+                        * (vec[j] + shift * classifiers[j].rho);
+                return vec;
+            };
+        } else {
+            rescale = [](std::vector<double>& vec, int, double) {
+                return vec;
+            };
         }
 
         // output
@@ -216,24 +285,33 @@ int main(int argc, char** argv)
                 annotate(ss.str());
                 annotate(ss.str() + " variance");
             }
-            for (std::string const& opname : order_param_names)
+            for (std::string const& opname : sim.order_param_names())
                 annotate(opname);
 
             // data
-            for (size_t i = 0; i < points.size(); ++i) {
-                std::copy(points[i].begin(), points[i].end(),
-                          std::ostream_iterator<double> {os, "\t"});
-                os << label[i].first << '\t'
-                   << label[i].second << '\t';
-                for (size_t j = 0; j < svm[i].first.size(); ++j) {
-                    os << svm[i].first[j] << '\t'
-                       << svm[i].second[j] << '\t';
-                    os << svm_var[i].first[j] << '\t'
-                       << svm_var[i].second[j] << '\t';
+            for (auto const& p : all_results) {
+                phase_point const& pp = p.first;
+                results_type const& res = p.second;
+                std::copy(pp.begin(), pp.end(),
+                    std::ostream_iterator<double>{os, "\t"});
+                os << res["label"].mean<double>() << '\t'
+                   << res["label"].error<double>() << '\t';
+                auto svm_mean = res["SVM"].mean<std::vector<double>>();
+                rescale(svm_mean, 1, 1.);
+                auto svm_error = res["SVM"].error<std::vector<double>>();
+                rescale(svm_error, 1, 0.);
+                auto svm_var = res["SVM^2"] - res["SVM"] * res["SVM"];
+                auto svm_var_mean = svm_var.mean<std::vector<double>>();
+                rescale(svm_var_mean, 2, 0.);
+                auto svm_var_error = svm_var.error<std::vector<double>>();
+                rescale(svm_var_error, 2, 0.);
+                for (size_t i = 0; i < svm_mean.size(); ++i)
+                    os << svm_mean[i] << '\t' << svm_error[i] << '\t'
+                       << svm_var_mean[i] << '\t' << svm_var_error[i] << '\t';
+                for (std::string const& opname : sim.order_param_names()) {
+                    os << res[opname].mean<double>() << '\t'
+                       << res[opname].error<double>() << '\t';
                 }
-                for (size_t j = 0; j < mag[i].first.size(); ++j)
-                    os << mag[i].first[j] << '\t'
-                       << mag[i].second[j] << '\t';
                 os << '\n';
             }
         }

@@ -57,7 +57,7 @@ public:
     storage_type const& configuration() const;
     storage_type random_configuration();
     phase_point phase_space_point () const;
-    void update_phase_point (phase_sweep_policy_type & sweep_policy);
+    void update_phase_point(phase_point);
 
     template <typename Introspector>
     using config_policy_type = config_policy<storage_type, Introspector>;

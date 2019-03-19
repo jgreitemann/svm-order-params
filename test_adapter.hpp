@@ -52,13 +52,12 @@ public:
         define_test_parameters(parameters);
     }
 
-    test_adapter (parameters_type & parms, std::size_t seed_offset = 0)
+    test_adapter(parameters_type const& parms, std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
         , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
     {
-        std::string arname = parms.get_archive_name();
+        std::string arname = parms["outputfile"];
 
-#pragma omp critical
         {
             alps::hdf5::archive ar(arname, "r");
 
@@ -89,8 +88,14 @@ public:
         }
     }
 
-private:
+    void update_phase_point(typename Simulation::phase_point const& pp) {
+        Simulation::update_phase_point(pp);
+        measurements.reset();
+    }
+
+protected:
     using Simulation::measurements;
+private:
     model_t model;
     std::unique_ptr<config_policy_t> confpol;
 };

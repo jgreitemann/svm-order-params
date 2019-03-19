@@ -24,8 +24,6 @@
 #include <memory>
 #include <utility>
 
-#include <omp.h>
-
 #include <alps/accumulators.hpp>
 #include <alps/mc/api.hpp>
 #include <alps/mc/mcbase.hpp>
@@ -48,7 +46,6 @@ using problem_t = typename model_t::problem_t;
 int main(int argc, char** argv)
 {
     try {
-
         // Creates the parameters for the simulation
         // If an hdf5 file is supplied, reads the parameters there
         std::cout << "Initializing parameters..." << std::endl;
@@ -63,8 +60,6 @@ int main(int argc, char** argv)
             parameters.define<size_t>("progress_interval", 3,
                                       "time in sec between progress reports");
         }
-
-        bool skip_sampling = cmdl[{"-s", "--skip-sampling"}];
 
         if (parameters.help_requested(std::cout) ||
             parameters.has_missing(std::cout)) {
@@ -81,78 +76,35 @@ int main(int argc, char** argv)
             alps::hdf5::archive cp(checkpoint_file, "r");
 
             cp["simulation/n_clones"] >> n_clones;
+        } else {
+            std::cerr
+            << "The *-learn program no longer samples configurations but only "
+            << "classifies samples and performs the actual SVM optimization.\n"
+            << "Launch the *-sample program with the INI parameter file, then "
+            << "provide the resulting .clone.h5 file as argument to *-learn.\n";
+            return 1;
         }
 
-        std::vector<double> progress;
-        double global_progress = 0.;
-#pragma omp parallel
-        {
-            if (!parameters.is_restored()) {
-                n_clones = omp_get_num_threads();
-            }
-#pragma omp master
-            progress.resize(n_clones);
+        for (int tid = 0; tid < n_clones; ++tid) {
+            sim_type sim(parameters, tid);
 
-#pragma omp for schedule(dynamic)
-            for (int tid = 0; tid < n_clones; ++tid) {
-                sim_type sim(parameters, global_progress, tid);
+            std::string checkpoint_path = [&] {
+                std::stringstream ss;
+                ss << "simulation/clones/" << tid;
+                return ss.str();
+            } ();
 
-                std::string checkpoint_path = [&] {
-                    std::stringstream ss;
-                    ss << "simulation/clones/" << tid;
-                    return ss.str();
-                } ();
+            // If needed, restore the last checkpoint
+            std::cout << "Restoring checkpoint from " << checkpoint_file
+                    << " (thread " << tid << ")"
+                    << std::endl;
+            alps::hdf5::archive cp(checkpoint_file, "r");
+            cp[checkpoint_path] >> sim;
 
-                // If needed, restore the last checkpoint
-#pragma omp critical
-                if (parameters.is_restored()) {
-                    std::cout << "Restoring checkpoint from " << checkpoint_file
-                            << " (thread " << tid << ")"
-                            << std::endl;
-                    alps::hdf5::archive cp(checkpoint_file, "r");
-                    cp[checkpoint_path] >> sim;
-                }
-
-                if (!skip_sampling) {
-                    auto progress_report = [&] () {
-                        double local_frac = sim.local_fraction_completed();
-#pragma omp atomic write
-                        progress[tid] = local_frac;
-#pragma omp master
-                        {
-                            double total = std::accumulate(progress.begin(),
-                                                           progress.end(), 0.);
-#pragma omp atomic write
-                            global_progress = total;
-                            std::cout << std::setprecision(3)
-                                      << 100.*total << " %     \r"
-                                      << std::flush;
-                        }
-
-                    };
-                    sim.run(checkpointing_stop_callback(size_t(parameters["timelimit"]),
-                                                        size_t(parameters["progress_interval"]),
-                                                        progress_report));
-
-                    // Checkpoint the simulation
-#pragma omp critical
-                    {
-                        std::cout << "Checkpointing simulation to " << checkpoint_file
-                                  << " (thread " << tid << ")"
-                                  << std::endl;
-                        alps::hdf5::archive cp(checkpoint_file, "w");
-                        cp[checkpoint_path] << sim;
-                    }
-                }
-
-#pragma omp critical
-                {
-                    if (prob.dim() == 0) {
-                        prob = problem_t(sim.surrender_problem(), classifier);
-                    } else {
-                        prob.append_problem(sim.surrender_problem(), classifier);
-                    }
-                }
+            if (prob.dim() == 0) {
+                prob = problem_t(sim.surrender_problem(), classifier);
+            } else {
+                prob.append_problem(sim.surrender_problem(), classifier);
             }
         }
 
@@ -161,8 +113,6 @@ int main(int argc, char** argv)
             phase_point ppoint = phase_space::point::infinity<phase_point>{}();
 
             training_adapter<sim_base> sim(parameters, 0);
-            // phase_space::sweep::cycle<phase_point> single_point{ppoint};
-            // sim.update_phase_point(single_point);
 
             size_t N_samples = parameters["sweep.samples"].as<size_t>();
             for (size_t i = 0; i < N_samples; ++i) {
@@ -189,12 +139,7 @@ int main(int argc, char** argv)
             std::cout << std::endl;
         }
 
-        if (!skip_sampling) {
-            alps::hdf5::archive cp(checkpoint_file, "w");
-            cp["simulation/n_clones"] << n_clones;
-        }
-
-        if (!cmdl[{"--skip-svm"}]) {
+        {
             // create the model
             svm::parameters<kernel_t> kernel_params(parameters["nu"].as<double>(),
                                                     svm::machine_type::NU_SVC);

@@ -109,10 +109,11 @@ ising_sim::phase_point ising_sim::phase_space_point () const {
     return ppoint;
 }
 
-void ising_sim::update_phase_point (phase_sweep_policy_type & sweep_policy) {
-    bool changed = sweep_policy.yield(ppoint, rng);
+void ising_sim::update_phase_point(phase_point pp) {
+    bool changed = (pp != ppoint);
     reset_sweeps(!changed);
     if (changed) {
+        ppoint = pp;
         parameters["temperature"] = ppoint.temp;
         iexp_ = exp_beta(-1. / ppoint.temp);
     }
