@@ -20,6 +20,7 @@
 #include "embarrassing_adapter.hpp"
 #include "filesystem.hpp"
 #include "mpi.hpp"
+#include "pt_adapter.hpp"
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
 
@@ -43,7 +44,7 @@
 
 #include <boost/multi_array.hpp>
 
-using sim_type = embarrassing_adapter<test_adapter<sim_base>>;
+using sim_type = pt_adapter<test_adapter<sim_base>>;
 using results_type = alps::results_type<sim_type>::type;
 
 int main(int argc, char** argv)

@@ -47,7 +47,7 @@ struct embarrassing_adapter : public alps::mcmpiadapter<Simulation> {
         }
 
         template <typename Container>
-        batches_type operator()(Container points) const {
+        batches_type operator()(Container const& points) const {
             size_t np = n_parallel ? n_parallel
                 : std::max<size_t>(mpi::communicator{}.size() / points.size(), 1);
             batches_type batches;
