@@ -58,7 +58,6 @@ public:
     {
         std::string arname = parms["outputfile"];
 
-#pragma omp critical
         {
             alps::hdf5::archive ar(arname, "r");
 
