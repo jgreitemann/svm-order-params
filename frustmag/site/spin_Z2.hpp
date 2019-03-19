@@ -33,7 +33,7 @@ struct spin_Z2 {
     static spin_Z2 random(RNG & rng) {
         return {std::bernoulli_distribution{}(rng) ? up : down};
     }
-    
+
     template <typename RNG>
     spin_Z2 flipped(RNG &) const {
         return { static_cast<std::int8_t>(-s) };
@@ -44,6 +44,10 @@ struct spin_Z2 {
     }
 
     operator std::int8_t() const {
+        return s;
+    }
+
+    double operator[](size_t) const {
         return s;
     }
 
