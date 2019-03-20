@@ -22,8 +22,10 @@
 #include <iterator>
 #include <map>
 #include <tuple>
+#include <utility>
 #include <vector>
 
+#include <alps/accumulators.hpp>
 #include <alps/params.hpp>
 
 template <typename Point>
@@ -93,17 +95,37 @@ struct pt_adapter : public Simulation {
     }
 
     void update_phase_point(phase_point const& pp) {
-        slice_measurements[pp].merge(measurements);
-        // measurements.reset();
+        using acc_ptr = std::shared_ptr<alps::accumulators::accumulator_wrapper>;
+        auto it_bool = slice_measurements.emplace(
+            Simulation::phase_space_point(),
+            observable_collection_type{});
+        if (measurements.begin()->second->count() > 0) {
+            if (it_bool.second)
+                for (auto const& pair : measurements)
+                    it_bool.first->second.insert(pair.first,
+                        acc_ptr{pair.second->new_clone()});
+            else
+                it_bool.first->second.merge(measurements);
+            measurements.reset();
+        }
         Simulation::update_phase_point(pp);
     }
 
-/*
     results_type collect_results() const {
         return collect_results(this->result_names());
     }
 
     results_type collect_results(result_names_type const & names) const {
+        results_type partial_results;
+        for (auto const& name : names) {
+            auto merged = measurements[name];
+            auto it = slice_measurements.find(Simulation::phase_space_point());
+            if (it != slice_measurements.end())
+                merged.merge(it->second[name]);
+            partial_results.insert(name, merged.result());
+        }
+        return partial_results;
+/*
         results_type partial_results;
         for (auto it = names.begin(); it != names.end(); ++it) {
             size_t has_count = (this->measurements[*it].count() > 0);
@@ -121,8 +143,8 @@ struct pt_adapter : public Simulation {
             }
         }
         return partial_results;
-    }
 */
+    }
 
 protected:
     using observable_collection_type = typename Simulation::observable_collection_type;
