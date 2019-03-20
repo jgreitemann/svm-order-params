@@ -208,11 +208,11 @@ public:
         return hamiltonian_.phase_space_point();
     }
 
-    void update_phase_point(phase_point const& pp) {
+    bool update_phase_point(phase_point const& pp) {
         auto const& current_pp = hamiltonian_.phase_space_point();
         bool changed = (current_pp != pp);
         if (changed)
             hamiltonian_.phase_space_point(pp);
-        reset_sweeps(!changed);
+        return changed;
     }
 };

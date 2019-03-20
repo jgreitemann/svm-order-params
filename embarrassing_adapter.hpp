@@ -83,6 +83,5 @@ struct embarrassing_adapter : public alps::mcmpiadapter<Simulation> {
     }
 
 protected:
-    using Simulation::measurements;
     using Base::communicator;
 };

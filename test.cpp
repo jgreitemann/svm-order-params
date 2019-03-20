@@ -164,7 +164,7 @@ int main(int argc, char** argv)
                     throw std::runtime_error(ss.str());
                 }
             } else {
-                sim.update_phase_point(slice_point);
+                sim.reset_sweeps(!sim.update_phase_point(slice_point));
             }
             bool finished = sim.run(stop_cb);
 

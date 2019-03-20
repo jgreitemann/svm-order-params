@@ -628,10 +628,11 @@ gauge_sim::phase_point gauge_sim::phase_space_point () const {
     return ppoint;
 }
 
-void gauge_sim::update_phase_point(phase_point pp) {
-    reset_sweeps(pp == ppoint);
+bool gauge_sim::update_phase_point(phase_point pp) {
+    bool changed = (pp != ppoint);
     ppoint = pp;
     J(0, 0) = ppoint.J1();
     J(1, 1) = ppoint.J1();
     J(2, 2) = ppoint.J3();
+    return changed;
 }

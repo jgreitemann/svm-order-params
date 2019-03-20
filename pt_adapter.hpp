@@ -94,7 +94,7 @@ struct pt_adapter : public Simulation {
         return communicator.size();
     }
 
-    void update_phase_point(phase_point const& pp) {
+    bool update_phase_point(phase_point const& pp) {
         using acc_ptr = std::shared_ptr<alps::accumulators::accumulator_wrapper>;
         auto it_bool = slice_measurements.emplace(
             Simulation::phase_space_point(),
@@ -108,7 +108,12 @@ struct pt_adapter : public Simulation {
                 it_bool.first->second.merge(measurements);
             measurements.reset();
         }
-        Simulation::update_phase_point(pp);
+        return Simulation::update_phase_point(pp);
+    }
+
+    void reset_sweeps(bool skip_therm = false) {
+        Simulation::reset_sweeps(skip_therm);
+        slice_measurements.clear();
     }
 
     results_type collect_results() const {

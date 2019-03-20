@@ -109,14 +109,14 @@ ising_sim::phase_point ising_sim::phase_space_point () const {
     return ppoint;
 }
 
-void ising_sim::update_phase_point(phase_point pp) {
+bool ising_sim::update_phase_point(phase_point pp) {
     bool changed = (pp != ppoint);
-    reset_sweeps(!changed);
     if (changed) {
         ppoint = pp;
         parameters["temperature"] = ppoint.temp;
         iexp_ = exp_beta(-1. / ppoint.temp);
     }
+    return changed;
 }
 
 // Performs the calculation at each MC step;
