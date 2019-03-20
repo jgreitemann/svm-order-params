@@ -191,7 +191,7 @@ int main(int argc, char** argv)
         }
 
         auto gathered_results = [&] {
-            std::vector<size_t> res(dispatch.batches.size() + comm_world.size());
+            std::vector<size_t> res(dispatch.batches.size() * comm_world.size());
             auto end = mpi::all_gather(comm_world,
                 available_results.begin(),
                 available_results.end(),
@@ -205,7 +205,8 @@ int main(int argc, char** argv)
         if (!is_master)
             return 0;
 
-        std::cout << gathered_results.size() << " results available\n";
+        std::cout << "results from " << gathered_results.size()
+                  << " batches available\n";
 
         std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
         alps::hdf5::archive ar(test_filename, "w");
