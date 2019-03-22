@@ -36,7 +36,7 @@
 #include <vector>
 
 template <typename Hamiltonian, template <typename> typename Update>
-class frustmag_sim : public alps::mcbase, Update<Hamiltonian> {
+class frustmag_sim : public alps::mcbase, protected Update<Hamiltonian> {
     using rng_type = std::mt19937;
 #ifdef USE_CONCEPTS
     static_assert(LatticeHamiltonian<Hamiltonian, rng_type>,

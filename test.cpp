@@ -44,7 +44,11 @@
 
 #include <boost/multi_array.hpp>
 
+#ifdef FRUSTMAG
 using sim_type = pt_adapter<test_adapter<sim_base>>;
+#else
+using sim_type = embarrassing_adapter<test_adapter<sim_base>>;
+#endif
 using results_type = alps::results_type<sim_type>::type;
 
 int main(int argc, char** argv)

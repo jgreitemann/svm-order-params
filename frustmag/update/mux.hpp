@@ -25,7 +25,47 @@
 #include <type_traits>
 #include <utility>
 
+// forward declaration
+namespace mpi {
+    struct communicator;
+}
+
 namespace update {
+
+namespace {
+    template <typename...>
+    using void_t = void;
+
+    template <typename B>
+    struct negation : std::integral_constant<bool, !bool(B::value)> {};
+
+    template <typename T>
+    static auto test_rebind_communicator(int)
+        -> detail::sfinae_true<decltype(
+            std::declval<T>().rebind_communicator(
+                std::declval<mpi::communicator const&>()))>;
+
+    template <typename>
+    static auto test_rebind_communicator(long) -> std::false_type;
+
+    template <typename T>
+    struct communicator_rebindable : decltype(test_rebind_communicator<T>(0)) {};
+
+    template <bool...>
+    struct bool_pack;
+
+    template <bool... bs>
+    using all_true = std::is_same<bool_pack<bs..., true>, bool_pack<true, bs...>>;
+
+    template <bool... bs>
+    using all_false = std::is_same<bool_pack<bs..., false>, bool_pack<false, bs...>>;
+
+    template <bool... bs>
+    using any_true = negation<all_false<bs...>>;
+
+    template <bool... bs>
+    using any_false = negation<all_true<bs...>>;
+}
 
 template <typename LatticeH, template <typename> typename... Updates>
 struct mux {
@@ -45,7 +85,7 @@ public:
     }
 
     mux(alps::params const& parameters)
-        : updates{(static_cast<std::void_t<Updates<LatticeH>>>(0), parameters)...}
+        : updates{(static_cast<void_t<Updates<LatticeH>>>(0), parameters)...}
     {
     }
 
@@ -55,12 +95,42 @@ public:
         return update_impl(hamiltonian, rng, Indices{});
     }
 
+    template <typename = std::enable_if_t<any_true<communicator_rebindable<Updates<LatticeH>>::value...>::value>>
+    void rebind_communicator(mpi::communicator const& comm_new) {
+        using Indices = std::make_index_sequence<sizeof...(Updates)>;
+        rebind_communicator_impl(comm_new, Indices{});
+    }
+
 private:
     template <typename RNG, size_t... I>
     acceptance_type update_impl(LatticeH & hamiltonian, RNG & rng,
                                 std::index_sequence<I...>)
     {
         return {std::get<I>(updates).update(hamiltonian, rng)[0]...};
+    }
+
+    template <size_t... I>
+    void rebind_communicator_impl(mpi::communicator const& comm_new,
+                                  std::index_sequence<I...>)
+    {
+        int dummy[] =
+            {rebind_communicator_if_possible(std::get<I>(updates), comm_new)...};
+    }
+
+    template <typename Update,
+              typename = std::enable_if_t<communicator_rebindable<Update>::value>>
+    int rebind_communicator_if_possible(Update & u,
+                                        mpi::communicator const& comm_new)
+    {
+        u.rebind_communicator(comm_new);
+        return 0;
+    }
+
+    template <typename Update,
+              typename = std::enable_if_t<!communicator_rebindable<Update>::value>,
+              int dummy = 0>
+    int rebind_communicator_if_possible(Update &, mpi::communicator const&) {
+        return 0;
     }
 };
 
