@@ -18,6 +18,7 @@
 
 #include "mpi.hpp"
 
+#include <random>
 #include <stdexcept>
 
 namespace pt {
@@ -44,16 +45,16 @@ namespace pt {
     	deregister
     };
 
-    template <typename Point,
-              typename CoinFlipFunc,
-              typename LogWeightFunc,
-              typename AttemptUpdateFunc>
-    static bool negotiate_update(mpi::communicator const& comm,
+    template <typename RNG,
+              typename Point,
+              typename UpdatePointFunc,
+              typename LogWeightFunc>
+    bool negotiate_update(mpi::communicator const& comm,
+        RNG & rng,
         bool initiate_update_if_possible,
         Point this_point,
-        CoinFlipFunc && coin_flip,
-        LogWeightFunc && log_weight,
-        AttemptUpdateFunc && attempt_update)
+        UpdatePointFunc const& update_point,
+        LogWeightFunc const& log_weight)
     {
         mpi::send(comm, static_cast<int>(query_type::status), 0, query_tag);
 
@@ -70,10 +71,11 @@ namespace pt {
                 mpi::receive(comm, partner_rank, 0, partner_tag);
                 if (partner_rank == -1) {
                 	// both neighbors are available, decide for one
-                	partner_rank = coin_flip()
+                	partner_rank = std::bernoulli_distribution{}(rng)
 	                	? (comm.rank() - 1) : (comm.rank() + 1);
 	                mpi::send(comm, partner_rank, 0, chosen_partner_tag);
                 } else if (partner_rank == -2) {
+                    // neither neighbor is available, reject
                 	return false;
                 }
 
@@ -83,10 +85,20 @@ namespace pt {
                 mpi::receive(comm, other_point.begin(), other_point.end(),
                     partner_rank, point_tag);
 
+                double this_weight = log_weight(other_point);
                 double other_weight;
                 mpi::receive(comm, other_weight, partner_rank, weight_tag);
 
-                bool acc = attempt_update(other_point, other_weight);
+                bool acc = [&] {
+                    double weight = this_weight + other_weight;
+                    if (weight >= 0.
+                        || std::bernoulli_distribution{exp(weight)}(rng))
+                    {
+                        update_point(other_point);
+                        return true;
+                    }
+                    return false;
+                }();
                 mpi::send(comm, static_cast<int>(acc), partner_rank,
                 	acceptance_tag);
                 return acc;
@@ -108,13 +120,9 @@ namespace pt {
 
                 int acc;
                 mpi::receive(comm, acc, partner_rank, acceptance_tag);
-                if (acc) {
-                    acc = attempt_update(other_point, 1. - this_weight);
-                    if (!acc)
-                        throw std::runtime_error(
-                            "PT update should have been accepted.");
-                    return acc;
-                }
+                if (acc)
+                    update_point(other_point);
+                return acc;
             }
             break;
         default:

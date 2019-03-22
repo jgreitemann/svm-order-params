@@ -122,19 +122,8 @@ struct ising {
         return true;
     }
 
-    friend struct update::parallel_tempering<ising>;
-
-    template <typename RNG>
-    // requires UniformRandomBitGenerator<RNG>
-    bool metropolis(typename update::parallel_tempering<ising>::proposal_type p,
-        RNG & rng)
-    {
-        double weight = log_weight(p.other) + p.other_log_weight;
-        if (weight >= 1. || std::bernoulli_distribution{exp(weight)}(rng)) {
-            phase_space_point(p.other);
-            return true;
-        }
-        return false;
+    double log_weight(phase_point const& other) const {
+        return (ppoint.temp - other.temp) * energy();
     }
 
     virtual void save(alps::hdf5::archive & ar) const {
@@ -162,10 +151,6 @@ private:
                 if (it_n != end)
                     sum += site_it->dot(*it_n);
         return sum * sign / 2;
-    }
-
-    double log_weight(phase_point const& other) const {
-        return (ppoint.temp - other.temp) * energy();
     }
 
     phase_point ppoint;

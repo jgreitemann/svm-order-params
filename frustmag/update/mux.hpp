@@ -51,6 +51,19 @@ namespace {
     template <typename T>
     struct communicator_rebindable : decltype(test_rebind_communicator<T>(0)) {};
 
+    template <typename T, typename UpdateCallback>
+    static auto test_install_pt_update_callback(int)
+        -> detail::sfinae_true<decltype(
+            std::declval<T>().install_pt_update_callback(
+                std::declval<UpdateCallback &&>()))>;
+
+    template <typename, typename>
+    static auto test_install_pt_update_callback(long) -> std::false_type;
+
+    template <typename T, typename UpdateCallback>
+    struct has_pt_callback
+        : decltype(test_install_pt_update_callback<T, UpdateCallback>(0)) {};
+
     template <bool...>
     struct bool_pack;
 
@@ -101,6 +114,14 @@ public:
         rebind_communicator_impl(comm_new, Indices{});
     }
 
+    template <typename UpdateCallback,
+              typename = std::enable_if_t<any_true<has_pt_callback<Updates<LatticeH>, UpdateCallback>::value...>::value>>
+    void install_pt_update_callback(UpdateCallback && uc) {
+        using Indices = std::make_index_sequence<sizeof...(Updates)>;
+        install_pt_update_callback_impl(std::forward<UpdateCallback>(uc),
+            Indices{});
+    }
+
 private:
     template <typename RNG, size_t... I>
     acceptance_type update_impl(LatticeH & hamiltonian, RNG & rng,
@@ -130,6 +151,32 @@ private:
               typename = std::enable_if_t<!communicator_rebindable<Update>::value>,
               int dummy = 0>
     int rebind_communicator_if_possible(Update &, mpi::communicator const&) {
+        return 0;
+    }
+
+    template <typename UpdateCallback, size_t... I>
+    void install_pt_update_callback_impl(UpdateCallback && uc,
+                                  std::index_sequence<I...>)
+    {
+        int dummy[] =
+            {install_pt_update_callback_if_possible(std::get<I>(updates),
+                std::forward<UpdateCallback>(uc))...};
+    }
+
+    template <typename Update,
+              typename UpdateCallback,
+              typename = std::enable_if_t<has_pt_callback<Update, UpdateCallback>::value>>
+    int install_pt_update_callback_if_possible(Update & u, UpdateCallback && uc)
+    {
+        u.install_pt_update_callback(std::forward<UpdateCallback>(uc));
+        return 0;
+    }
+
+    template <typename Update,
+              typename UpdateCallback,
+              typename = std::enable_if_t<!has_pt_callback<Update, UpdateCallback>::value>,
+              int dummy = 0>
+    int install_pt_update_callback_if_possible(Update &, UpdateCallback &&) {
         return 0;
     }
 };

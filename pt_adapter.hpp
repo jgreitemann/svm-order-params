@@ -90,6 +90,9 @@ struct pt_adapter : public Simulation {
         : Simulation(params, seed_offset * comm.size() + comm.rank())
         , communicator{comm}
     {
+        Simulation::install_pt_update_callback([&](phase_point pp) {
+            return update_phase_point(pp);
+        });
     }
 
     void rebind_communicator(mpi::communicator const& comm_new) {

@@ -21,6 +21,7 @@
 #include "pt.hpp"
 
 #include <array>
+#include <functional>
 #include <random>
 
 #include <alps/params.hpp>
@@ -61,22 +62,22 @@ public:
         comm = comm_new;
     }
 
+    template <typename UpdateCallback>
+    void install_pt_update_callback(UpdateCallback && uc) {
+        update_pp_callback = std::forward<UpdateCallback>(uc);
+    }
+
     template <typename RNG>
     acceptance_type update(Hamil & hamiltonian, RNG & rng) {
         ++sweep_counter;
 
         bool acc = (sweep_counter % query_sweeps == 0)
-        && pt::negotiate_update(comm,
+        && pt::negotiate_update(comm, rng,
             sweep_counter % update_sweeps == 0,
             hamiltonian.phase_space_point(),
-            [&] {
-                return std::bernoulli_distribution{}(rng);
-            },
+            update_pp_callback,
             [&](phase_point const& other_point) {
                 return hamiltonian.log_weight(other_point);
-            },
-            [&](phase_point const& other_point, double other_weight) {
-                return hamiltonian.metropolis(proposal_type{other_point, other_weight}, rng);
             });
 
         return {static_cast<double>(acc)};
@@ -85,6 +86,7 @@ private:
     size_t query_sweeps, update_sweeps;
     size_t sweep_counter = 0;
     mpi::communicator comm;
+    std::function<bool(phase_point)> update_pp_callback;
 };
 
 }
