@@ -17,16 +17,22 @@
 #pragma once
 
 #include "mpi.hpp"
+#include "pt.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <iterator>
 #include <map>
+#include <stdexcept>
+#include <thread>
 #include <tuple>
 #include <utility>
 #include <vector>
 
 #include <alps/accumulators.hpp>
 #include <alps/params.hpp>
+
+#include <boost/function.hpp>
 
 template <typename Point>
 struct iso_batcher {
@@ -87,11 +93,37 @@ struct pt_adapter : public Simulation {
     }
 
     void rebind_communicator(mpi::communicator const& comm_new) {
+        Simulation::rebind_communicator(comm_new);
         communicator = comm_new;
     }
 
     size_t number_of_points() const {
         return communicator.size();
+    }
+
+    bool run(boost::function<bool ()> const & stop_callback) {
+        std::thread manager;
+        if (communicator.rank() == 0)
+            manager = std::thread(manage, communicator);
+        bool ret = Simulation::run(stop_callback);
+
+        // shutdown
+        int my_int_status;
+        bool unregistered = false;
+        do {
+            mpi::send(communicator,
+                static_cast<int>(pt::query_type::deregister),
+                0, pt::query_tag);
+            mpi::receive(communicator, my_int_status, 0, pt::response_tag);
+            unregistered = static_cast<pt::status>(my_int_status)
+                == pt::status::unregistered;
+            if (!unregistered)
+                Simulation::update();
+        } while (!unregistered);
+
+        if (communicator.rank() == 0)
+            manager.join();
+        return ret;
     }
 
     bool update_phase_point(phase_point const& pp) {
@@ -158,4 +190,72 @@ protected:
 
 private:
     std::map<phase_point, observable_collection_type> slice_measurements;
+
+    static void manage(mpi::communicator const& comm) {
+        using namespace pt;
+        std::vector<status> statuses(comm.size(), status::available);
+        std::vector<int> partners(comm.size());
+        size_t n_registered = statuses.size();
+
+        while (n_registered > 0) {
+            int int_query_type;
+            int rank = mpi::spin_receive(comm, int_query_type, MPI_ANY_SOURCE,
+                query_tag, [] {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                });
+            switch (static_cast<query_type>(int_query_type)) {
+            case query_type::status:
+                mpi::send(comm, static_cast<int>(statuses[rank]), rank,
+                    response_tag);
+                if (statuses[rank] == status::secondary) {
+                    mpi::send(comm, partners[rank], rank, partner_tag);
+                    statuses[rank] = status::available;
+                    statuses[partners[rank]] = status::available;
+                }
+                break;
+            case query_type::init:
+                if (statuses[rank] == status::available) {
+                    int partner_rank = -2;
+                    bool lower = rank > 0
+                        && statuses[rank - 1] == status::available;
+                    bool upper = rank < static_cast<int>(statuses.size()) - 1
+                        && statuses[rank + 1] == status::available;
+                    if (lower && upper) {
+                        mpi::send(comm, -1, rank, partner_tag);
+                        mpi::receive(comm, partner_rank, rank,
+                            chosen_partner_tag);
+                    } else if (lower) {
+                        partner_rank = rank - 1;
+                        mpi::send(comm, partner_rank, rank, partner_tag);
+                    } else if (upper) {
+                        partner_rank = rank + 1;
+                        mpi::send(comm, partner_rank, rank, partner_tag);
+                    } else {
+                        mpi::send(comm, -2, rank, partner_tag);
+                    }
+                    if (partner_rank >= 0) {
+                        partners[rank] = partner_rank;
+                        partners[partner_rank] = rank;
+                        statuses[rank] = status::primary;
+                        statuses[partner_rank] = status::secondary;
+                    }
+                } else {
+                    mpi::send(comm, -2, rank, partner_tag);
+                }
+                break;
+            case query_type::deregister:
+                if (statuses[rank] == status::available) {
+                    statuses[rank] = status::unregistered;
+                    --n_registered;
+                }
+                mpi::send(comm, static_cast<int>(statuses[rank]), rank,
+                    response_tag);
+                break;
+            default:
+                throw std::runtime_error("Invalid PT query type");
+                break;
+            }
+        }
+    }
 };
+

@@ -96,7 +96,7 @@ public:
             size_t i = std::uniform_int_distribution<size_t>{0, lsize - 1}(rng);
             site_iterator site_it = std::next(hamiltonian.lattice().begin(), i);
             if (hamiltonian.metropolis(
-                    {site_it, site_it->flipped(rng)}, rng))
+                    proposal_type{site_it, site_it->flipped(rng)}, rng))
                 acc += 1.;
         }
         return {acc / lsize};

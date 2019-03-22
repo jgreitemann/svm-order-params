@@ -21,6 +21,7 @@
 #include "site/spin_Z2.hpp"
 #include "update/single_flip.hpp"
 #include "update/global_trafo.hpp"
+#include "update/parallel_tempering.hpp"
 
 #include <alps/params.hpp>
 #include <alps/hdf5.hpp>
@@ -121,6 +122,21 @@ struct ising {
         return true;
     }
 
+    friend struct update::parallel_tempering<ising>;
+
+    template <typename RNG>
+    // requires UniformRandomBitGenerator<RNG>
+    bool metropolis(typename update::parallel_tempering<ising>::proposal_type p,
+        RNG & rng)
+    {
+        double weight = log_weight(p.other) + p.other_log_weight;
+        if (weight >= 1. || std::bernoulli_distribution{exp(weight)}(rng)) {
+            phase_space_point(p.other);
+            return true;
+        }
+        return false;
+    }
+
     virtual void save(alps::hdf5::archive & ar) const {
         ar["phase_point"] << std::vector<double>{ppoint.begin(), ppoint.end()};
         ar["lattice"] << lattice_;
@@ -146,6 +162,10 @@ private:
                 if (it_n != end)
                     sum += site_it->dot(*it_n);
         return sum * sign / 2;
+    }
+
+    double log_weight(phase_point const& other) const {
+        return (ppoint.temp - other.temp) * energy();
     }
 
     phase_point ppoint;

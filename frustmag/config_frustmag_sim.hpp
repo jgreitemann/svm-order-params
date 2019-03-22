@@ -92,6 +92,16 @@ struct update_t {
 };
 
 template <template <typename> typename Lat>
+struct update_t<hamiltonian::ising<Lat>> {
+    template <typename LatticeH>
+    using type = update::muxer<
+        update::single_flip
+        , update::global_trafo
+        , update::parallel_tempering
+        >::type<LatticeH>;
+};
+
+template <template <typename> typename Lat>
 struct update_t<hamiltonian::heisenberg<Lat>> {
     template <typename LatticeH>
     using type = update::muxer<
