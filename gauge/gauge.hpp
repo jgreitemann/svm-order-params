@@ -17,6 +17,7 @@
 #pragma once
 
 #include "config_serialization.hpp"
+#include "embarrassing_adapter.hpp"
 #include "point_groups.hpp"
 #include "phase_space_policy.hpp"
 #include "gauge_config_policy.hpp"
@@ -27,7 +28,6 @@
 #include <string>
 
 #include <alps/numeric/vector_functions.hpp>
-#include <alps/mc/mcbase.hpp>
 
 #include <boost/math/constants/constants.hpp>
 #include <boost/multi_array.hpp>
@@ -37,8 +37,9 @@
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
 
-class gauge_sim : public alps::mcbase {
+class gauge_sim : public embarrassing_adapter<phase_space::point::J1J3> {
 public:
+    using Base = embarrassing_adapter<phase_space::point::J1J3>;
     using phase_point = phase_space::point::J1J3;
 #if defined(GAUGE_CLASSIFIER_HYPERPLANE)
     using phase_classifier = phase_space::classifier::hyperplane<phase_point>;
@@ -124,7 +125,7 @@ private:
     std::vector<double> flip_counter = { 0, 0, 0, 0 };
 
 public:
-    gauge_sim(parameters_type const & parms, std::size_t seed_offset = 0);
+    gauge_sim(parameters_type & parms, std::size_t seed_offset = 0);
     virtual ~gauge_sim();
 
     static void define_parameters(parameters_type & parameters);
@@ -178,8 +179,8 @@ public:
     /* Histogram */
     void histogram();
 
-    using alps::mcbase::save;
-    using alps::mcbase::load;
+    using Base::save;
+    using Base::load;
     virtual void save(alps::hdf5::archive & ar) const;
     virtual void load(alps::hdf5::archive & ar);
 

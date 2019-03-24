@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "embarrassing_adapter.hpp"
 #include "ising_config_policy.hpp"
 #include "storage_type.hpp"
 #include "exp_beta.hpp"
@@ -13,15 +14,13 @@
 
 #include <random>
 
-#include <alps/mc/mcbase.hpp>
-
-
 // Simulation class for 2D Ising model (square lattice).
 // Extends alps::mcbase, the base class of all Monte Carlo simulations.
 // Defines its state, calculation functions (update/measure) and
 // serialization functions (save/load)
-class ising_sim : public alps::mcbase {
+class ising_sim : public embarrassing_adapter<phase_space::point::temperature> {
 public:
+    using Base = embarrassing_adapter<phase_space::point::temperature>;
     using phase_classifier = phase_space::classifier::critical_temperature;
     using phase_label = phase_classifier::label_type;
     using phase_point = phase_classifier::point_type;
@@ -44,7 +43,7 @@ private:
     exp_beta iexp_; // function object to compute exponent
 
 public:
-    ising_sim(parameters_type const & parms, std::size_t seed_offset = 0);
+    ising_sim(parameters_type & parms, std::size_t seed_offset = 0);
 
     static void define_parameters(parameters_type & parameters);
 
@@ -75,8 +74,8 @@ public:
     virtual void measure();
     virtual double fraction_completed() const;
 
-    using alps::mcbase::save;
-    using alps::mcbase::load;
+    using Base::save;
+    using Base::load;
     virtual void save(alps::hdf5::archive & ar) const;
     virtual void load(alps::hdf5::archive & ar);
 };

@@ -44,11 +44,7 @@
 
 #include <boost/multi_array.hpp>
 
-#ifdef FRUSTMAG
-using sim_type = pt_adapter<test_adapter<sim_base>>;
-#else
-using sim_type = embarrassing_adapter<test_adapter<sim_base>>;
-#endif
+using sim_type = test_adapter<sim_base>;
 using results_type = alps::results_type<sim_type>::type;
 
 int main(int argc, char** argv)
@@ -125,14 +121,14 @@ int main(int argc, char** argv)
 
         sim_type sim = [&] {
             std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
-            return sim_type(parameters, comm_world);
+            return sim_type(parameters, comm_world.rank());
         }();
 
         const std::string test_filename = parameters["test.filename"];
         const bool resumed = alps::origin_name(parameters) == test_filename;
         alps::stop_callback stop_cb(parameters["timelimit"].as<size_t>());
 
-        using batches_type = sim_type::batcher::batches_type;
+        using batches_type = typename sim_type::batcher::batches_type;
         using proxy_t = dispatcher<batches_type>::archive_proxy_type;
 
         dispatcher<batches_type> dispatch(test_filename,

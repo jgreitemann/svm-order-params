@@ -19,7 +19,7 @@ void ising_sim::define_parameters(parameters_type & parameters) {
     }
 
     // Adds the parameters of the base class
-    alps::mcbase::define_parameters(parameters);
+    Base::define_parameters(parameters);
     // Adds the convenience parameters (for save/load)
     // followed by the ising specific parameters
     define_convenience_parameters(parameters)
@@ -37,8 +37,8 @@ void ising_sim::define_parameters(parameters_type & parameters) {
 // We always need the parameters and the seed as we need to pass it to
 // the alps::mcbase constructor. We also initialize our internal state,
 // mainly using values from the parameters.
-ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
-    : alps::mcbase(parms, seed_offset)
+ising_sim::ising_sim(parameters_type & parms, std::size_t seed_offset)
+    : Base(parms, seed_offset)
     , length(parameters["length"])
     , sweeps(0)
     , thermalization_sweeps(int(parameters["thermalization_sweeps"]))
@@ -177,7 +177,7 @@ double ising_sim::fraction_completed() const {
 // Saves the state to the hdf5 file
 void ising_sim::save(alps::hdf5::archive & ar) const {
     // Most of the save logic is already implemented in the base class
-    alps::mcbase::save(ar);
+    Base::save(ar);
 
     // random number engine
     std::ostringstream engine_ss;
@@ -196,7 +196,7 @@ void ising_sim::save(alps::hdf5::archive & ar) const {
 // Loads the state from the hdf5 file
 void ising_sim::load(alps::hdf5::archive & ar) {
     // Most of the load logic is already implemented in the base class
-    alps::mcbase::load(ar);
+    Base::load(ar);
 
     // random number engine
     std::string engine_str;

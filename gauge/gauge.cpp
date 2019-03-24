@@ -31,7 +31,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
     }
 
     // Adds the parameters of the base class
-    alps::mcbase::define_parameters(parameters);
+    Base::define_parameters(parameters);
 
     // Add convenience parameters of the model
     define_convenience_parameters(parameters)
@@ -56,8 +56,8 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
 
 
 /** Initialize the parameters **/
-gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
-    : alps::mcbase(parms, seed_offset)
+gauge_sim::gauge_sim(parameters_type & parms, std::size_t seed_offset)
+    : Base(parms, seed_offset)
     , L(parameters["length"])
     , L2(L*L)
     , L3(L*L*L)
@@ -510,7 +510,7 @@ double gauge_sim::fraction_completed() const {
 /** save the check point **/
 void gauge_sim::save(alps::hdf5::archive & ar) const {
     // Most of the save logic is already implemented in the base class
-    alps::mcbase::save(ar);
+    Base::save(ar);
 
     // random number engine
     std::ostringstream engine_ss;
@@ -564,7 +564,7 @@ void gauge_sim::save(alps::hdf5::archive & ar) const {
 // Loads the state from the hdf5 file
 void gauge_sim::load(alps::hdf5::archive & ar) {
     // Most of the load logic is already implemented in the base class
-    alps::mcbase::load(ar);
+    Base::load(ar);
 
     // random number engine
     std::string engine_str;
