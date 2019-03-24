@@ -131,9 +131,9 @@ public:
         problem.add_sample(confpol->configuration(config), ppoint);
     }
 
-    void update_phase_point(phase_point const& pp) {
-        Simulation::update_phase_point(pp);
+    bool update_phase_point(phase_point const& pp) override {
         i_sample = 0;
+        return Simulation::update_phase_point(pp);
     }
 
 protected:

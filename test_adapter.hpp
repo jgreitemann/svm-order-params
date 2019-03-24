@@ -75,22 +75,21 @@ public:
         Simulation::measure();
         if (Simulation::is_thermalized()) {
             auto res = model(svm::dataset(confpol->configuration(Simulation::configuration())));
-            measurements["label"] << double(res.first);
+            measurements.get()["label"] << double(res.first);
 
             // measure decision functions
             auto decs = svm::detail::container_factory<std::vector<double>>::copy(res.second);
-            measurements["SVM"] << decs;
+            measurements.get()["SVM"] << decs;
 
             // measure decision function squares
             std::transform(decs.begin(), decs.end(), decs.begin(), decs.begin(),
                 std::multiplies<>{});
-            measurements["SVM^2"] << decs;
+            measurements.get()["SVM^2"] << decs;
         }
     }
 
-    void reset_sweeps(bool skip_therm = false) {
+    virtual void reset_sweeps(bool skip_therm = false) override {
         Simulation::reset_sweeps(skip_therm);
-        measurements.reset();
     }
 
 protected:

@@ -17,12 +17,13 @@
 #pragma once
 
 #include "mpi.hpp"
-#include "pt.hpp"
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <iterator>
 #include <map>
+#include <random>
 #include <stdexcept>
 #include <thread>
 #include <tuple>
@@ -31,6 +32,7 @@
 
 #include <alps/accumulators.hpp>
 #include <alps/params.hpp>
+#include <alps/mc/mcbase.hpp>
 
 #include <boost/function.hpp>
 
@@ -69,34 +71,26 @@ private:
     size_t index;
 };
 
-template <class Simulation,
-          typename Batcher = iso_batcher<typename Simulation::phase_point>>
-struct pt_adapter : public Simulation {
-    using parameters_type = typename Simulation::parameters_type;
-    using phase_point = typename Simulation::phase_point;
-    using results_type = typename Simulation::results_type;
-    using result_names_type = typename Simulation::result_names_type;
+template <class PhasePoint,
+          typename Batcher = iso_batcher<PhasePoint>>
+struct pt_adapter : public alps::mcbase {
+    using Base = alps::mcbase;
+    using phase_point = PhasePoint;
 
     using batcher = Batcher;
 
     static void define_parameters(parameters_type & parameters) {
-        Simulation::define_parameters(parameters);
+        Base::define_parameters(parameters);
         batcher::define_parameters(parameters);
     }
 
     pt_adapter(parameters_type & params,
-        mpi::communicator comm,
-        size_t seed_offset = 0)
-        : Simulation(params, seed_offset * comm.size() + comm.rank())
-        , communicator{comm}
+               size_t seed_offset = 0)
+        : Base(params, seed_offset)
     {
-        Simulation::install_pt_update_callback([&](phase_point pp) {
-            return update_phase_point(pp);
-        });
     }
 
     void rebind_communicator(mpi::communicator const& comm_new) {
-        Simulation::rebind_communicator(comm_new);
         communicator = comm_new;
     }
 
@@ -108,20 +102,19 @@ struct pt_adapter : public Simulation {
         std::thread manager;
         if (communicator.rank() == 0)
             manager = std::thread(manage, communicator);
-        bool ret = Simulation::run(stop_callback);
+        bool ret = Base::run(stop_callback);
 
         // shutdown
         int my_int_status;
         bool unregistered = false;
         do {
-            mpi::send(communicator,
-                static_cast<int>(pt::query_type::deregister),
-                0, pt::query_tag);
-            mpi::receive(communicator, my_int_status, 0, pt::response_tag);
-            unregistered = static_cast<pt::status>(my_int_status)
-                == pt::status::unregistered;
+            mpi::send(communicator, static_cast<int>(query_type::deregister), 0,
+                query_tag);
+            mpi::receive(communicator, my_int_status, 0, response_tag);
+            unregistered = static_cast<status>(my_int_status)
+                == status::unregistered;
             if (!unregistered)
-                Simulation::update();
+                this->update();
         } while (!unregistered);
 
         if (communicator.rank() == 0)
@@ -129,26 +122,45 @@ struct pt_adapter : public Simulation {
         return ret;
     }
 
-    bool update_phase_point(phase_point const& pp) {
-        using acc_ptr = std::shared_ptr<alps::accumulators::accumulator_wrapper>;
-        auto it_bool = slice_measurements.emplace(
-            Simulation::phase_space_point(),
-            observable_collection_type{});
-        if (measurements.begin()->second->count() > 0) {
-            if (it_bool.second)
-                for (auto const& pair : measurements)
-                    it_bool.first->second.insert(pair.first,
-                        acc_ptr{pair.second->new_clone()});
-            else
-                it_bool.first->second.merge(measurements);
-            measurements.reset();
-        }
-        return Simulation::update_phase_point(pp);
+    virtual phase_point phase_space_point() const {
+        return slice_it->first;
     }
 
-    void reset_sweeps(bool skip_therm = false) {
-        Simulation::reset_sweeps(skip_therm);
-        slice_measurements.clear();
+    virtual bool update_phase_point(phase_point const& pp) {
+        using acc_ptr = std::shared_ptr<alps::accumulators::accumulator_wrapper>;
+        if (slice_it->first == pp) {
+            return false;
+        } else {
+            auto it_bool = slice_measurements.emplace(pp,
+                observable_collection_type{});
+            if (it_bool.second) {
+                // new phase_point pp visited for the first time
+                for (auto const& pair : measurements.get())
+                    it_bool.first->second.insert(pair.first,
+                        acc_ptr{pair.second->new_clone()});
+                it_bool.first->second.reset();
+            }
+            size_t n = std::accumulate(measurements.get().begin(),
+                measurements.get().end(), 0ul,
+                [](size_t total, auto const& pair) {
+                    return std::max(total, pair.second->count());
+                });
+            if (n == 0)
+                slice_measurements.erase(slice_it);
+            slice_it = it_bool.first;
+            measurements = std::ref(slice_it->second);
+            return true;
+        }
+    }
+
+    virtual void reset_sweeps(bool skip_therm = false) {
+        auto it = slice_measurements.begin();
+        while (it != slice_measurements.end()) {
+            if (it == slice_it)
+                it++->second.reset();
+            else
+                slice_measurements.erase(it++);
+        }
     }
 
     results_type collect_results() const {
@@ -158,10 +170,7 @@ struct pt_adapter : public Simulation {
     results_type collect_results(result_names_type const & names) const {
         results_type partial_results;
         for (auto const& name : names) {
-            auto merged = measurements[name];
-            auto it = slice_measurements.find(Simulation::phase_space_point());
-            if (it != slice_measurements.end())
-                merged.merge(it->second[name]);
+            auto merged = measurements.get()[name];
             partial_results.insert(name, merged.result());
         }
         return partial_results;
@@ -187,15 +196,43 @@ struct pt_adapter : public Simulation {
     }
 
 protected:
-    using observable_collection_type = typename Simulation::observable_collection_type;
-    using Simulation::measurements;
+    using observable_collection_type = typename Base::observable_collection_type;
     mpi::communicator communicator;
+private:
+    using slice_map_type = std::map<phase_point, observable_collection_type>;
+    using refwrap = std::reference_wrapper<observable_collection_type>;
+    slice_map_type slice_measurements = {
+        {{}, {}}
+    };
+    typename slice_map_type::iterator slice_it = slice_measurements.begin();
+protected:
+    refwrap measurements = std::ref(slice_it->second);
 
 private:
-    std::map<phase_point, observable_collection_type> slice_measurements;
+    enum pt_tags {
+        query_tag = 287436,
+        response_tag,
+        partner_tag,
+        chosen_partner_tag,
+        point_tag,
+        weight_tag,
+        acceptance_tag
+    };
+
+    enum struct status {
+        unregistered,
+        available,
+        primary,
+        secondary
+    };
+
+    enum struct query_type {
+        status,
+        init,
+        deregister
+    };
 
     static void manage(mpi::communicator const& comm) {
-        using namespace pt;
         std::vector<status> statuses(comm.size(), status::available);
         std::vector<int> partners(comm.size());
         size_t n_registered = statuses.size();
@@ -259,6 +296,93 @@ private:
                 break;
             }
         }
+    }
+
+public:
+    template <typename RNG, typename LogWeightFunc>
+    bool negotiate_update(
+        RNG & rng,
+        bool initiate_update_if_possible,
+        LogWeightFunc const& log_weight)
+    {
+        mpi::send(communicator, static_cast<int>(query_type::status), 0,
+            query_tag);
+
+        int response;
+        mpi::receive(communicator, response, 0, response_tag);
+
+        switch (static_cast<status>(response)) {
+        case status::available:
+            if (initiate_update_if_possible) {
+                mpi::send(communicator, static_cast<int>(query_type::init), 0,
+                    query_tag);
+
+                int partner_rank;
+                mpi::receive(communicator, partner_rank, 0, partner_tag);
+                if (partner_rank == -1) {
+                    // both neighbors are available, decide for one
+                    partner_rank = std::bernoulli_distribution{}(rng)
+                        ? (communicator.rank() - 1) : (communicator.rank() + 1);
+                    mpi::send(communicator, partner_rank, 0,
+                        chosen_partner_tag);
+                } else if (partner_rank == -2) {
+                    // neither neighbor is available, reject
+                    return false;
+                }
+
+                phase_point this_point = phase_space_point();
+                phase_point other_point;
+                mpi::send(communicator, this_point.begin(), this_point.end(),
+                    partner_rank, point_tag);
+                mpi::receive(communicator, other_point.begin(),
+                    other_point.end(), partner_rank, point_tag);
+
+                double this_weight = log_weight(other_point);
+                double other_weight;
+                mpi::receive(communicator, other_weight, partner_rank,
+                    weight_tag);
+
+                bool acc = [&] {
+                    double weight = this_weight + other_weight;
+                    if (weight >= 0.
+                        || std::bernoulli_distribution{exp(weight)}(rng))
+                    {
+                        update_phase_point(other_point);
+                        return true;
+                    }
+                    return false;
+                }();
+                mpi::send(communicator, static_cast<int>(acc), partner_rank,
+                    acceptance_tag);
+                return acc;
+            }
+            break;
+        case status::secondary:
+            {
+                int partner_rank;
+                mpi::receive(communicator, partner_rank, 0, partner_tag);
+
+                phase_point this_point = phase_space_point();
+                phase_point other_point;
+                mpi::receive(communicator, other_point.begin(),
+                    other_point.end(), partner_rank, point_tag);
+                mpi::send(communicator, this_point.begin(), this_point.end(),
+                    partner_rank, point_tag);
+
+                double this_weight = log_weight(other_point);
+                mpi::send(communicator, this_weight, partner_rank, weight_tag);
+
+                int acc;
+                mpi::receive(communicator, acc, partner_rank, acceptance_tag);
+                if (acc)
+                    update_phase_point(other_point);
+                return acc;
+            }
+            break;
+        default:
+            throw std::runtime_error("illegal response in this context");
+        }
+        return false;
     }
 };
 

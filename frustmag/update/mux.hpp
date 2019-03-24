@@ -25,11 +25,6 @@
 #include <type_traits>
 #include <utility>
 
-// forward declaration
-namespace mpi {
-    struct communicator;
-}
-
 namespace update {
 
 namespace {
@@ -39,30 +34,16 @@ namespace {
     template <typename B>
     struct negation : std::integral_constant<bool, !bool(B::value)> {};
 
-    template <typename T>
-    static auto test_rebind_communicator(int)
+    template <typename T, typename PTA>
+    static auto test_set_pta(int)
         -> detail::sfinae_true<decltype(
-            std::declval<T>().rebind_communicator(
-                std::declval<mpi::communicator const&>()))>;
-
-    template <typename>
-    static auto test_rebind_communicator(long) -> std::false_type;
-
-    template <typename T>
-    struct communicator_rebindable : decltype(test_rebind_communicator<T>(0)) {};
-
-    template <typename T, typename UpdateCallback>
-    static auto test_install_pt_update_callback(int)
-        -> detail::sfinae_true<decltype(
-            std::declval<T>().install_pt_update_callback(
-                std::declval<UpdateCallback &&>()))>;
+            std::declval<T&>().set_pta(std::declval<PTA const&>()))>;
 
     template <typename, typename>
-    static auto test_install_pt_update_callback(long) -> std::false_type;
+    static auto test_set_pta(long) -> std::false_type;
 
-    template <typename T, typename UpdateCallback>
-    struct has_pt_callback
-        : decltype(test_install_pt_update_callback<T, UpdateCallback>(0)) {};
+    template <typename T, typename PTA>
+    struct is_pt_update : decltype(test_set_pta<T, PTA>(0)) {};
 
     template <bool...>
     struct bool_pack;
@@ -108,18 +89,11 @@ public:
         return update_impl(hamiltonian, rng, Indices{});
     }
 
-    template <typename = std::enable_if_t<any_true<communicator_rebindable<Updates<LatticeH>>::value...>::value>>
-    void rebind_communicator(mpi::communicator const& comm_new) {
+    template <typename PTA,
+              typename = std::enable_if_t<any_true<is_pt_update<Updates<LatticeH>, PTA>::value...>::value>>
+    void set_pta(PTA & pta) {
         using Indices = std::make_index_sequence<sizeof...(Updates)>;
-        rebind_communicator_impl(comm_new, Indices{});
-    }
-
-    template <typename UpdateCallback,
-              typename = std::enable_if_t<any_true<has_pt_callback<Updates<LatticeH>, UpdateCallback>::value...>::value>>
-    void install_pt_update_callback(UpdateCallback && uc) {
-        using Indices = std::make_index_sequence<sizeof...(Updates)>;
-        install_pt_update_callback_impl(std::forward<UpdateCallback>(uc),
-            Indices{});
+        set_pta_impl(pta, Indices{});
     }
 
 private:
@@ -130,55 +104,22 @@ private:
         return {std::get<I>(updates).update(hamiltonian, rng)[0]...};
     }
 
-    template <size_t... I>
-    void rebind_communicator_impl(mpi::communicator const& comm_new,
-                                  std::index_sequence<I...>)
-    {
-        int dummy[] =
-            {rebind_communicator_if_possible(std::get<I>(updates), comm_new)...};
+    template <typename PTA, size_t... I>
+    void set_pta_impl(PTA & pta, std::index_sequence<I...>) {
+        using expand = int[];
+        expand{(set_pta_if_possible(std::get<I>(updates), pta), 0)...};
     }
 
-    template <typename Update,
-              typename = std::enable_if_t<communicator_rebindable<Update>::value>>
-    int rebind_communicator_if_possible(Update & u,
-                                        mpi::communicator const& comm_new)
-    {
-        u.rebind_communicator(comm_new);
-        return 0;
+    template <typename Update, typename PTA,
+              typename = std::enable_if_t<is_pt_update<Update, PTA>::value>>
+    static void set_pta_if_possible(Update & update, PTA & pta) {
+        update.set_pta(pta);
     }
 
-    template <typename Update,
-              typename = std::enable_if_t<!communicator_rebindable<Update>::value>,
+    template <typename Update, typename PTA,
+              typename = std::enable_if_t<!is_pt_update<Update, PTA>::value>,
               int dummy = 0>
-    int rebind_communicator_if_possible(Update &, mpi::communicator const&) {
-        return 0;
-    }
-
-    template <typename UpdateCallback, size_t... I>
-    void install_pt_update_callback_impl(UpdateCallback && uc,
-                                  std::index_sequence<I...>)
-    {
-        int dummy[] =
-            {install_pt_update_callback_if_possible(std::get<I>(updates),
-                std::forward<UpdateCallback>(uc))...};
-    }
-
-    template <typename Update,
-              typename UpdateCallback,
-              typename = std::enable_if_t<has_pt_callback<Update, UpdateCallback>::value>>
-    int install_pt_update_callback_if_possible(Update & u, UpdateCallback && uc)
-    {
-        u.install_pt_update_callback(std::forward<UpdateCallback>(uc));
-        return 0;
-    }
-
-    template <typename Update,
-              typename UpdateCallback,
-              typename = std::enable_if_t<!has_pt_callback<Update, UpdateCallback>::value>,
-              int dummy = 0>
-    int install_pt_update_callback_if_possible(Update &, UpdateCallback &&) {
-        return 0;
-    }
+    static void set_pta_if_possible(Update &, PTA &) {}
 };
 
 template <template <typename> typename... Updates>
