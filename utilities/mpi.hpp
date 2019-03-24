@@ -391,7 +391,7 @@ namespace mpi {
         }
     };
 
-    communicator split_communicator(communicator const& comm,
+    inline communicator split_communicator(communicator const& comm,
         int color,
         int key = 0)
     {
