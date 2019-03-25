@@ -154,7 +154,7 @@ int main(int argc, char** argv)
             sim.rebind_communicator(comm_valid);
             auto slice_point = dispatch.point();
             log() << "working on batch " << dispatch.batch_index() << ": "
-                  << slice_point << '\n';
+                  << slice_point << std::endl;
             if (dispatch.point_resumed()) {
                 if (slice_point != sim.phase_space_point()) {
                     std::stringstream ss;
@@ -171,6 +171,7 @@ int main(int argc, char** argv)
             // only process results if batch was completed
             if (finished) {
                 int n_points = sim.number_of_points();
+                log() << "collecting results..." << std::endl;
                 results_type results = alps::collect_results(sim);
 
                 // save the results

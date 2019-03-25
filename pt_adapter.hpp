@@ -23,6 +23,7 @@
 #include <iterator>
 #include <map>
 #include <random>
+#include <sstream>
 #include <stdexcept>
 #include <thread>
 #include <tuple>
@@ -194,6 +195,63 @@ struct pt_adapter : public alps::mcbase {
             }
         }
         return partial_results;
+    }
+
+    virtual void save (alps::hdf5::archive & ar) const override {
+        Base::save(ar);
+        auto gen_path = [](size_t i) {
+            std::stringstream ss;
+            ss << "pt/slice_measurements/" << i++;
+            return ss.str();
+        };
+        size_t i = 0;
+        for (auto it = slice_measurements.begin();
+             it != slice_measurements.end(); ++it)
+        {
+            size_t n = std::accumulate(it->second.begin(),
+                it->second.end(), 0ul,
+                [](size_t total, auto const& pair) {
+                    return std::max(total, pair.second->count());
+                });
+            if (n > 0) {
+                auto path = gen_path(i);
+                ar[path + "/point"]
+                    << std::vector<double>{it->first.begin(), it->first.end()};
+                ar[path + "/measurements"] << it->second;
+                if (it == typename slice_map_type::const_iterator{slice_it})
+                    ar["pt/slice_measurements/index"] << i;
+                ++i;
+            }
+        }
+        ar["pt/slice_measurements/size"] << i;
+    }
+
+    virtual void load (alps::hdf5::archive & ar) override {
+        Base::load(ar);
+
+        size_t n, index;
+        ar["pt/slice_measurements/size"] >> n;
+        ar["pt/slice_measurements/index"] >> index;
+
+        auto gen_path = [](size_t i) {
+            std::stringstream ss;
+            ss << "pt/slice_measurements/" << i++;
+            return ss.str();
+        };
+        for (size_t i = 0; i < n; ++i) {
+            auto path = gen_path(i);
+            std::vector<double> pt_vec;
+            ar[path + "/point"] >> pt_vec;
+            auto it_bool = slice_measurements.emplace(std::piecewise_construct,
+                std::forward_as_tuple(pt_vec.begin()),
+                std::forward_as_tuple());
+            if (!it_bool.second)
+                throw std::runtime_error(
+                    "Duplicate point in slice_measurements in pt_adapter::load");
+            ar[path + "/measurements"] >> it_bool.first->second;
+            if (i == index)
+                slice_it = it_bool.first;
+        }
     }
 
 protected:

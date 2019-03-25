@@ -87,7 +87,6 @@ public:
         }
     }
 
-    using alps::mcbase::save;
     virtual void save (alps::hdf5::archive & ar) const override {
         Simulation::save(ar);
 
@@ -101,7 +100,6 @@ public:
             ar["training/problem"] << prob_serializer;
     }
 
-    using alps::mcbase::load;
     virtual void load (alps::hdf5::archive & ar) override {
         Simulation::load(ar);
 
