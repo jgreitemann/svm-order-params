@@ -27,40 +27,6 @@
 
 namespace update {
 
-namespace {
-    template <typename...>
-    using void_t = void;
-
-    template <typename B>
-    struct negation : std::integral_constant<bool, !bool(B::value)> {};
-
-    template <typename T, typename PTA>
-    static auto test_set_pta(int)
-        -> detail::sfinae_true<decltype(
-            std::declval<T&>().set_pta(std::declval<PTA const&>()))>;
-
-    template <typename, typename>
-    static auto test_set_pta(long) -> std::false_type;
-
-    template <typename T, typename PTA>
-    struct is_pt_update : decltype(test_set_pta<T, PTA>(0)) {};
-
-    template <bool...>
-    struct bool_pack;
-
-    template <bool... bs>
-    using all_true = std::is_same<bool_pack<bs..., true>, bool_pack<true, bs...>>;
-
-    template <bool... bs>
-    using all_false = std::is_same<bool_pack<bs..., false>, bool_pack<false, bs...>>;
-
-    template <bool... bs>
-    using any_true = negation<all_false<bs...>>;
-
-    template <bool... bs>
-    using any_false = negation<all_true<bs...>>;
-}
-
 template <typename LatticeH, template <typename> typename... Updates>
 struct mux {
 #ifdef USE_CONCEPTS
@@ -78,8 +44,9 @@ public:
         expand{(Updates<LatticeH>::define_parameters(parameters), 0)...};
     }
 
-    mux(alps::params const& parameters)
-        : updates{(static_cast<void_t<Updates<LatticeH>>>(0), parameters)...}
+    template <typename... Args>
+    mux(alps::params const& parameters, Args &&... args)
+        : updates{Updates<LatticeH>{parameters, std::forward<Args>(args)...}...}
     {
     }
 
@@ -89,13 +56,6 @@ public:
         return update_impl(hamiltonian, rng, Indices{});
     }
 
-    template <typename PTA,
-              typename = std::enable_if_t<any_true<is_pt_update<Updates<LatticeH>, PTA>::value...>::value>>
-    void set_pta(PTA & pta) {
-        using Indices = std::make_index_sequence<sizeof...(Updates)>;
-        set_pta_impl(pta, Indices{});
-    }
-
 private:
     template <typename RNG, size_t... I>
     acceptance_type update_impl(LatticeH & hamiltonian, RNG & rng,
@@ -103,23 +63,6 @@ private:
     {
         return {std::get<I>(updates).update(hamiltonian, rng)[0]...};
     }
-
-    template <typename PTA, size_t... I>
-    void set_pta_impl(PTA & pta, std::index_sequence<I...>) {
-        using expand = int[];
-        expand{(set_pta_if_possible(std::get<I>(updates), pta), 0)...};
-    }
-
-    template <typename Update, typename PTA,
-              typename = std::enable_if_t<is_pt_update<Update, PTA>::value>>
-    static void set_pta_if_possible(Update & update, PTA & pta) {
-        update.set_pta(pta);
-    }
-
-    template <typename Update, typename PTA,
-              typename = std::enable_if_t<!is_pt_update<Update, PTA>::value>,
-              int dummy = 0>
-    static void set_pta_if_possible(Update &, PTA &) {}
 };
 
 template <template <typename> typename... Updates>

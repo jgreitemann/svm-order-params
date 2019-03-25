@@ -61,7 +61,8 @@ public:
                                       "cos(theta_0) \\in [-1; 1]");
     }
 
-    single_flip(alps::params const& parameters)
+    template <typename... Args>
+    single_flip(alps::params const& parameters, Args &&...)
         : cos_theta_0 {
             std::is_same<site_state_type, site::spin_O3>::value ?
                 parameters["update.single_flip.cos_theta_0"] : -1.

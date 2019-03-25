@@ -51,15 +51,14 @@ public:
         ;
     }
 
-    parallel_tempering(alps::params const& parameters)
+    template <typename Simulation, typename... Args>
+    parallel_tempering(alps::params const& parameters,
+                       Simulation & sim,
+                       Args &&...)
         : query_sweeps{parameters["pt.query_sweeps"].as<size_t>()}
         , update_sweeps{parameters["pt.update_sweeps"].as<size_t>()}
+        , pta{static_cast<pt_adapter<phase_point> &>(sim)}
     {
-    }
-
-    template <typename PTA>
-    void set_pta(PTA & pta) {
-        this->pta = &pta;
     }
 
     template <typename RNG>
@@ -67,7 +66,7 @@ public:
         ++sweep_counter;
 
         bool acc = (sweep_counter % query_sweeps == 0)
-        && pta->negotiate_update(rng,
+        && pta.negotiate_update(rng,
             sweep_counter % update_sweeps == 0,
             [&](phase_point const& other_point) {
                 return hamiltonian.log_weight(other_point);
@@ -78,7 +77,7 @@ public:
 private:
     size_t query_sweeps, update_sweeps;
     size_t sweep_counter = 0;
-    pt_adapter<phase_point> * pta;
+    pt_adapter<phase_point> & pta;
 };
 
 }

@@ -111,14 +111,12 @@ public:
 
     frustmag_sim(parameters_type & params, std::size_t seed_offset = 0)
         : Base{params, seed_offset}
-        , update_type{params}
+        , update_type{params, *this}
         , total_sweeps{params["total_sweeps"]}
         , thermalization_sweeps{params["thermalization_sweeps"]}
         , rng{params["SEED"].template as<size_t>() + seed_offset}
         , hamiltonian_{params, rng}
     {
-        Update<Hamiltonian>::set_pta(static_cast<Base &>(*this));
-
         observables<Hamiltonian>::define(measurements());
         measurements()
             << alps::accumulators::FullBinningAccumulator<std::vector<double>>("Acceptance");

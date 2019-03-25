@@ -70,13 +70,12 @@ private:
     size_t index;
 };
 
-template <class PhasePoint,
-          typename Batcher = iso_batcher<PhasePoint>>
+template <class PhasePoint>
 struct pt_adapter : public alps::mcbase {
     using Base = alps::mcbase;
     using phase_point = PhasePoint;
 
-    using batcher = Batcher;
+    using batcher = iso_batcher<PhasePoint>;
 
     static void define_parameters(parameters_type & parameters) {
         Base::define_parameters(parameters);
