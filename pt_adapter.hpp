@@ -174,30 +174,26 @@ struct pt_adapter : public alps::mcbase {
 
     results_type collect_results(result_names_type const & names) const {
         results_type partial_results;
+        int my_rank = communicator.rank();
+        int size = communicator.size();
         for (auto const& name : names) {
-            auto merged = measurements()[name];
-            partial_results.insert(name, merged.result());
-        }
-        return partial_results;
-/*
-        results_type partial_results;
-        for (auto it = names.begin(); it != names.end(); ++it) {
-            size_t has_count = (this->measurements[*it].count() > 0);
-            const size_t sum_counts =
-                mpi::all_reduce(communicator, has_count, std::plus<size_t>());
-            if (static_cast<int>(sum_counts) == communicator.size()) {
-                auto merged = this->measurements[*it];
-                merged.collective_merge(communicator, 0);
-                partial_results.insert(*it, merged.result());
-            } else if (sum_counts > 0
-                && static_cast<int>(sum_counts) < communicator.size())
-            {
-                throw std::runtime_error(*it
-                    + " was measured on only some of the MPI processes.");
+            for (int rank = 0; rank < size; ++rank) {
+                phase_point pt = phase_space_point();
+                mpi::broadcast(communicator, pt.begin(), pt.end(), rank);
+                auto it = slice_measurements.find(pt);
+                int found = (it != slice_measurements.end())
+                    && it->second[name].count() > 0;
+                auto comm_found = mpi::split_communicator(communicator, found,
+                    rank != my_rank);
+                if (found) {
+                    auto merged = it->second[name];
+                    merged.collective_merge(comm_found, 0);
+                    if (rank == my_rank)
+                        partial_results.insert(name, merged.result());
+                }
             }
         }
         return partial_results;
-*/
     }
 
 protected:
