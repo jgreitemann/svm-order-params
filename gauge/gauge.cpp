@@ -628,7 +628,7 @@ gauge_sim::phase_point gauge_sim::phase_space_point () const {
     return ppoint;
 }
 
-bool gauge_sim::update_phase_point(phase_point pp) {
+bool gauge_sim::update_phase_point(phase_point const& pp) {
     bool changed = (pp != ppoint);
     ppoint = pp;
     J(0, 0) = ppoint.J1();

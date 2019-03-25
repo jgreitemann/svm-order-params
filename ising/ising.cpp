@@ -109,7 +109,7 @@ ising_sim::phase_point ising_sim::phase_space_point () const {
     return ppoint;
 }
 
-bool ising_sim::update_phase_point(phase_point pp) {
+bool ising_sim::update_phase_point(phase_point const& pp) {
     bool changed = (pp != ppoint);
     if (changed) {
         ppoint = pp;

@@ -197,10 +197,10 @@ public:
         return R;
     }
     Rt_array random_configuration();
-    void reset_sweeps(bool skip_therm);
+    virtual void reset_sweeps(bool skip_therm) override;
     bool is_thermalized() const;
-    phase_point phase_space_point () const;
-    bool update_phase_point(phase_point);
+    virtual phase_point phase_space_point() const override;
+    virtual bool update_phase_point(phase_point const&) override;
 };
 
 template <>

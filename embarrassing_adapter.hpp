@@ -99,6 +99,10 @@ struct embarrassing_adapter : public alps::mcmpiadapter<alps::mcbase> {
         return 1ul;
     }
 
+    virtual void reset_sweeps(bool skip_therm) = 0;
+    virtual phase_point phase_space_point() const = 0;
+    virtual bool update_phase_point(phase_point const&) = 0;
+
 protected:
     using Base::communicator;
 };

@@ -51,12 +51,12 @@ public:
     std::vector<std::string> order_param_names() const {
         return {"Magnetization^2"};
     }
-    void reset_sweeps(bool skip_therm = false);
+    virtual void reset_sweeps(bool skip_therm = false) override;
     bool is_thermalized() const;
     storage_type const& configuration() const;
     storage_type random_configuration();
-    phase_point phase_space_point () const;
-    bool update_phase_point(phase_point);
+    virtual phase_point phase_space_point () const override;
+    virtual bool update_phase_point(phase_point const&) override;
 
     template <typename Introspector>
     using config_policy_type = config_policy<storage_type, Introspector>;
