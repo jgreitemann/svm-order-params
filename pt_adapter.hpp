@@ -160,8 +160,16 @@ struct pt_adapter : public alps::mcbase {
         }
     }
 
+    result_names_type result_names() const {
+        result_names_type names;
+        std::transform(measurements().begin(), measurements().end(),
+            std::back_inserter(names),
+            [](auto const& pair) { return pair.first; });
+        return names;
+    }
+
     results_type collect_results() const {
-        return collect_results(this->result_names());
+        return collect_results(result_names());
     }
 
     results_type collect_results(result_names_type const & names) const {
