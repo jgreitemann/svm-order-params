@@ -65,7 +65,7 @@ public:
             ar["model"] >> serial;
         }
 
-        measurements
+        measurements()
         << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
         << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM^2")
         << alps::accumulators::FullBinningAccumulator<double>("label");
@@ -75,16 +75,16 @@ public:
         Simulation::measure();
         if (Simulation::is_thermalized()) {
             auto res = model(svm::dataset(confpol->configuration(Simulation::configuration())));
-            measurements.get()["label"] << double(res.first);
+            measurements()["label"] << double(res.first);
 
             // measure decision functions
             auto decs = svm::detail::container_factory<std::vector<double>>::copy(res.second);
-            measurements.get()["SVM"] << decs;
+            measurements()["SVM"] << decs;
 
             // measure decision function squares
             std::transform(decs.begin(), decs.end(), decs.begin(), decs.begin(),
                 std::multiplies<>{});
-            measurements.get()["SVM^2"] << decs;
+            measurements()["SVM^2"] << decs;
         }
     }
 

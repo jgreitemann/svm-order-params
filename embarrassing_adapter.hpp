@@ -105,4 +105,12 @@ struct embarrassing_adapter : public alps::mcmpiadapter<alps::mcbase> {
 
 protected:
     using Base::communicator;
+
+    using observable_collection_type = typename Base::observable_collection_type;
+    observable_collection_type & measurements() {
+        return Base::measurements;
+    }
+    observable_collection_type const& measurements() const {
+        return Base::measurements;
+    }
 };

@@ -119,8 +119,8 @@ public:
     {
         Update<Hamiltonian>::set_pta(static_cast<Base &>(*this));
 
-        observables<Hamiltonian>::define(measurements.get());
-        measurements.get()
+        observables<Hamiltonian>::define(measurements());
+        measurements()
             << alps::accumulators::FullBinningAccumulator<std::vector<double>>("Acceptance");
 
         using acc_t = typename update_type::acceptance_type;
@@ -134,14 +134,14 @@ public:
     virtual void update() {
         auto acc = update_type::update(hamiltonian_, rng);
         std::copy(acc.begin(), acc.end(), acceptance.begin());
-        measurements.get()["Acceptance"] << acceptance;
+        measurements()["Acceptance"] << acceptance;
     }
 
     virtual void measure() {
         ++sweeps;
         if (!is_thermalized()) return;
 
-        measurements.get() << observables<Hamiltonian>{hamiltonian_};
+        measurements() << observables<Hamiltonian>{hamiltonian_};
     }
 
     virtual double fraction_completed() const {
@@ -209,7 +209,7 @@ public:
         return random_lattice;
     }
 
-    virtual phase_point phase_space_point() const override{
+    virtual phase_point phase_space_point() const override {
         return hamiltonian_.phase_space_point();
     }
 

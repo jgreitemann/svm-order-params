@@ -20,7 +20,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <functional>
 #include <iterator>
 #include <map>
 #include <random>
@@ -135,20 +134,19 @@ struct pt_adapter : public alps::mcbase {
                 observable_collection_type{});
             if (it_bool.second) {
                 // new phase_point pp visited for the first time
-                for (auto const& pair : measurements.get())
+                for (auto const& pair : measurements())
                     it_bool.first->second.insert(pair.first,
                         acc_ptr{pair.second->new_clone()});
                 it_bool.first->second.reset();
             }
-            size_t n = std::accumulate(measurements.get().begin(),
-                measurements.get().end(), 0ul,
+            size_t n = std::accumulate(measurements().begin(),
+                measurements().end(), 0ul,
                 [](size_t total, auto const& pair) {
                     return std::max(total, pair.second->count());
                 });
             if (n == 0)
                 slice_measurements.erase(slice_it);
             slice_it = it_bool.first;
-            measurements = std::ref(slice_it->second);
             return true;
         }
     }
@@ -170,7 +168,7 @@ struct pt_adapter : public alps::mcbase {
     results_type collect_results(result_names_type const & names) const {
         results_type partial_results;
         for (auto const& name : names) {
-            auto merged = measurements.get()[name];
+            auto merged = measurements()[name];
             partial_results.insert(name, merged.result());
         }
         return partial_results;
@@ -200,13 +198,17 @@ protected:
     mpi::communicator communicator;
 private:
     using slice_map_type = std::map<phase_point, observable_collection_type>;
-    using refwrap = std::reference_wrapper<observable_collection_type>;
     slice_map_type slice_measurements = {
         {{}, {}}
     };
     typename slice_map_type::iterator slice_it = slice_measurements.begin();
 protected:
-    refwrap measurements = std::ref(slice_it->second);
+    observable_collection_type & measurements() {
+        return slice_it->second;
+    }
+    observable_collection_type const& measurements() const {
+        return slice_it->second;
+    }
 
 private:
     enum pt_tags {

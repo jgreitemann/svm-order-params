@@ -210,7 +210,7 @@ gauge_sim::gauge_sim(parameters_type & parms, std::size_t seed_offset)
 #endif
 
     // Adds the measurements
-    measurements
+    measurements()
         << alps::accumulators::FullBinningAccumulator<double>("Energy") //normalized
         //<< alps::accumulators::FullBinningAccumulator<double>("Energy^2")
         //<< alps::accumulators::FullBinningAccumulator<double>("Energy^3")
@@ -219,10 +219,10 @@ gauge_sim::gauge_sim(parameters_type & parms, std::size_t seed_offset)
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^4")
         ;
     if (nematicityB)
-        measurements
+        measurements()
             << alps::accumulators::FullBinningAccumulator<double>("NematicityB");
     if (nematicityB2)
-        measurements
+        measurements()
             << alps::accumulators::FullBinningAccumulator<double>("NematicityB2");
 }
 
@@ -483,18 +483,18 @@ void gauge_sim::measure() {
     double nem = sqrt(nem2);
 
     // Accumulate the data
-    measurements["Energy"] << E;
-    //measurements["Energy^2"] << E2;
-    //measurements["Energy^3"] << E2*E;
+    measurements()["Energy"] << E;
+    //measurements()["Energy^2"] << E2;
+    //measurements()["Energy^3"] << E2*E;
 
-    measurements["Nematicity"] << nem;
-    //measurements["Nematicity^2"] << nem2;
-    //measurements["Nematicity^4"] << nem2 * nem2;
+    measurements()["Nematicity"] << nem;
+    //measurements()["Nematicity^2"] << nem2;
+    //measurements()["Nematicity^4"] << nem2 * nem2;
 
     if (nematicityB)
-        measurements["NematicityB"] << sqrt(nematicityB());
+        measurements()["NematicityB"] << sqrt(nematicityB());
     if (nematicityB2)
-        measurements["NematicityB2"] << sqrt(nematicityB2());
+        measurements()["NematicityB2"] << sqrt(nematicityB2());
 }
 
 // Returns a number between 0.0 and 1.0 with the completion percentage

@@ -72,7 +72,7 @@ ising_sim::ising_sim(parameters_type & parms, std::size_t seed_offset)
     }
 
     // Adds the measurements
-    measurements
+    measurements()
         << alps::accumulators::FullBinningAccumulator<double>("Energy")
         << alps::accumulators::FullBinningAccumulator<double>("Magnetization")
         << alps::accumulators::FullBinningAccumulator<double>("AbsMagnetization")
@@ -158,11 +158,11 @@ void ising_sim::measure() {
     double tmag = current_magnetization / n; // magnetization
 
     // Accumulate the data (per site)
-    measurements["Energy"] << (current_energy / n);
-    measurements["Magnetization"] << tmag;
-    measurements["AbsMagnetization"] << fabs(tmag);
-    measurements["Magnetization^2"] << tmag*tmag;
-    measurements["Magnetization^4"] << tmag*tmag*tmag*tmag;
+    measurements()["Energy"] << (current_energy / n);
+    measurements()["Magnetization"] << tmag;
+    measurements()["AbsMagnetization"] << fabs(tmag);
+    measurements()["Magnetization^2"] << tmag*tmag;
+    measurements()["Magnetization^4"] << tmag*tmag*tmag*tmag;
 }
 
 // Returns a number between 0.0 and 1.0 with the completion percentage
