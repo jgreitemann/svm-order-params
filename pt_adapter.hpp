@@ -309,7 +309,8 @@ private:
         chosen_partner_tag,
         point_tag,
         weight_tag,
-        acceptance_tag
+        acceptance_tag,
+        acknowledge_tag
     };
 
     enum struct status {
@@ -389,6 +390,7 @@ private:
             case query_type::rejection:
                 statuses[rank] = status::available;
                 statuses[partners[rank]] = status::available;
+                mpi::send(comm, partners[rank], acknowledge_tag);
                 break;
             case query_type::deregister:
                 if (statuses[rank] == status::available) {
@@ -497,6 +499,7 @@ public:
                 mpi::receive(communicator, acc, partner_rank, acceptance_tag);
                 if (acc)
                     update_phase_point(other_point);
+                mpi::receive(communicator, 0, acknowledge_tag);
                 return acc;
             }
             break;
