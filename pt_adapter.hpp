@@ -238,6 +238,14 @@ struct pt_adapter : public alps::mcbase {
             ss << "pt/slice_measurements/" << i++;
             return ss.str();
         };
+
+        // old measurements prototype
+        using acc_ptr = std::shared_ptr<alps::accumulators::accumulator_wrapper>;
+        auto & prototype_measurements = measurements();
+        prototype_measurements.reset();
+        auto old_slice_measurements
+            = std::exchange(slice_measurements, slice_map_type{});
+
         for (size_t i = 0; i < n; ++i) {
             auto path = gen_path(i);
             std::vector<double> pt_vec;
@@ -249,6 +257,17 @@ struct pt_adapter : public alps::mcbase {
                 throw std::runtime_error(
                     "Duplicate point in slice_measurements in pt_adapter::load");
             ar[path + "/measurements"] >> it_bool.first->second;
+
+            // reinstate empty accumulators based on prototype
+            auto p_it = prototype_measurements.begin();
+            auto p_end = prototype_measurements.end();
+            auto m_it = it_bool.first->second.begin();
+            auto m_end = it_bool.first->second.end();
+            for (; p_it != p_end; ++p_it, ++m_it)
+                for (; p_it != p_end && (m_it == m_end || p_it->first != m_it->first); ++p_it)
+                    it_bool.first->second.insert(p_it->first,
+                        acc_ptr{p_it->second->new_clone()});
+
             if (i == index)
                 slice_it = it_bool.first;
         }
