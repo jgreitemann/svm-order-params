@@ -120,19 +120,15 @@ int main(int argc, char** argv)
             if (!valid)
                 continue;
             sim.rebind_communicator(comm_valid);
-            auto slice_point = dispatch.point();
-            log() << "working on batch " << dispatch.batch_index() << ": "
-                  << slice_point << '\n';
             if (dispatch.point_resumed()) {
-                if (slice_point != sim.phase_space_point()) {
-                    std::stringstream ss;
-                    ss << "Inconsistent phase space point found when restoring "
-                       << " from checkpoint: expected " << sim.phase_space_point()
-                       << ", found " << slice_point << ".";
-                    throw std::runtime_error(ss.str());
-                }
+                auto slice_point = sim.phase_space_point();
+                log() << "resuming batch " << dispatch.batch_index() << ": "
+                      << slice_point << std::endl;
             } else {
-                sim.update_phase_point(slice_point);
+                auto slice_point = dispatch.point();
+                log() << "working on batch " << dispatch.batch_index() << ": "
+                      << slice_point << std::endl;
+                sim.reset_sweeps(!sim.update_phase_point(slice_point));
             }
             sim.run(stop_cb);
         }
