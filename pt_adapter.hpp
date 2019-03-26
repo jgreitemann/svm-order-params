@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
 #include <iterator>
 #include <map>
 #include <random>
@@ -100,7 +101,7 @@ struct pt_adapter : public alps::mcbase {
     bool run(boost::function<bool ()> const & stop_callback) {
         std::thread manager;
         if (communicator.rank() == 0)
-            manager = std::thread(manage, communicator);
+            manager = std::thread(manage, communicator, std::ref(perm));
         bool ret = Base::run(stop_callback);
 
         // shutdown
@@ -158,6 +159,10 @@ struct pt_adapter : public alps::mcbase {
                 it++->second.reset();
             else
                 slice_measurements.erase(it++);
+        }
+        if (communicator.rank() == 0) {
+            perm.resize(communicator.size());
+            std::iota(perm.begin(), perm.end(), 0ul);
         }
     }
 
@@ -224,12 +229,16 @@ struct pt_adapter : public alps::mcbase {
             }
         }
         ar["pt/slice_measurements/size"] << i;
+        if (communicator.rank() == 0)
+            ar["pt/permutation"] << perm;
     }
 
     virtual void load (alps::hdf5::archive & ar) override {
         Base::load(ar);
 
         size_t n, index;
+        if (communicator.rank() == 0 && communicator.size() > 1)
+            ar["pt/permutation"] >> perm;
         ar["pt/slice_measurements/size"] >> n;
         ar["pt/slice_measurements/index"] >> index;
 
@@ -282,6 +291,8 @@ private:
         {{}, {}}
     };
     typename slice_map_type::iterator slice_it = slice_measurements.begin();
+    std::vector<size_t> perm;
+
 protected:
     observable_collection_type & measurements() {
         return slice_it->second;
@@ -311,13 +322,21 @@ private:
     enum struct query_type {
         status,
         init,
+        acceptance,
+        rejection,
         deregister
     };
 
-    static void manage(mpi::communicator const& comm) {
+    static void manage(mpi::communicator const& comm, std::vector<size_t> & perm)
+    {
         std::vector<status> statuses(comm.size(), status::available);
         std::vector<int> partners(comm.size());
         size_t n_registered = statuses.size();
+
+        // invert permutation
+        std::vector<int> perm_inv(perm.size());
+        for (size_t i = 0; i < perm.size(); ++i)
+            perm_inv[perm[i]] = static_cast<int>(i);
 
         while (n_registered > 0) {
             int int_query_type;
@@ -329,32 +348,28 @@ private:
             case query_type::status:
                 mpi::send(comm, static_cast<int>(statuses[rank]), rank,
                     response_tag);
-                if (statuses[rank] == status::secondary) {
+                if (statuses[rank] == status::secondary)
                     mpi::send(comm, partners[rank], rank, partner_tag);
-                    statuses[rank] = status::available;
-                    statuses[partners[rank]] = status::available;
-                }
                 break;
             case query_type::init:
                 if (statuses[rank] == status::available) {
-                    int partner_rank = -2;
-                    bool lower = rank > 0
-                        && statuses[rank - 1] == status::available;
-                    bool upper = rank < static_cast<int>(statuses.size()) - 1
-                        && statuses[rank + 1] == status::available;
-                    if (lower && upper) {
-                        mpi::send(comm, -1, rank, partner_tag);
-                        mpi::receive(comm, partner_rank, rank,
-                            chosen_partner_tag);
-                    } else if (lower) {
-                        partner_rank = rank - 1;
-                        mpi::send(comm, partner_rank, rank, partner_tag);
-                    } else if (upper) {
-                        partner_rank = rank + 1;
-                        mpi::send(comm, partner_rank, rank, partner_tag);
-                    } else {
-                        mpi::send(comm, -2, rank, partner_tag);
-                    }
+                    int adjacent_ranks[2] = {
+                        perm[rank] > 0 ? perm_inv[perm[rank] - 1] : -1,
+                        perm[rank] < perm.size() - 1 ? perm_inv[perm[rank] + 1] : -1
+                    };
+                    for (int & ar : adjacent_ranks)
+                        if (ar >= 0 && statuses[ar] != status::available)
+                            ar = -1;
+                    mpi::send(comm, std::begin(adjacent_ranks),
+                        std::end(adjacent_ranks), rank, partner_tag);
+
+                    int partner_rank;
+                    if (adjacent_ranks[0] >= 0 && adjacent_ranks[1] >= 0)
+                        mpi::receive(comm, partner_rank, rank, chosen_partner_tag);
+                    else if (adjacent_ranks[0] >= 0)
+                        partner_rank = adjacent_ranks[0];
+                    else
+                        partner_rank = adjacent_ranks[1];
                     if (partner_rank >= 0) {
                         partners[rank] = partner_rank;
                         partners[partner_rank] = rank;
@@ -362,8 +377,18 @@ private:
                         statuses[partner_rank] = status::secondary;
                     }
                 } else {
-                    mpi::send(comm, -2, rank, partner_tag);
+                    int adjacent_ranks[2] = {-1, -1};
+                    mpi::send(comm, std::begin(adjacent_ranks),
+                        std::end(adjacent_ranks), rank, partner_tag);
                 }
+                break;
+            case query_type::acceptance:
+                std::swap(perm[rank], perm[partners[rank]]);
+                std::swap(perm_inv[perm[rank]], perm_inv[perm[partners[rank]]]);
+                [[fallthrough]];
+            case query_type::rejection:
+                statuses[rank] = status::available;
+                statuses[partners[rank]] = status::available;
                 break;
             case query_type::deregister:
                 if (statuses[rank] == status::available) {
@@ -399,18 +424,21 @@ public:
                 mpi::send(communicator, static_cast<int>(query_type::init), 0,
                     query_tag);
 
+                int adjacent_ranks[2];
                 int partner_rank;
-                mpi::receive(communicator, partner_rank, 0, partner_tag);
-                if (partner_rank == -1) {
-                    // both neighbors are available, decide for one
-                    partner_rank = std::bernoulli_distribution{}(rng)
-                        ? (communicator.rank() - 1) : (communicator.rank() + 1);
-                    mpi::send(communicator, partner_rank, 0,
-                        chosen_partner_tag);
-                } else if (partner_rank == -2) {
-                    // neither neighbor is available, reject
-                    return false;
+                mpi::receive(communicator, std::begin(adjacent_ranks),
+                    std::end(adjacent_ranks), 0, partner_tag);
+                if (adjacent_ranks[0] >= 0 && adjacent_ranks[1] >= 0) {
+                    partner_rank
+                        = adjacent_ranks[std::bernoulli_distribution{}(rng)];
+                    mpi::send(communicator, partner_rank, 0, chosen_partner_tag);
+                } else if (adjacent_ranks[0] >= 0) {
+                    partner_rank = adjacent_ranks[0];
+                } else {
+                    partner_rank = adjacent_ranks[1];
                 }
+                if (partner_rank < 0)
+                    return false;
 
                 phase_point this_point = phase_space_point();
                 phase_point other_point;
@@ -436,6 +464,17 @@ public:
                 }();
                 mpi::send(communicator, static_cast<int>(acc), partner_rank,
                     acceptance_tag);
+                if (acc) {
+                    // std::cout << "successful PT update (ranks " << communicator.rank()
+                    // << " and " << partner_rank << ")" << std::endl;
+                    mpi::send(communicator,
+                        static_cast<int>(query_type::acceptance), 0, query_tag);
+                } else {
+                    // std::cout << "failed PT update (ranks " << communicator.rank()
+                    // << " and " << partner_rank << ")" << std::endl;
+                    mpi::send(communicator,
+                        static_cast<int>(query_type::rejection), 0, query_tag);
+                }
                 return acc;
             }
             break;
