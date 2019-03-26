@@ -120,6 +120,8 @@ public:
         observables<Hamiltonian>::define(measurements());
         measurements()
             << alps::accumulators::FullBinningAccumulator<std::vector<double>>("Acceptance");
+        measurements()
+            << alps::accumulators::FullBinningAccumulator<std::vector<double>>("Point");
 
         using acc_t = typename update_type::acceptance_type;
         acceptance.resize(acc_t{}.size());
@@ -140,6 +142,8 @@ public:
         if (!is_thermalized()) return;
 
         measurements() << observables<Hamiltonian>{hamiltonian_};
+        auto pt = phase_space_point();
+        measurements()["Point"] << std::vector<double>{pt.begin(), pt.end()};
     }
 
     virtual double fraction_completed() const {
