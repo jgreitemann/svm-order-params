@@ -349,7 +349,7 @@ private:
                 MPI_ANY_SOURCE,
                 query_tag,
                 [] {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    std::this_thread::sleep_for(std::chrono::microseconds(1));
                 });
             switch (static_cast<query_type>(int_query_type)) {
             case query_type::status:
