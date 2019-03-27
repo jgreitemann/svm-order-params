@@ -88,6 +88,9 @@ struct pt_adapter : public alps::mcbase {
                size_t seed_offset = 0)
         : Base(params, seed_offset)
     {
+        measurements()
+            << alps::accumulators::FullBinningAccumulator<std::vector<double>>("Upness")
+            ;
     }
 
     void rebind_communicator(mpi::communicator const& comm_new) {
@@ -101,7 +104,7 @@ struct pt_adapter : public alps::mcbase {
     bool run(boost::function<bool ()> const & stop_callback) {
         std::thread manager;
         if (communicator.rank() == 0)
-            manager = std::thread(manage, communicator, std::ref(perm));
+            manager = std::thread(std::mem_fn(&pt_adapter::manage), std::ref(*this));
         bool ret = Base::run(stop_callback);
 
         // shutdown
@@ -328,11 +331,11 @@ private:
         deregister
     };
 
-    static void manage(mpi::communicator const& comm, std::vector<size_t> & perm)
-    {
-        std::vector<status> statuses(comm.size(), status::available);
-        std::vector<int> partners(comm.size());
-        size_t n_registered = statuses.size();
+    void manage() {
+        size_t n_registered = communicator.size();
+        std::vector<status> statuses(n_registered, status::available);
+        std::vector<int> partners(n_registered);
+        std::vector<double> upness(n_registered, 0.5);
 
         // invert permutation
         std::vector<int> perm_inv(perm.size());
@@ -341,16 +344,19 @@ private:
 
         while (n_registered > 0) {
             int int_query_type;
-            int rank = mpi::spin_receive(comm, int_query_type, MPI_ANY_SOURCE,
-                query_tag, [] {
+            int rank = mpi::spin_receive(communicator,
+                int_query_type,
+                MPI_ANY_SOURCE,
+                query_tag,
+                [] {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 });
             switch (static_cast<query_type>(int_query_type)) {
             case query_type::status:
-                mpi::send(comm, static_cast<int>(statuses[rank]), rank,
+                mpi::send(communicator, static_cast<int>(statuses[rank]), rank,
                     response_tag);
                 if (statuses[rank] == status::secondary)
-                    mpi::send(comm, partners[rank], rank, partner_tag);
+                    mpi::send(communicator, partners[rank], rank, partner_tag);
                 break;
             case query_type::init:
                 if (statuses[rank] == status::available) {
@@ -361,12 +367,13 @@ private:
                     for (int & ar : adjacent_ranks)
                         if (ar >= 0 && statuses[ar] != status::available)
                             ar = -1;
-                    mpi::send(comm, std::begin(adjacent_ranks),
+                    mpi::send(communicator, std::begin(adjacent_ranks),
                         std::end(adjacent_ranks), rank, partner_tag);
 
                     int partner_rank;
                     if (adjacent_ranks[0] >= 0 && adjacent_ranks[1] >= 0)
-                        mpi::receive(comm, partner_rank, rank, chosen_partner_tag);
+                        mpi::receive(communicator, partner_rank, rank,
+                            chosen_partner_tag);
                     else if (adjacent_ranks[0] >= 0)
                         partner_rank = adjacent_ranks[0];
                     else
@@ -379,25 +386,29 @@ private:
                     }
                 } else {
                     int adjacent_ranks[2] = {-1, -1};
-                    mpi::send(comm, std::begin(adjacent_ranks),
+                    mpi::send(communicator, std::begin(adjacent_ranks),
                         std::end(adjacent_ranks), rank, partner_tag);
                 }
                 break;
             case query_type::acceptance:
                 std::swap(perm[rank], perm[partners[rank]]);
                 std::swap(perm_inv[perm[rank]], perm_inv[perm[partners[rank]]]);
+                std::swap(upness[perm[rank]], upness[perm[partners[rank]]]);
+                upness[0] = 1.;
+                upness[perm.size() - 1] = 0.;
                 [[fallthrough]];
             case query_type::rejection:
                 statuses[rank] = status::available;
                 statuses[partners[rank]] = status::available;
-                mpi::send(comm, partners[rank], acknowledge_tag);
+                mpi::send(communicator, partners[rank], acknowledge_tag);
+                measurements()["Upness"] << upness;
                 break;
             case query_type::deregister:
                 if (statuses[rank] == status::available) {
                     statuses[rank] = status::unregistered;
                     --n_registered;
                 }
-                mpi::send(comm, static_cast<int>(statuses[rank]), rank,
+                mpi::send(communicator, static_cast<int>(statuses[rank]), rank,
                     response_tag);
                 break;
             default:
