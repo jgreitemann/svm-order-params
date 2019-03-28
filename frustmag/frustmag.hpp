@@ -18,16 +18,13 @@
 
 #include "concepts.hpp"
 #include "convenience_params.hpp"
+#include "pt_adapter.hpp"
 #include "observables.hpp"
 #include "phase_space_point.hpp"
 #ifdef HAS_SVM
 #include "frustmag_config_policy.hpp"
 #include "phase_space_policy.hpp"
 #endif
-
-#include <alps/accumulators.hpp>
-#include <alps/mc/api.hpp>
-#include <alps/mc/mcbase.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -36,7 +33,11 @@
 #include <vector>
 
 template <typename Hamiltonian, template <typename> typename Update>
-class frustmag_sim : public alps::mcbase, Update<Hamiltonian> {
+struct frustmag_sim : public pt_adapter<typename Hamiltonian::phase_point>
+                    , protected Update<Hamiltonian>
+{
+    using Base = pt_adapter<typename Hamiltonian::phase_point>;
+    using parameters_type = typename Base::parameters_type;
     using rng_type = std::mt19937;
 #ifdef USE_CONCEPTS
     static_assert(LatticeHamiltonian<Hamiltonian, rng_type>,
@@ -46,8 +47,7 @@ class frustmag_sim : public alps::mcbase, Update<Hamiltonian> {
     static_assert(MCUpdate<Update<Hamiltonian>, rng_type>,
                   "Update is not a MCUpdate");
 #endif
-public:
-    using phase_point = phase_space::point::temperature;
+    using phase_point = typename Hamiltonian::phase_point;
     using lattice_type = typename Hamiltonian::lattice_type;
     using update_type = Update<Hamiltonian>;
 
@@ -69,6 +69,8 @@ public:
             parameters, unsymmetrize);
     }
 #endif
+protected:
+    using Base::measurements;
 private:
     size_t sweeps = 0;
     size_t total_sweeps;
@@ -88,15 +90,15 @@ public:
         }
 
         // Adds the parameters of the base class
-        alps::mcbase::define_parameters(parameters);
+        Base::define_parameters(parameters);
         // Adds the convenience parameters (for save/load)
         // followed by simulation control parameters
         define_convenience_parameters(parameters)
             .description("Simulation of frustrated magnetism")
-            .define<size_t>("total_sweeps", 0,
-                            "maximum number of sweeps (0 means indefinite)")
-            .define<size_t>("thermalization_sweeps", 10000,
-                            "number of sweeps for thermalization");
+            .template define<size_t>("total_sweeps", 0,
+                "maximum number of sweeps (0 means indefinite)")
+            .template define<size_t>("thermalization_sweeps", 10000,
+                "number of sweeps for thermalization");
 
         update_type::define_parameters(parameters);
 
@@ -107,17 +109,19 @@ public:
 #endif
     }
 
-    frustmag_sim(parameters_type const & params, std::size_t seed_offset = 0)
-        : alps::mcbase{params, seed_offset}
-        , update_type{params}
+    frustmag_sim(parameters_type & params, std::size_t seed_offset = 0)
+        : Base{params, seed_offset}
+        , update_type{params, *this}
         , total_sweeps{params["total_sweeps"]}
         , thermalization_sweeps{params["thermalization_sweeps"]}
-        , rng{params["SEED"].as<size_t>() + seed_offset}
+        , rng{params["SEED"].template as<size_t>() + seed_offset}
         , hamiltonian_{params, rng}
     {
-        observables<Hamiltonian>::define(measurements);
-        measurements
+        observables<Hamiltonian>::define(measurements());
+        measurements()
             << alps::accumulators::FullBinningAccumulator<std::vector<double>>("Acceptance");
+        measurements()
+            << alps::accumulators::FullBinningAccumulator<std::vector<double>>("Point");
 
         using acc_t = typename update_type::acceptance_type;
         acceptance.resize(acc_t{}.size());
@@ -130,14 +134,16 @@ public:
     virtual void update() {
         auto acc = update_type::update(hamiltonian_, rng);
         std::copy(acc.begin(), acc.end(), acceptance.begin());
-        measurements["Acceptance"] << acceptance;
+        measurements()["Acceptance"] << acceptance;
     }
 
     virtual void measure() {
         ++sweeps;
         if (!is_thermalized()) return;
 
-        measurements << observables<Hamiltonian>{hamiltonian_};
+        measurements() << observables<Hamiltonian>{hamiltonian_};
+        auto pt = phase_space_point();
+        measurements()["Point"] << std::vector<double>{pt.begin(), pt.end()};
     }
 
     virtual double fraction_completed() const {
@@ -148,10 +154,10 @@ public:
 
     }
 
-    using alps::mcbase::save;
-    using alps::mcbase::load;
+    using Base::save;
+    using Base::load;
     virtual void save(alps::hdf5::archive & ar) const {
-        alps::mcbase::save(ar);
+        Base::save(ar);
 
         {
             std::stringstream engine_ss;
@@ -163,7 +169,7 @@ public:
         ar["checkpoint/hamiltonian"] << hamiltonian_;
     }
     virtual void load(alps::hdf5::archive & ar) {
-        alps::mcbase::load(ar);
+        Base::load(ar);
 
         {
             std::string engine_str;
@@ -181,7 +187,8 @@ public:
         return observables<Hamiltonian>::names();
     }
 
-    void reset_sweeps(bool skip_therm) {
+    virtual void reset_sweeps(bool skip_therm) override {
+        Base::reset_sweeps(skip_therm);
         if (skip_therm)
             sweeps = thermalization_sweeps;
         else
@@ -204,15 +211,16 @@ public:
         return random_lattice;
     }
 
-    phase_point phase_space_point() const {
+    virtual phase_point phase_space_point() const override {
         return hamiltonian_.phase_space_point();
     }
 
-    void update_phase_point(phase_point const& pp) {
+    virtual bool update_phase_point(phase_point const& pp) override {
+        Base::update_phase_point(pp);
         auto const& current_pp = hamiltonian_.phase_space_point();
         bool changed = (current_pp != pp);
         if (changed)
             hamiltonian_.phase_space_point(pp);
-        reset_sweeps(!changed);
+        return changed;
     }
 };

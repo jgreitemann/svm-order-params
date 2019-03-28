@@ -308,6 +308,15 @@ namespace mpi {
             std::forward<Func>(spin_op));
     }
 
+    template <typename ContiguousIterator>
+    void broadcast(communicator const& comm,
+        ContiguousIterator begin,
+        ContiguousIterator end,
+        int root)
+    {
+        broadcast(comm, &(*begin), end - begin, root);
+    }
+
     template <typename T>
     void all_gather(communicator const& comm,
         T const* send_vals,
@@ -391,7 +400,7 @@ namespace mpi {
         }
     };
 
-    communicator split_communicator(communicator const& comm,
+    inline communicator split_communicator(communicator const& comm,
         int color,
         int key = 0)
     {

@@ -16,6 +16,7 @@
 
 #include "checkpointing_stop_callback.hpp"
 #include "config_sim_base.hpp"
+#include "mpi.hpp"
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
 #include "argh.h"
@@ -45,6 +46,7 @@ using problem_t = typename model_t::problem_t;
 
 int main(int argc, char** argv)
 {
+    mpi::environment env(argc, argv, mpi::environment::threading::multiple);
     try {
         // Creates the parameters for the simulation
         // If an hdf5 file is supplied, reads the parameters there

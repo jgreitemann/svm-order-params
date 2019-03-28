@@ -41,10 +41,10 @@
 
 #ifdef CONFIG_MAPPING_LAZY
 #include "procrastination_adapter.hpp"
-using sim_type = embarrassing_adapter<procrastination_adapter<sim_base>>;
+using sim_type = procrastination_adapter<sim_base>;
 #else
 #include "training_adapter.hpp"
-using sim_type = embarrassing_adapter<training_adapter<sim_base>>;
+using sim_type = training_adapter<sim_base>;
 #endif
 
 using kernel_t = typename sim_type::kernel_t;
@@ -95,7 +95,7 @@ int main(int argc, char** argv)
             return points;
         }();
 
-        sim_type sim(parameters, comm_world);
+        sim_type sim(parameters, comm_world.rank());
 
         const std::string checkpoint_file = parameters["checkpoint"];
         const bool resumed = parameters.is_restored();
@@ -120,19 +120,15 @@ int main(int argc, char** argv)
             if (!valid)
                 continue;
             sim.rebind_communicator(comm_valid);
-            auto slice_point = dispatch.point();
-            log() << "working on batch " << dispatch.batch_index() << ": "
-                  << slice_point << '\n';
             if (dispatch.point_resumed()) {
-                if (slice_point != sim.phase_space_point()) {
-                    std::stringstream ss;
-                    ss << "Inconsistent phase space point found when restoring "
-                       << " from checkpoint: expected " << sim.phase_space_point()
-                       << ", found " << slice_point << ".";
-                    throw std::runtime_error(ss.str());
-                }
+                auto slice_point = sim.phase_space_point();
+                log() << "resuming batch " << dispatch.batch_index() << ": "
+                      << slice_point << std::endl;
             } else {
-                sim.update_phase_point(slice_point);
+                auto slice_point = dispatch.point();
+                log() << "working on batch " << dispatch.batch_index() << ": "
+                      << slice_point << std::endl;
+                sim.reset_sweeps(!sim.update_phase_point(slice_point));
             }
             sim.run(stop_cb);
         }

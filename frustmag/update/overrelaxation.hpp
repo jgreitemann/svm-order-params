@@ -47,7 +47,9 @@ public:
     using acceptance_type = std::array<double, 1>;
 
     static void define_parameters(alps::params & parameters) {}
-    overrelaxation(alps::params const& parameters) {}
+
+    template <typename... Args>
+    overrelaxation(alps::params const&, Args &&...) {}
 
     template <typename RNG>
     // requires SiteState<site_state_type, RNG>

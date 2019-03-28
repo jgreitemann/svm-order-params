@@ -35,7 +35,9 @@ public:
     using acceptance_type = std::array<double, 1>;
 
     static void define_parameters(alps::params & parameters) {}
-    global_trafo(alps::params const& parameters) {}
+
+    template <typename... Args>
+    global_trafo(alps::params const&, Args &&...) {}
 
     template <typename RNG>
     // requires SiteState<site_state_type, RNG>

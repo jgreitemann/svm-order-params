@@ -25,12 +25,12 @@
 #include <alps/mc/mcbase.hpp>
 #include <alps/mc/mpiadapter.hpp>
 
+#include <boost/function.hpp>
 
-template <class Simulation>
-struct embarrassing_adapter : public alps::mcmpiadapter<Simulation> {
-    using Base = alps::mcmpiadapter<Simulation>;
-    using parameters_type = typename Simulation::parameters_type;
-    using phase_point = typename Simulation::phase_point;
+template <typename PhasePoint>
+struct embarrassing_adapter : public alps::mcmpiadapter<alps::mcbase> {
+    using Base = alps::mcmpiadapter<alps::mcbase>;
+    using phase_point = PhasePoint;
 
     struct batcher {
         using batch_type = std::vector<phase_point>;
@@ -47,7 +47,7 @@ struct embarrassing_adapter : public alps::mcmpiadapter<Simulation> {
         }
 
         template <typename Container>
-        batches_type operator()(Container points) const {
+        batches_type operator()(Container const& points) const {
             size_t np = n_parallel ? n_parallel
                 : std::max<size_t>(mpi::communicator{}.size() / points.size(), 1);
             batches_type batches;
@@ -69,9 +69,26 @@ struct embarrassing_adapter : public alps::mcmpiadapter<Simulation> {
     }
 
     embarrassing_adapter(parameters_type & params,
-        mpi::communicator comm)
-        : Base(params, comm)
+                         size_t seed_offset)
+        : Base(params, mpi::communicator{}, 1, seed_offset)
     {
+    }
+
+    bool run(boost::function<bool ()> const & stop_callback) {
+        bool done = false, stopped = false;
+        do {
+            this->update();
+            this->measure();
+            if (stopped || schedule_checker.pending()) {
+                stopped = stop_callback();
+                double local_fraction = stopped ? 1. : this->fraction_completed();
+                schedule_checker.update(
+                    fraction = mpi::all_reduce(communicator, local_fraction,
+                        std::plus<double>()));
+                done = fraction >= 1.;
+            }
+        } while(!done);
+        return !stopped;
     }
 
     void rebind_communicator(mpi::communicator const& comm_new) {
@@ -82,7 +99,18 @@ struct embarrassing_adapter : public alps::mcmpiadapter<Simulation> {
         return 1ul;
     }
 
+    virtual void reset_sweeps(bool skip_therm) = 0;
+    virtual phase_point phase_space_point() const = 0;
+    virtual bool update_phase_point(phase_point const&) = 0;
+
 protected:
-    using Simulation::measurements;
     using Base::communicator;
+
+    using observable_collection_type = typename Base::observable_collection_type;
+    observable_collection_type & measurements() {
+        return Base::measurements;
+    }
+    observable_collection_type const& measurements() const {
+        return Base::measurements;
+    }
 };

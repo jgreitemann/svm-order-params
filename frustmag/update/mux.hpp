@@ -44,8 +44,9 @@ public:
         expand{(Updates<LatticeH>::define_parameters(parameters), 0)...};
     }
 
-    mux(alps::params const& parameters)
-        : updates{(static_cast<std::void_t<Updates<LatticeH>>>(0), parameters)...}
+    template <typename... Args>
+    mux(alps::params const& parameters, Args &&... args)
+        : updates{Updates<LatticeH>{parameters, std::forward<Args>(args)...}...}
     {
     }
 

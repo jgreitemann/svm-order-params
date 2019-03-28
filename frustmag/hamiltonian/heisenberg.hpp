@@ -22,6 +22,7 @@
 #include "update/single_flip.hpp"
 #include "update/overrelaxation.hpp"
 #include "update/global_trafo.hpp"
+#include "update/parallel_tempering.hpp"
 
 #include <alps/params.hpp>
 #include <alps/hdf5.hpp>
@@ -161,6 +162,10 @@ struct heisenberg {
             s = site_state_type{R * s};
         }
         return true;
+    }
+
+    double log_weight(phase_point const& other) const {
+        return (ppoint.temp - other.temp) * energy();
     }
 
     virtual void save(alps::hdf5::archive & ar) const {

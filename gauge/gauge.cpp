@@ -31,7 +31,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
     }
 
     // Adds the parameters of the base class
-    alps::mcbase::define_parameters(parameters);
+    Base::define_parameters(parameters);
 
     // Add convenience parameters of the model
     define_convenience_parameters(parameters)
@@ -56,8 +56,8 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
 
 
 /** Initialize the parameters **/
-gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
-    : alps::mcbase(parms, seed_offset)
+gauge_sim::gauge_sim(parameters_type & parms, std::size_t seed_offset)
+    : Base(parms, seed_offset)
     , L(parameters["length"])
     , L2(L*L)
     , L3(L*L*L)
@@ -210,7 +210,7 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
 #endif
 
     // Adds the measurements
-    measurements
+    measurements()
         << alps::accumulators::FullBinningAccumulator<double>("Energy") //normalized
         //<< alps::accumulators::FullBinningAccumulator<double>("Energy^2")
         //<< alps::accumulators::FullBinningAccumulator<double>("Energy^3")
@@ -219,10 +219,10 @@ gauge_sim::gauge_sim(parameters_type const & parms, std::size_t seed_offset)
         //<< alps::accumulators::FullBinningAccumulator<double>("Nematicity^4")
         ;
     if (nematicityB)
-        measurements
+        measurements()
             << alps::accumulators::FullBinningAccumulator<double>("NematicityB");
     if (nematicityB2)
-        measurements
+        measurements()
             << alps::accumulators::FullBinningAccumulator<double>("NematicityB2");
 }
 
@@ -483,18 +483,18 @@ void gauge_sim::measure() {
     double nem = sqrt(nem2);
 
     // Accumulate the data
-    measurements["Energy"] << E;
-    //measurements["Energy^2"] << E2;
-    //measurements["Energy^3"] << E2*E;
+    measurements()["Energy"] << E;
+    //measurements()["Energy^2"] << E2;
+    //measurements()["Energy^3"] << E2*E;
 
-    measurements["Nematicity"] << nem;
-    //measurements["Nematicity^2"] << nem2;
-    //measurements["Nematicity^4"] << nem2 * nem2;
+    measurements()["Nematicity"] << nem;
+    //measurements()["Nematicity^2"] << nem2;
+    //measurements()["Nematicity^4"] << nem2 * nem2;
 
     if (nematicityB)
-        measurements["NematicityB"] << sqrt(nematicityB());
+        measurements()["NematicityB"] << sqrt(nematicityB());
     if (nematicityB2)
-        measurements["NematicityB2"] << sqrt(nematicityB2());
+        measurements()["NematicityB2"] << sqrt(nematicityB2());
 }
 
 // Returns a number between 0.0 and 1.0 with the completion percentage
@@ -510,7 +510,7 @@ double gauge_sim::fraction_completed() const {
 /** save the check point **/
 void gauge_sim::save(alps::hdf5::archive & ar) const {
     // Most of the save logic is already implemented in the base class
-    alps::mcbase::save(ar);
+    Base::save(ar);
 
     // random number engine
     std::ostringstream engine_ss;
@@ -564,7 +564,7 @@ void gauge_sim::save(alps::hdf5::archive & ar) const {
 // Loads the state from the hdf5 file
 void gauge_sim::load(alps::hdf5::archive & ar) {
     // Most of the load logic is already implemented in the base class
-    alps::mcbase::load(ar);
+    Base::load(ar);
 
     // random number engine
     std::string engine_str;
@@ -628,10 +628,11 @@ gauge_sim::phase_point gauge_sim::phase_space_point () const {
     return ppoint;
 }
 
-void gauge_sim::update_phase_point(phase_point pp) {
-    reset_sweeps(pp == ppoint);
+bool gauge_sim::update_phase_point(phase_point const& pp) {
+    bool changed = (pp != ppoint);
     ppoint = pp;
     J(0, 0) = ppoint.J1();
     J(1, 1) = ppoint.J1();
     J(2, 2) = ppoint.J3();
+    return changed;
 }

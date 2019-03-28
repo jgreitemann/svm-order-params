@@ -61,7 +61,8 @@ public:
                                       "cos(theta_0) \\in [-1; 1]");
     }
 
-    single_flip(alps::params const& parameters)
+    template <typename... Args>
+    single_flip(alps::params const& parameters, Args &&...)
         : cos_theta_0 {
             std::is_same<site_state_type, site::spin_O3>::value ?
                 parameters["update.single_flip.cos_theta_0"] : -1.
@@ -96,7 +97,7 @@ public:
             size_t i = std::uniform_int_distribution<size_t>{0, lsize - 1}(rng);
             site_iterator site_it = std::next(hamiltonian.lattice().begin(), i);
             if (hamiltonian.metropolis(
-                    {site_it, site_it->flipped(rng)}, rng))
+                    proposal_type{site_it, site_it->flipped(rng)}, rng))
                 acc += 1.;
         }
         return {acc / lsize};

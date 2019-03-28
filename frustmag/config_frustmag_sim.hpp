@@ -88,6 +88,7 @@ struct update_t {
     using type = update::muxer<
         update::single_flip
         , update::global_trafo
+        , update::parallel_tempering
         >::type<LatticeH>;
 };
 
@@ -98,6 +99,7 @@ struct update_t<hamiltonian::heisenberg<Lat>> {
         update::single_flip
         , update::overrelaxation
         , update::global_trafo
+        , update::parallel_tempering
         >::type<LatticeH>;
 };
 

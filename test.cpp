@@ -20,6 +20,7 @@
 #include "embarrassing_adapter.hpp"
 #include "filesystem.hpp"
 #include "mpi.hpp"
+#include "pt_adapter.hpp"
 #include "svm-wrapper.hpp"
 #include "test_adapter.hpp"
 
@@ -43,7 +44,7 @@
 
 #include <boost/multi_array.hpp>
 
-using sim_type = embarrassing_adapter<test_adapter<sim_base>>;
+using sim_type = test_adapter<sim_base>;
 using results_type = alps::results_type<sim_type>::type;
 
 int main(int argc, char** argv)
@@ -120,14 +121,14 @@ int main(int argc, char** argv)
 
         sim_type sim = [&] {
             std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
-            return sim_type(parameters, comm_world);
+            return sim_type(parameters, comm_world.rank());
         }();
 
         const std::string test_filename = parameters["test.filename"];
         const bool resumed = alps::origin_name(parameters) == test_filename;
         alps::stop_callback stop_cb(parameters["timelimit"].as<size_t>());
 
-        using batches_type = sim_type::batcher::batches_type;
+        using batches_type = typename sim_type::batcher::batches_type;
         using proxy_t = dispatcher<batches_type>::archive_proxy_type;
 
         dispatcher<batches_type> dispatch(test_filename,
@@ -151,29 +152,31 @@ int main(int argc, char** argv)
             if (!valid)
                 continue;
             sim.rebind_communicator(comm_valid);
-            auto slice_point = dispatch.point();
-            log() << "working on batch " << dispatch.batch_index() << ": "
-                  << slice_point << '\n';
             if (dispatch.point_resumed()) {
-                if (slice_point != sim.phase_space_point()) {
-                    std::stringstream ss;
-                    ss << "Inconsistent phase space point found when restoring "
-                       << " from checkpoint: expected " << sim.phase_space_point()
-                       << ", found " << slice_point << ".";
-                    throw std::runtime_error(ss.str());
-                }
+                auto slice_point = sim.phase_space_point();
+                log() << "resuming batch " << dispatch.batch_index() << ": "
+                      << slice_point << std::endl;
             } else {
-                sim.update_phase_point(slice_point);
+                auto slice_point = dispatch.point();
+                log() << "working on batch " << dispatch.batch_index() << ": "
+                      << slice_point << std::endl;
+                sim.reset_sweeps(!sim.update_phase_point(slice_point));
             }
+
             bool finished = sim.run(stop_cb);
 
             // only process results if batch was completed
             if (finished) {
                 int n_points = sim.number_of_points();
+                log() << "collecting results..." << std::endl;
                 results_type results = alps::collect_results(sim);
 
                 // save the results
                 if (comm_valid.rank() < n_points) {
+                    // need to refresh slice_point since it may have changed
+                    // in the course of the simulation (e.g. PT)
+                    auto slice_point = sim.phase_space_point();
+
                     std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
                     alps::hdf5::archive ar(test_filename, "w");
                     std::stringstream ss;

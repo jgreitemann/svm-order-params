@@ -19,7 +19,7 @@ void ising_sim::define_parameters(parameters_type & parameters) {
     }
 
     // Adds the parameters of the base class
-    alps::mcbase::define_parameters(parameters);
+    Base::define_parameters(parameters);
     // Adds the convenience parameters (for save/load)
     // followed by the ising specific parameters
     define_convenience_parameters(parameters)
@@ -37,8 +37,8 @@ void ising_sim::define_parameters(parameters_type & parameters) {
 // We always need the parameters and the seed as we need to pass it to
 // the alps::mcbase constructor. We also initialize our internal state,
 // mainly using values from the parameters.
-ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
-    : alps::mcbase(parms, seed_offset)
+ising_sim::ising_sim(parameters_type & parms, std::size_t seed_offset)
+    : Base(parms, seed_offset)
     , length(parameters["length"])
     , sweeps(0)
     , thermalization_sweeps(int(parameters["thermalization_sweeps"]))
@@ -72,7 +72,7 @@ ising_sim::ising_sim(parameters_type const & parms, std::size_t seed_offset)
     }
 
     // Adds the measurements
-    measurements
+    measurements()
         << alps::accumulators::FullBinningAccumulator<double>("Energy")
         << alps::accumulators::FullBinningAccumulator<double>("Magnetization")
         << alps::accumulators::FullBinningAccumulator<double>("AbsMagnetization")
@@ -109,14 +109,14 @@ ising_sim::phase_point ising_sim::phase_space_point () const {
     return ppoint;
 }
 
-void ising_sim::update_phase_point(phase_point pp) {
+bool ising_sim::update_phase_point(phase_point const& pp) {
     bool changed = (pp != ppoint);
-    reset_sweeps(!changed);
     if (changed) {
         ppoint = pp;
         parameters["temperature"] = ppoint.temp;
         iexp_ = exp_beta(-1. / ppoint.temp);
     }
+    return changed;
 }
 
 // Performs the calculation at each MC step;
@@ -158,11 +158,11 @@ void ising_sim::measure() {
     double tmag = current_magnetization / n; // magnetization
 
     // Accumulate the data (per site)
-    measurements["Energy"] << (current_energy / n);
-    measurements["Magnetization"] << tmag;
-    measurements["AbsMagnetization"] << fabs(tmag);
-    measurements["Magnetization^2"] << tmag*tmag;
-    measurements["Magnetization^4"] << tmag*tmag*tmag*tmag;
+    measurements()["Energy"] << (current_energy / n);
+    measurements()["Magnetization"] << tmag;
+    measurements()["AbsMagnetization"] << fabs(tmag);
+    measurements()["Magnetization^2"] << tmag*tmag;
+    measurements()["Magnetization^4"] << tmag*tmag*tmag*tmag;
 }
 
 // Returns a number between 0.0 and 1.0 with the completion percentage
@@ -177,7 +177,7 @@ double ising_sim::fraction_completed() const {
 // Saves the state to the hdf5 file
 void ising_sim::save(alps::hdf5::archive & ar) const {
     // Most of the save logic is already implemented in the base class
-    alps::mcbase::save(ar);
+    Base::save(ar);
 
     // random number engine
     std::ostringstream engine_ss;
@@ -196,7 +196,7 @@ void ising_sim::save(alps::hdf5::archive & ar) const {
 // Loads the state from the hdf5 file
 void ising_sim::load(alps::hdf5::archive & ar) {
     // Most of the load logic is already implemented in the base class
-    alps::mcbase::load(ar);
+    Base::load(ar);
 
     // random number engine
     std::string engine_str;

@@ -52,7 +52,7 @@ public:
         define_test_parameters(parameters);
     }
 
-    test_adapter(parameters_type const& parms, std::size_t seed_offset = 0)
+    test_adapter(parameters_type & parms, std::size_t seed_offset = 0)
         : Simulation(parms, seed_offset)
         , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
     {
@@ -65,7 +65,7 @@ public:
             ar["model"] >> serial;
         }
 
-        measurements
+        measurements()
         << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
         << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM^2")
         << alps::accumulators::FullBinningAccumulator<double>("label");
@@ -75,22 +75,21 @@ public:
         Simulation::measure();
         if (Simulation::is_thermalized()) {
             auto res = model(svm::dataset(confpol->configuration(Simulation::configuration())));
-            measurements["label"] << double(res.first);
+            measurements()["label"] << double(res.first);
 
             // measure decision functions
             auto decs = svm::detail::container_factory<std::vector<double>>::copy(res.second);
-            measurements["SVM"] << decs;
+            measurements()["SVM"] << decs;
 
             // measure decision function squares
             std::transform(decs.begin(), decs.end(), decs.begin(), decs.begin(),
                 std::multiplies<>{});
-            measurements["SVM^2"] << decs;
+            measurements()["SVM^2"] << decs;
         }
     }
 
-    void update_phase_point(typename Simulation::phase_point const& pp) {
-        Simulation::update_phase_point(pp);
-        measurements.reset();
+    virtual void reset_sweeps(bool skip_therm = false) override {
+        Simulation::reset_sweeps(skip_therm);
     }
 
 protected:
