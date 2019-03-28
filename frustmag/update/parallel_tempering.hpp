@@ -21,6 +21,7 @@
 
 #include <array>
 #include <functional>
+#include <limits>
 #include <random>
 
 #include <alps/params.hpp>
@@ -44,9 +45,9 @@ public:
 
     static void define_parameters(alps::params & parameters) {
         parameters
-        .define<size_t>("pt.query_sweeps", 1,
-            "number of MC updates between PT queries")
-        .define<size_t>("pt.update_sweeps", 10,
+        .define<size_t>("pt.query_freq", 1,
+            "number of PT queries in one PT update cycle")
+        .define<size_t>("pt.update_sweeps", std::numeric_limits<size_t>::max(),
             "number of MC updates before PT update is initiated")
         ;
     }
@@ -55,8 +56,9 @@ public:
     parallel_tempering(alps::params const& parameters,
                        Simulation & sim,
                        Args &&...)
-        : query_sweeps{parameters["pt.query_sweeps"].as<size_t>()}
-        , update_sweeps{parameters["pt.update_sweeps"].as<size_t>()}
+        : query_sweeps{std::max(1ul, parameters["pt.update_sweeps"].as<size_t>()
+            / parameters["pt.query_freq"].as<size_t>())}
+        , update_sweeps{query_sweeps * parameters["pt.query_freq"].as<size_t>()}
         , pta{static_cast<pt_adapter<phase_point> &>(sim)}
     {
     }
@@ -75,7 +77,7 @@ public:
         return {static_cast<double>(acc)};
     }
 private:
-    size_t query_sweeps, update_sweeps;
+    size_t update_sweeps, query_sweeps;
     size_t sweep_counter = 0;
     pt_adapter<phase_point> & pta;
 };
