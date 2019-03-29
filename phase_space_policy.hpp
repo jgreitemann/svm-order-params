@@ -231,47 +231,6 @@ namespace phase_space {
             virtual void load (alps::hdf5::archive & ar) {}
         };
 
-        struct gaussian_temperatures : public policy<point::temperature> {
-            static void define_parameters(alps::params & params);
-            gaussian_temperatures (alps::params const& params);
-            virtual size_t size() const final override;
-            virtual bool yield (point_type & point, rng_type & rng) final override;
-        private:
-            size_t N;
-            double temp_center;
-            double temp_min;
-            double temp_max;
-            double temp_step;
-            double temp_sigma_sq;
-        };
-
-        struct uniform_temperatures : public policy<point::temperature> {
-            static void define_parameters(alps::params & params);
-            uniform_temperatures (alps::params const& params);
-            virtual size_t size() const final override;
-            virtual bool yield (point_type & point, rng_type & rng) final override;
-        private:
-            size_t N;
-            double temp_min;
-            double temp_max;
-            double temp_step;
-        };
-
-        struct equidistant_temperatures : public policy<point::temperature> {
-            static void define_parameters(alps::params & params);
-            equidistant_temperatures (alps::params const& params, size_t N, size_t n=0);
-            virtual size_t size() const final override;
-            virtual bool yield (point_type & point, rng_type &) final override;
-            virtual void save (alps::hdf5::archive & ar) const final override;
-            virtual void load (alps::hdf5::archive & ar) final override;
-
-        private:
-            size_t N, n;
-            double temp_max;
-            double temp_step;
-            bool cooling;
-        };
-
         template <typename Point>
         struct cycle : public policy<Point> {
             using point_type = typename policy<Point>::point_type;
@@ -711,11 +670,6 @@ namespace phase_space {
         template <typename Point>
         void define_parameters (alps::params & params) {
             params.define<size_t>("sweep.N", 1, "number of phase space points");
-            if (std::is_same<Point, point::temperature>::value) {
-                gaussian_temperatures::define_parameters(params);
-                uniform_temperatures::define_parameters(params);
-                equidistant_temperatures::define_parameters(params);
-            }
             cycle<Point>::define_parameters(params);
             grid<Point>::define_parameters(params);
             nonuniform_grid<Point>::define_parameters(params);
@@ -730,17 +684,6 @@ namespace phase_space {
         {
             return std::unique_ptr<policy<Point>>{[&] () -> policy<Point>* {
                 std::string dist_name = parms["sweep.policy"];
-                if (std::is_same<Point, phase_space::point::temperature>::value) {
-                    if (dist_name == "gaussian")
-                        return dynamic_cast<policy<Point>*>(
-                            new gaussian_temperatures(parms));
-                    if (dist_name == "uniform")
-                        return dynamic_cast<policy<Point>*>(
-                            new uniform_temperatures(parms));
-                    if (dist_name == "bimodal")
-                        return dynamic_cast<policy<Point>*>(
-                            new equidistant_temperatures(parms, 2, seed_offset));
-                }
                 if (dist_name == "cycle")
                     return dynamic_cast<policy<Point>*>(
                         new cycle<Point> (parms, seed_offset));
