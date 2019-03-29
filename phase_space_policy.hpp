@@ -637,6 +637,78 @@ namespace phase_space {
         };
 
         template <typename Point>
+        struct log_scan : public policy<Point> {
+            using point_type = Point;
+            using rng_type = typename policy<Point>::rng_type;
+
+            static void define_parameters(alps::params & params,
+                                          std::string prefix = "sweep.")
+            {
+                point_type::define_parameters(params, prefix + "log_scan.a.");
+                point_type::define_parameters(params, prefix + "log_scan.b.");
+                for (size_t i = 0; i < point_type::label_dim; ++i) {
+                    params.define<bool>(
+                        prefix + "log_scan.log" + std::to_string(i + 1), true,
+                        "boolean indicating if axis" + std::to_string(i + 1)
+                        + " is logarithmic");
+                }
+                params.define<size_t>(prefix + "log_scan.N",
+                    "number of subdivisions");
+            }
+
+            log_scan (alps::params const& params, size_t offset = 0,
+                      std::string prefix = "sweep.")
+                : a(params, prefix + "log_scan.a.")
+                , b(params, prefix + "log_scan.b.")
+                , N(params[prefix + "log_scan.N"].as<size_t>())
+                , n(offset)
+            {
+                for (size_t i = 0; i < point_type::label_dim; ++i) {
+                    is_log[i] = params[prefix + "log_scan.log"
+                        + std::to_string(i + 1)].as<bool>();
+                }
+            }
+
+            size_t size() const {
+                return N;
+            }
+
+            virtual bool yield (point_type & point, rng_type &) final override {
+                return yield(point);
+            }
+
+            bool yield (point_type & point) {
+                auto it_a = a.begin();
+                auto it_b = b.begin();
+                auto it = point.begin();
+                for (size_t i = 0; i < point_type::label_dim;
+                     ++i, ++it_a, ++it_b, ++it)
+                {
+                    if (is_log[i])
+                        *it = *it_a * pow(*it_b / *it_a, 1. * n / (N - 1));
+                    else
+                        *it = *it_a + (*it_b - *it_a) * n / (N - 1);
+                }
+                ++n;
+                return true;
+            }
+
+            virtual void save (alps::hdf5::archive & ar) const final override {
+                ar["n"] << n;
+            }
+
+            virtual void load (alps::hdf5::archive & ar) final override {
+                ar["n"] >> n;
+            }
+
+        private:
+            const point_type a, b;
+            std::array<bool, point_type::label_dim> is_log;
+            size_t N;
+            size_t n;
+        };
+
+        template <typename Point>
         void define_parameters (alps::params & params) {
             params.define<size_t>("sweep.N", 1, "number of phase space points");
             if (std::is_same<Point, point::temperature>::value) {
@@ -649,6 +721,8 @@ namespace phase_space {
             nonuniform_grid<Point>::define_parameters(params);
             uniform<Point>::define_parameters(params);
             uniform_line<Point>::define_parameters(params);
+            line_scan<Point>::define_parameters(params);
+            log_scan<Point>::define_parameters(params);
         }
 
         template <typename Point>
@@ -682,6 +756,12 @@ namespace phase_space {
                 if (dist_name == "uniform_line")
                     return dynamic_cast<policy<Point>*>(
                         new uniform_line<Point> (parms));
+                if (dist_name == "line_scan")
+                    return dynamic_cast<policy<Point>*>(
+                        new line_scan<Point> (parms, seed_offset));
+                if (dist_name == "log_scan")
+                    return dynamic_cast<policy<Point>*>(
+                        new log_scan<Point> (parms, seed_offset));
                 throw std::runtime_error("Invalid sweep policy \"" + dist_name + "\"");
                 return nullptr;
             }()};
