@@ -77,7 +77,7 @@ public:
         return {static_cast<double>(acc)};
     }
 private:
-    size_t update_sweeps, query_sweeps;
+    size_t query_sweeps, update_sweeps;
     size_t sweep_counter = 0;
     pt_adapter<phase_point> & pta;
 };
