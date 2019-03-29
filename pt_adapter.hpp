@@ -243,6 +243,12 @@ struct pt_adapter : public alps::mcbase {
         if (communicator.rank() == 0 && communicator.size() > 1)
             ar["pt/permutation"] >> perm;
         ar["pt/slice_measurements/size"] >> n;
+
+        if (n == 0) {
+            // empty measurements -- no-op
+            return;
+        }
+
         ar["pt/slice_measurements/index"] >> index;
 
         auto gen_path = [](size_t i) {
