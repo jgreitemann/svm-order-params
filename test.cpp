@@ -96,6 +96,13 @@ int main(int argc, char** argv)
             return points;
         }();
 
+        mpi::mutex archive_mutex(comm_world);
+
+        sim_type sim = [&] {
+            std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
+            return sim_type(parameters, comm_world.rank());
+        }();
+
         // get the bias parameters
         struct skeleton_classifier {
             sim_base::phase_label label1, label2;
@@ -106,23 +113,19 @@ int main(int argc, char** argv)
             using phase_label = sim_base::phase_label;
             using model_t = svm::model<kernel_t, phase_label>;
 
-            std::string arname = parameters["outputfile"];
-            alps::hdf5::archive ar(arname, "r");
-
-            model_t model;
-            svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
-            ar["model"] >> serial;
             std::vector<skeleton_classifier> cl;
-            for (auto const& c : model.classifiers())
-                cl.push_back({c.labels().first, c.labels().second, c.rho()});
+
+            if (sim.has_model()) {
+                std::string arname = parameters["outputfile"];
+                alps::hdf5::archive ar(arname, "r");
+
+                model_t model;
+                svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+                ar["model"] >> serial;
+                for (auto const& c : model.classifiers())
+                    cl.push_back({c.labels().first, c.labels().second, c.rho()});
+            }
             return cl;
-        }();
-
-        mpi::mutex archive_mutex(comm_world);
-
-        sim_type sim = [&] {
-            std::lock_guard<mpi::mutex> archive_guard(archive_mutex);
-            return sim_type(parameters, comm_world.rank());
         }();
 
         const std::string test_filename = parameters["test.filename"];
@@ -283,15 +286,18 @@ int main(int argc, char** argv)
                    << name << " (error)\n";
                 k += 2;
             };
-            annotate("SVM classification label");
-            for (auto const& cl : classifiers) {
-                std::stringstream ss;
-                ss << "decision function " << cl.label1 << " / " << cl.label2;
-                annotate(ss.str());
-                annotate(ss.str() + " variance");
-            }
             for (std::string const& opname : sim.order_param_names())
                 annotate(opname);
+            if (sim.has_model()) {
+                annotate("SVM classification label");
+                for (auto const& cl : classifiers) {
+                    std::stringstream ss;
+                    ss << "decision function " << cl.label1 << " / "
+                       << cl.label2;
+                    annotate(ss.str());
+                    annotate(ss.str() + " variance");
+                }
+            }
 
             // data
             for (auto const& p : all_results) {
@@ -299,23 +305,24 @@ int main(int argc, char** argv)
                 results_type const& res = p.second;
                 std::copy(pp.begin(), pp.end(),
                     std::ostream_iterator<double>{os, "\t"});
-                os << res["label"].mean<double>() << '\t'
-                   << res["label"].error<double>() << '\t';
-                auto svm_mean = res["SVM"].mean<std::vector<double>>();
-                rescale(svm_mean, 1, 1.);
-                auto svm_error = res["SVM"].error<std::vector<double>>();
-                rescale(svm_error, 1, 0.);
-                auto svm_var = res["SVM^2"] - res["SVM"] * res["SVM"];
-                auto svm_var_mean = svm_var.mean<std::vector<double>>();
-                rescale(svm_var_mean, 2, 0.);
-                auto svm_var_error = svm_var.error<std::vector<double>>();
-                rescale(svm_var_error, 2, 0.);
-                for (size_t i = 0; i < svm_mean.size(); ++i)
-                    os << svm_mean[i] << '\t' << svm_error[i] << '\t'
-                       << svm_var_mean[i] << '\t' << svm_var_error[i] << '\t';
-                for (std::string const& opname : sim.order_param_names()) {
+                for (std::string const& opname : sim.order_param_names())
                     os << res[opname].mean<double>() << '\t'
                        << res[opname].error<double>() << '\t';
+                if (sim.has_model()) {
+                    auto svm_mean = res["SVM"].mean<std::vector<double>>();
+                    rescale(svm_mean, 1, 1.);
+                    auto svm_error = res["SVM"].error<std::vector<double>>();
+                    rescale(svm_error, 1, 0.);
+                    auto svm_var = res["SVM^2"] - res["SVM"] * res["SVM"];
+                    auto svm_var_mean = svm_var.mean<std::vector<double>>();
+                    rescale(svm_var_mean, 2, 0.);
+                    auto svm_var_error = svm_var.error<std::vector<double>>();
+                    rescale(svm_var_error, 2, 0.);
+                    os << res["label"].mean<double>() << '\t'
+                       << res["label"].error<double>() << '\t';
+                    for (size_t i = 0; i < svm_mean.size(); ++i)
+                        os << svm_mean[i] << '\t' << svm_error[i] << '\t'
+                           << svm_var_mean[i] << '\t' << svm_var_error[i] << '\t';
                 }
                 os << '\n';
             }

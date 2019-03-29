@@ -56,28 +56,24 @@ public:
         define_test_parameters(parameters);
     }
 
-    test_adapter(parameters_type & parms, std::size_t seed_offset = 0)
-        : Simulation(parms, seed_offset)
-        , confpol(Simulation::template config_policy_from_parameters<introspec_t>(parms))
+    test_adapter(parameters_type & params, std::size_t seed_offset = 0)
+        : Simulation(params, seed_offset)
+        , confpol(Simulation::template config_policy_from_parameters<introspec_t>(params))
     {
-        std::string arname = parms["outputfile"];
-
+        if (params.is_restored()
+            && alps::origin_name(params) != params["test.filename"])
         {
-            alps::hdf5::archive ar(arname, "r");
-
-            svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
-            ar["model"] >> serial;
+            load_model(params["outputfile"]);
+            measurements()
+            << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
+            << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM^2")
+            << alps::accumulators::FullBinningAccumulator<double>("label");
         }
-
-        measurements()
-        << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM")
-        << alps::accumulators::FullBinningAccumulator<std::vector<double>>("SVM^2")
-        << alps::accumulators::FullBinningAccumulator<double>("label");
     }
 
     virtual void measure () override {
         Simulation::measure();
-        if (Simulation::is_thermalized()) {
+        if (has_model() && Simulation::is_thermalized()) {
             auto res = model(svm::dataset(confpol->configuration(Simulation::configuration())));
             measurements()["label"] << double(res.first);
 
@@ -96,9 +92,33 @@ public:
         Simulation::reset_sweeps(skip_therm);
     }
 
+    virtual void save (alps::hdf5::archive & ar) const override {
+        Simulation::save(ar);
+        ar["has_model"] << has_model();
+    }
+
+    virtual void load (alps::hdf5::archive & ar) override {
+        Simulation::load(ar);
+        bool has_model;
+        ar["has_model"] >> has_model;
+        load_model(parameters["outputfile"]);
+    }
+
+    bool has_model() const {
+        return !model.empty();
+    }
+
 protected:
     using Simulation::measurements;
+    using Simulation::parameters;
 private:
     model_t model;
     std::unique_ptr<config_policy_t> confpol;
+
+    void load_model(std::string const& arname) {
+        alps::hdf5::archive ar(arname, "r");
+
+        svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+        ar["model"] >> serial;
+    }
 };
