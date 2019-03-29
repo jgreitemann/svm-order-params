@@ -129,9 +129,9 @@ public:
         problem.add_sample(confpol->configuration(config), ppoint);
     }
 
-    bool update_phase_point(phase_point const& pp) override {
+    void reset_sweeps(bool skip_therm = false) override {
+        Simulation::reset_sweeps(skip_therm);
         i_sample = 0;
-        return Simulation::update_phase_point(pp);
     }
 
 protected:
