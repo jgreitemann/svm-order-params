@@ -85,7 +85,7 @@ int main(int argc, char** argv)
         // Collect phase points
         auto all_phase_points = [&] {
             std::vector<phase_point> points;
-            auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(parameters);
+            auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(parameters, "sweep.");
             std::mt19937 rng{parameters["SEED"].as<size_t>()};
             std::generate_n(std::back_inserter(points), sweep_pol->size(),
                 [&, p=phase_point{}]() mutable {

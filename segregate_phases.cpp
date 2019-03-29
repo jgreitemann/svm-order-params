@@ -132,7 +132,7 @@ int main(int argc, char** argv)
     std::vector<label_t> labels;
     size_t graph_dim = [&] {
         using classifier_t = typename sim_base::phase_classifier;
-        auto grid_sweep = phase_space::sweep::from_parameters<phase_point>(parameters);
+        auto grid_sweep = phase_space::sweep::from_parameters<phase_point>(parameters, "sweep.");
 
         // read mask if specified
         std::vector<int> mask = [&] {

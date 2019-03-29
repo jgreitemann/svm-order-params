@@ -55,7 +55,6 @@ struct frustmag_sim : public pt_adapter<typename Hamiltonian::phase_point>
     using phase_classifier = phase_space::classifier::critical_temperature;
     using phase_label = phase_classifier::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
-    using test_sweep_type = phase_space::sweep::line_scan<phase_point>;
 
     template <typename Introspector>
     using config_policy_type = config_policy<lattice_type, Introspector>;

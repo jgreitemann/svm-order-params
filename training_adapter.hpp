@@ -56,10 +56,10 @@ public:
         // Adds the parameters of the base class
         Simulation::define_parameters(parameters);
         phase_classifier::define_parameters(parameters);
-        phase_space::sweep::define_parameters<phase_point>(parameters);
+        phase_space::sweep::define_parameters<phase_point>(parameters, "sweep.");
         parameters
             .define<std::string>("sweep.policy", "cycle",
-                                 "phase space point distribution")
+                                 "phase space point sweep policy name")
             .define<size_t>("sweep.samples", 1000,
                             "number of configuration samples taken"
                             " at each phase point")

@@ -84,12 +84,13 @@ int main(int argc, char** argv)
         // Collect phase points
         using phase_point = sim_base::phase_point;
         auto all_phase_points = [&] {
-            using scan_t = typename sim_base::test_sweep_type;
             std::vector<phase_point> points;
-            scan_t scan{parameters, 0, "test."};
-            std::generate_n(std::back_inserter(points), scan.size(),
+            auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(
+                parameters, "test.");
+            std::mt19937 rng{parameters["SEED"].as<size_t>() + 1};
+            std::generate_n(std::back_inserter(points), sweep_pol->size(),
                 [&, p=phase_point{}]() mutable {
-                    scan.yield(p);
+                    sweep_pol->yield(p, rng);
                     return p;
                 });
             return points;

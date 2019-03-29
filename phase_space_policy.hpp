@@ -237,9 +237,12 @@ namespace phase_space {
             using rng_type = typename policy<Point>::rng_type;
             static const size_t MAX_CYCLE = 8;
 
-            static void define_parameters(alps::params & params) {
+            static void define_parameters(alps::params & params,
+                std::string const& prefix)
+            {
                 for (size_t i = 1; i <= MAX_CYCLE; ++i)
-                    point_type::define_parameters(params, format_prefix(i));
+                    point_type::define_parameters(params,
+                        format_prefix(i, prefix));
             }
 
             cycle (std::initializer_list<point_type> il, size_t offset = 0)
@@ -253,11 +256,16 @@ namespace phase_space {
                 n = n % points.size();
             }
 
-            cycle (alps::params const& params, size_t offset = 0)
+            cycle (alps::params const& params,
+                   std::string const& prefix,
+                   size_t offset = 0)
                 : n(offset)
             {
-                for (size_t i = 1; i <= MAX_CYCLE && point_type::supplied(params, format_prefix(i)); ++i)
-                    points.emplace_back(params, format_prefix(i));
+                for (size_t i = 1; i <= MAX_CYCLE
+                    && point_type::supplied(params, format_prefix(i, prefix)); ++i)
+                {
+                    points.emplace_back(params, format_prefix(i, prefix));
+                }
                 if (points.empty())
                     throw std::runtime_error("cycle sweep policy initialized "
                         "but no points supplied in parameters");
@@ -282,9 +290,11 @@ namespace phase_space {
                 ar["n"] >> n;
             }
 
-            static std::string format_prefix(size_t i) {
+            static std::string format_prefix(size_t i,
+                std::string const& prefix)
+            {
                 std::stringstream ss;
-                ss << "sweep.cycle.P" << i << '.';
+                ss << prefix << "cycle.P" << i << '.';
                 return ss.str();
             }
 
@@ -301,7 +311,7 @@ namespace phase_space {
             static const size_t dim = point_type::label_dim;
 
             static void define_parameters(alps::params & params,
-                                          std::string prefix = "sweep.")
+                                          std::string const& prefix)
             {
                 point_type::define_parameters(params, prefix + "grid.a.");
                 point_type::define_parameters(params, prefix + "grid.b.");
@@ -310,8 +320,9 @@ namespace phase_space {
                                           "number of grid subdivisions");
             }
 
-            grid (alps::params const& params, size_t offset = 0,
-                  std::string prefix = "sweep.")
+            grid(alps::params const& params,
+                 std::string const& prefix,
+                 size_t offset = 0)
                 : a(params, prefix + "grid.a.")
                 , b(params, prefix + "grid.b.")
                 , n(offset)
@@ -383,7 +394,7 @@ namespace phase_space {
             static const size_t MAX_GRID = 10;
 
             static void define_parameters(alps::params & params,
-                                          std::string prefix = "sweep.")
+                                          std::string const& prefix)
             {
                 for (size_t i = 1; i <= MAX_GRID; ++i)
                     point_type::define_parameters(params, format_stop(i, prefix));
@@ -392,8 +403,9 @@ namespace phase_space {
                                           "number of grid subdivisions");
             }
 
-            nonuniform_grid (alps::params const& params, size_t offset = 0,
-                             std::string prefix = "sweep.")
+            nonuniform_grid (alps::params const& params,
+                             std::string const& prefix,
+                             size_t offset = 0)
                 : n(offset)
             {
                 for (size_t i = 1; i <= dim; ++i)
@@ -464,18 +476,22 @@ namespace phase_space {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
 
-            static void define_parameters(alps::params & params) {
-                point_type::define_parameters(params, "sweep.uniform.a.");
-                point_type::define_parameters(params, "sweep.uniform.b.");
+            static void define_parameters(alps::params & params,
+                                          std::string const& prefix)
+            {
+                point_type::define_parameters(params, prefix + "uniform.a.");
+                point_type::define_parameters(params, prefix + "uniform.b.");
+                params.define<size_t>(prefix + "uniform.N", 10,
+                    "number of uniform point to draw");
             }
 
             uniform (size_t N, point_type a, point_type b)
                 : N(N), a(a), b(b) {}
 
-            uniform (alps::params const& params)
-                : N(params["sweep.N"].as<size_t>())
-                , a(params, "sweep.uniform.a.")
-                , b(params, "sweep.uniform.b.") {}
+            uniform (alps::params const& params, std::string const& prefix)
+                : N(params[prefix + "uniform.N"].as<size_t>())
+                , a(params, prefix + "uniform.a.")
+                , b(params, prefix + "uniform.b.") {}
 
             virtual size_t size() const final override {
                 return N;
@@ -501,18 +517,22 @@ namespace phase_space {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
 
-            static void define_parameters(alps::params & params) {
-                point_type::define_parameters(params, "sweep.uniform_line.a.");
-                point_type::define_parameters(params, "sweep.uniform_line.b.");
+            static void define_parameters(alps::params & params,
+                                          std::string const& prefix)
+            {
+                point_type::define_parameters(params, prefix + "uniform_line.a.");
+                point_type::define_parameters(params, prefix + "uniform_line.b.");
+                params.define<size_t>(prefix + "uniform_line.N", 10,
+                    "number of uniform point to draw");
             }
 
             uniform_line (size_t N, point_type a, point_type b)
                 : N(N), a(a), b(b) {}
 
-            uniform_line (alps::params const& params)
-                : N(params["sweep.N"].as<size_t>())
-                , a(params, "sweep.uniform_line.a.")
-                , b(params, "sweep.uniform_line.b.") {}
+            uniform_line (alps::params const& params, std::string const& prefix)
+                : N(params[prefix + "uniform_line.N"].as<size_t>())
+                , a(params, prefix + "uniform_line.a.")
+                , b(params, prefix + "uniform_line.b.") {}
 
             virtual size_t size() const final override {
                 return N;
@@ -540,7 +560,7 @@ namespace phase_space {
             using rng_type = typename policy<Point>::rng_type;
 
             static void define_parameters(alps::params & params,
-                                          std::string prefix = "sweep.")
+                                          std::string const& prefix)
                 {
                     point_type::define_parameters(params, prefix + "line_scan.a.");
                     point_type::define_parameters(params, prefix + "line_scan.b.");
@@ -548,8 +568,9 @@ namespace phase_space {
                                           "number of phase points on line");
                 }
 
-            line_scan (alps::params const& params, size_t offset = 0,
-                       std::string prefix = "sweep.")
+            line_scan (alps::params const& params,
+                       std::string const& prefix,
+                       size_t offset = 0)
                 : a(params, prefix + "line_scan.a.")
                 , b(params, prefix + "line_scan.b.")
                 , n(offset)
@@ -601,7 +622,7 @@ namespace phase_space {
             using rng_type = typename policy<Point>::rng_type;
 
             static void define_parameters(alps::params & params,
-                                          std::string prefix = "sweep.")
+                                          std::string const& prefix)
             {
                 point_type::define_parameters(params, prefix + "log_scan.a.");
                 point_type::define_parameters(params, prefix + "log_scan.b.");
@@ -611,12 +632,13 @@ namespace phase_space {
                         "boolean indicating if axis" + std::to_string(i + 1)
                         + " is logarithmic");
                 }
-                params.define<size_t>(prefix + "log_scan.N",
+                params.define<size_t>(prefix + "log_scan.N", 8,
                     "number of subdivisions");
             }
 
-            log_scan (alps::params const& params, size_t offset = 0,
-                      std::string prefix = "sweep.")
+            log_scan (alps::params const& params,
+                      std::string const& prefix,
+                      size_t offset = 0)
                 : a(params, prefix + "log_scan.a.")
                 , b(params, prefix + "log_scan.b.")
                 , N(params[prefix + "log_scan.N"].as<size_t>())
@@ -668,44 +690,48 @@ namespace phase_space {
         };
 
         template <typename Point>
-        void define_parameters (alps::params & params) {
-            params.define<size_t>("sweep.N", 1, "number of phase space points");
-            cycle<Point>::define_parameters(params);
-            grid<Point>::define_parameters(params);
-            nonuniform_grid<Point>::define_parameters(params);
-            uniform<Point>::define_parameters(params);
-            uniform_line<Point>::define_parameters(params);
-            line_scan<Point>::define_parameters(params);
-            log_scan<Point>::define_parameters(params);
+        void define_parameters(alps::params & params,
+                               std::string const& prefix)
+        {
+            cycle<Point>::define_parameters(params, prefix);
+            grid<Point>::define_parameters(params, prefix);
+            nonuniform_grid<Point>::define_parameters(params, prefix);
+            uniform<Point>::define_parameters(params, prefix);
+            uniform_line<Point>::define_parameters(params, prefix);
+            line_scan<Point>::define_parameters(params, prefix);
+            log_scan<Point>::define_parameters(params, prefix);
         }
 
         template <typename Point>
-        auto from_parameters(alps::params const& parms, size_t seed_offset = 0)
+        auto from_parameters(alps::params const& params,
+                             std::string const& prefix,
+                             size_t seed_offset = 0)
         {
             return std::unique_ptr<policy<Point>>{[&] () -> policy<Point>* {
-                std::string dist_name = parms["sweep.policy"];
-                if (dist_name == "cycle")
+                std::string pol_name = params[prefix + "policy"];
+                if (pol_name == "cycle")
                     return dynamic_cast<policy<Point>*>(
-                        new cycle<Point> (parms, seed_offset));
-                if (dist_name == "grid")
+                        new cycle<Point>(params, prefix, seed_offset));
+                if (pol_name == "grid")
                     return dynamic_cast<policy<Point>*>(
-                        new grid<Point> (parms, seed_offset));
-                if (dist_name == "nonuniform_grid")
+                        new grid<Point>(params, prefix, seed_offset));
+                if (pol_name == "nonuniform_grid")
                     return dynamic_cast<policy<Point>*>(
-                        new nonuniform_grid<Point>(parms, seed_offset));
-                if (dist_name == "uniform")
+                        new nonuniform_grid<Point>(params, prefix, seed_offset));
+                if (pol_name == "uniform")
                     return dynamic_cast<policy<Point>*>(
-                        new uniform<Point> (parms));
-                if (dist_name == "uniform_line")
+                        new uniform<Point>(params, prefix));
+                if (pol_name == "uniform_line")
                     return dynamic_cast<policy<Point>*>(
-                        new uniform_line<Point> (parms));
-                if (dist_name == "line_scan")
+                        new uniform_line<Point>(params, prefix));
+                if (pol_name == "line_scan")
                     return dynamic_cast<policy<Point>*>(
-                        new line_scan<Point> (parms, seed_offset));
-                if (dist_name == "log_scan")
+                        new line_scan<Point> (params, prefix, seed_offset));
+                if (pol_name == "log_scan")
                     return dynamic_cast<policy<Point>*>(
-                        new log_scan<Point> (parms, seed_offset));
-                throw std::runtime_error("Invalid sweep policy \"" + dist_name + "\"");
+                        new log_scan<Point> (params, prefix, seed_offset));
+                throw std::runtime_error("Invalid sweep policy \""
+                    + pol_name + "\"");
                 return nullptr;
             }()};
         }
@@ -724,8 +750,10 @@ namespace phase_space {
 
             fixed_from_cycle(alps::params const& params) {
                 using cycs = sweep::cycle<point_type>;
-                for (size_t i = 1; i <= cycs::MAX_CYCLE && point_type::supplied(params, cycs::format_prefix(i)); ++i) {
-                    points.emplace_back(params, cycs::format_prefix(i));
+                for (size_t i = 1; i <= cycs::MAX_CYCLE
+                    && point_type::supplied(params, cycs::format_prefix(i, "sweep.")); ++i)
+                {
+                    points.emplace_back(params, cycs::format_prefix(i, "sweep."));
                 }
             }
             label_type operator() (point_type pp) {

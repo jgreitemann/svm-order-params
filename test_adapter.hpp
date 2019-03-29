@@ -16,8 +16,9 @@
 
 #pragma once
 
-#include "svm-wrapper.hpp"
 #include "hdf5_serialization.hpp"
+#include "phase_space_policy.hpp"
+#include "svm-wrapper.hpp"
 
 #include <tuple>
 
@@ -30,6 +31,7 @@ public:
     typedef alps::mcbase::parameters_type parameters_type;
 
     using kernel_t = svm::kernel::polynomial<2>;
+    using phase_point = typename Simulation::phase_point;
     using phase_label = typename Simulation::phase_label;
     using model_t = svm::model<kernel_t, phase_label>;
     using problem_t = svm::problem<kernel_t>;
@@ -39,11 +41,13 @@ public:
 
     static void define_test_parameters(alps::params & parameters) {
         if (!parameters.is_restored()) {
+            phase_space::sweep::define_parameters<phase_point>(parameters, "test.");
             parameters
                 .define<std::string>("test.filename", "", "test output file name")
                 .define<std::string>("test.txtname", "", "test output txt name")
+                .define<std::string>("test.policy", "line_scan",
+                    "test phase space point sweep policy")
                 ;
-            Simulation::test_sweep_type::define_parameters(parameters, "test.");
         }
     }
 
