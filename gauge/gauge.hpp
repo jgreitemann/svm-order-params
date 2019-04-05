@@ -43,14 +43,10 @@ public:
     using phase_point = phase_space::point::J1J3;
 #if defined(GAUGE_CLASSIFIER_HYPERPLANE)
     using phase_classifier = phase_space::classifier::hyperplane<phase_point>;
-#elif defined(GAUGE_CLASSIFIER_CYCLE)
-    using phase_classifier = phase_space::classifier::fixed_from_cycle<phase_point>;
+#elif defined(GAUGE_CLASSIFIER_SWEEP)
+    using phase_classifier = phase_space::classifier::fixed_from_sweep<phase_point>;
 #elif defined(GAUGE_CLASSIFIER_PHASE_DIAGRAM)
     using phase_classifier = phase_space::classifier::phase_diagram<phase_point>;
-#elif defined(GAUGE_CLASSIFIER_GRID)
-    using phase_classifier = phase_space::classifier::fixed_from_grid<phase_point>;
-#elif defined(GAUGE_CLASSIFIER_NONUNIFORM_GRID)
-    using phase_classifier = phase_space::classifier::fixed_from_nonuniform_grid<phase_point>;
 #else
     #error unknown / missing gauge classifier
 #endif

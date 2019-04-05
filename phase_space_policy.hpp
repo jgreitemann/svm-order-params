@@ -23,7 +23,6 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
-#include <limits>
 #include <map>
 #include <numeric>
 #include <random>
@@ -764,189 +763,47 @@ namespace phase_space {
     namespace classifier {
 
         template <typename Point>
-        struct fixed_from_cycle {
+        struct fixed_from_sweep {
             using point_type = Point;
             using label_type = label::numeric_label<svm::DYNAMIC>;
 
             static void define_parameters(alps::params & params) {
             }
 
-            fixed_from_cycle(alps::params const& params) {
-                using cycs = sweep::cycle<point_type>;
-                for (size_t i = 1; i <= cycs::MAX_CYCLE
-                    && point_type::supplied(params, cycs::format_prefix(i, "sweep.")); ++i)
-                {
-                    points.emplace_back(params, cycs::format_prefix(i, "sweep."));
-                }
+            fixed_from_sweep(alps::params const& parameters) {
+                auto sweep_pol = phase_space::sweep::from_parameters<point_type>(
+                    parameters, "sweep.");
+                std::mt19937 rng{parameters["SEED"].as<size_t>()};
+                std::generate_n(std::back_inserter(points), sweep_pol->size(),
+                    [&, p=point_type{}]() mutable {
+                        sweep_pol->yield(p, rng);
+                        return p;
+                    });
             }
-            label_type operator() (point_type pp) {
+
+            label_type operator()(point_type pp) {
                 if (pp == infty)
-                    return sweep::cycle<point_type>::MAX_CYCLE;
-                size_t i = 0;
-                double d = std::numeric_limits<double>::max();
+                    return {static_cast<double>(size())};
                 point::distance<point_type> dist{};
-                for (size_t j = 0; j < points.size(); ++j) {
-                    double dd = dist(points[j], pp);
-                    if (dd < d) {
-                        i = j;
-                        d = dd;
-                    }
-                }
-                return i;
+                auto closest_it = std::min_element(points.begin(), points.end(),
+                    [&](point_type const& lhs, point_type const& rhs) {
+                        return dist(lhs, pp) < dist(rhs, pp);
+                    });
+                return {static_cast<double>(closest_it - points.begin())};
             }
+
             std::string name(label_type const& l) const {
                 std::stringstream ss;
                 ss << 'P' << (size_t(l) + 1);
                 return ss.str();
             }
+
             size_t size() const {
                 return points.size();
             }
         private:
             std::vector<point_type> points;
             const point_type infty = point::infinity<point_type>{}();
-        };
-
-        template <typename Point>
-        struct fixed_from_grid {
-            using point_type = Point;
-            using grid_type = sweep::grid<point_type>;
-            using label_type = label::numeric_label<svm::DYNAMIC>;
-
-            static const size_t dim = point_type::label_dim;
-
-            static void define_parameters(alps::params & params) {
-            }
-
-            fixed_from_grid (alps::params const& params)
-                : a(params, "sweep.grid.a.")
-                , b(params, "sweep.grid.b.")
-            {
-                for (size_t i = 1; i <= dim; ++i)
-                    subdivs[i-1] = params[grid_type::format_subdiv(i, "sweep.")];
-                size_ = std::accumulate(subdivs.begin(), subdivs.end(), 1,
-                    std::multiplies<>());
-            }
-
-            label_type operator() (point_type pp) {
-                std::array<long, dim> coords;
-                auto ita = a.begin(), itb = b.begin(), itp = pp.begin();
-                for (auto itc = coords.begin(), its = subdivs.begin();
-                     itc != coords.end();
-                     ++itc, ++its, ++ita, ++itb, ++itp)
-                {
-                    if (*its > 1)
-                        *itc = (*itp - *ita) / (*itb - *ita) * (*its - 1) + 0.5;
-                    else
-                        *itc = 0;
-                }
-
-                long tot = 0;
-                for (auto itc = coords.rbegin(), its = subdivs.rbegin();
-                     itc != coords.rend();
-                     ++itc, ++its)
-                {
-                    tot = *itc + *its * tot;
-                }
-
-                if (tot < 0 || size_ <= tot)
-                    throw std::runtime_error([&pp] {
-                            std::stringstream ss;
-                            ss << "phase point " << pp
-                               << " exceeds limits of grid";
-                            return ss.str();
-                        }());
-                return tot;
-            }
-
-            std::string name(label_type const& l) const {
-                size_t n = l;
-                std::stringstream ss;
-                ss << "G|";
-                for (size_t s : subdivs) {
-                    ss << (n % s) << '|';
-                    n /= s;
-                }
-                return ss.str();
-            }
-
-            size_t size() const {
-                return size_;
-            }
-        private:
-            std::array<size_t, dim> subdivs;
-            point_type a, b;
-            size_t size_;
-        };
-
-        template <typename Point>
-        struct fixed_from_nonuniform_grid {
-            using point_type = Point;
-            using grid_type = sweep::nonuniform_grid<point_type>;
-            using label_type = label::numeric_label<svm::DYNAMIC>;
-
-            static const size_t dim = point_type::label_dim;
-
-            static void define_parameters(alps::params & params) {
-            }
-
-            fixed_from_nonuniform_grid (alps::params const& params) {
-                std::string prefix = "sweep.";
-                for (size_t i = 1; i <= dim; ++i)
-                    subdivs[i-1] = params[grid_type::format_subdiv(i, prefix)];
-                size_ = std::accumulate(subdivs.begin(), subdivs.end(),
-                                       1, std::multiplies<>());
-                auto max = *std::max_element(subdivs.begin(), subdivs.end());
-                for (size_t i = 1; i <= max; ++i)
-                    ppoints.emplace_back(params,
-                                         grid_type::format_stop(i, prefix));
-            }
-
-            label_type operator() (point_type pp) {
-                std::array<long, dim> coords;
-                std::vector<double> dists(ppoints.size());
-
-                auto itc = coords.begin(), its = subdivs.begin(), itp = pp.begin();
-                for (size_t i = 0; itc != coords.end(); ++itc, ++its, ++itp, ++i) {
-                    for (size_t j = 0; j < *its; ++j)
-                        dists[j] = std::abs(*itp - *std::next(ppoints[j].begin(), i));
-                    *itc = std::min_element(dists.begin(), dists.begin() + *its) - dists.begin(); }
-                long tot = 0;
-                for (auto itc = coords.rbegin(), its = subdivs.rbegin();
-                     itc != coords.rend();
-                     ++itc, ++its)
-                {
-                    tot = *itc + *its * tot;
-                }
-
-                if (tot < 0 || size_ <= tot)
-                    throw std::runtime_error([&pp] {
-                            std::stringstream ss;
-                            ss << "phase point " << pp
-                               << " exceeds limits of grid";
-                            return ss.str();
-                        }());
-                return tot;
-            }
-
-            std::string name(label_type const& l) const {
-                size_t n = l;
-                std::stringstream ss;
-                ss << "G|";
-                for (size_t s : subdivs) {
-                    ss << (n % s) << '|';
-                    n /= s;
-                }
-                return ss.str();
-            }
-
-            size_t size() const {
-                return size_;
-            }
-        private:
-            std::array<size_t, dim> subdivs;
-            std::vector<point_type> ppoints;
-            size_t size_;
         };
 
     }
