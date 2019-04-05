@@ -54,6 +54,8 @@ int main(int argc, char** argv) {
             return 1;
         }
 
+        typename sim_base::phase_classifier phase_classifier(parameters);
+
         std::string arname = parameters.get_archive_name();
         bool verbose = cmdl[{"-v", "--verbose"}] || cmdl[{"-c", "--contraction-weights"}];
         auto log_msg = [verbose] (std::string const& msg) {
@@ -402,13 +404,14 @@ int main(int argc, char** argv) {
             if (exclusive && t != k)
                 continue;
             auto const& cl = transitions[k];
-            std::cout << k << ":   " << cl.labels().first << " -- "
-                      << cl.labels().second
+            std::cout << k << ":   "
+                      << phase_classifier.name(cl.labels().first) << " -- "
+                      << phase_classifier.name(cl.labels().second)
                       << "\t rho = " << cl.rho() << std::endl;
             std::stringstream ss;
             ss << replace_extension(arname, "")
-               << '-' << cl.labels().first
-               << '-' << cl.labels().second;
+               << '-' << phase_classifier.name(cl.labels().first)
+               << '-' << phase_classifier.name(cl.labels().second);
             if (!cmdl[{"-l", "--list"}])
                 treat_transition(cl, ss.str());
         }

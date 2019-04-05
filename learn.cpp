@@ -136,7 +136,7 @@ int main(int argc, char** argv)
             }
             std::cout << "\nLabel statistics:\n";
             for (auto const& p : label_stat) {
-                std::cout << p.first << ": " << p.second << '\n';
+                std::cout << classifier.name(p.first) << ": " << p.second << '\n';
             }
             std::cout << std::endl;
         }

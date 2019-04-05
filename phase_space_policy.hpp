@@ -42,23 +42,6 @@ namespace phase_space {
 
     namespace label {
 
-        SVM_LABEL_BEGIN(binary, 2)
-        SVM_LABEL_ADD(ORDERED)
-        SVM_LABEL_ADD(DISORDERED)
-        SVM_LABEL_END()
-
-        SVM_LABEL_BEGIN(D2h, 3)
-        SVM_LABEL_ADD(O3)
-        SVM_LABEL_ADD(Dinfh)
-        SVM_LABEL_ADD(D2h)
-        SVM_LABEL_END()
-
-        SVM_LABEL_BEGIN(D3h, 3)
-        SVM_LABEL_ADD(O3)
-        SVM_LABEL_ADD(Dinfh)
-        SVM_LABEL_ADD(D3h)
-        SVM_LABEL_END()
-
         template <size_t nr = svm::DYNAMIC>
         struct numeric_label {
             static const size_t nr_labels = nr;
@@ -66,21 +49,26 @@ namespace phase_space {
             numeric_label () : val(0) {}
             template <class Iterator,
                       typename Tag = typename std::iterator_traits<Iterator>::value_type>
-            numeric_label (Iterator begin) : val (floor(*begin)) {
+            numeric_label(Iterator begin) : val (floor(*begin)) {
                 if (val < 0 || val >= nr_labels)
-                    throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
+                    throw std::runtime_error(static_cast<std::stringstream&>(
+                        std::stringstream{} << "invalid label: " << val).str());
             }
-            numeric_label (double x) : val (floor(x)) {
+            numeric_label(double x) : val (floor(x)) {
                 if (val < 0. || val >= nr_labels)
-                    throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
+                    throw std::runtime_error(static_cast<std::stringstream&>(
+                        std::stringstream{} << "invalid label: " << val).str());
             }
             operator double() const { return val; }
+            explicit operator size_t() const {
+                return static_cast<size_t>(val + 0.5);
+            }
             double const * begin() const { return &val; }
             double const * end() const { return &val + 1; }
             friend bool operator== (numeric_label lhs, numeric_label rhs) {
                 return lhs.val == rhs.val;
             }
-            friend std::ostream & operator<< (std::ostream & os, numeric_label l) {
+            friend std::ostream & operator<<(std::ostream & os, numeric_label l) {
                 return os << l.val;
             }
         private:
@@ -93,20 +81,27 @@ namespace phase_space {
 
         struct critical_temperature {
             using point_type = point::temperature;
-            using label_type = label::binary::label;
+            using label_type = label::numeric_label<>;
 
             static void define_parameters(alps::params & params);
 
             critical_temperature(alps::params const& params);
             label_type operator() (point_type pp);
+            std::string const& name(label_type const& l) const {
+                return names[size_t(l)];
+            }
+            size_t size() const {
+                return 2;
+            }
         private:
+            static const std::string names[];
             double temp_crit;
         };
 
         template <typename Point>
         struct orthants {
             using point_type = Point;
-            using label_type = label::numeric_label<(1 << point_type::label_dim)>;
+            using label_type = label::numeric_label<>;
 
             static void define_parameters(alps::params & params) {
                 point_type::define_parameters(params, "classifier.orthants.");
@@ -125,6 +120,14 @@ namespace phase_space {
                 }
                 return label_type {double(res)};
             }
+            std::string name(label_type const& l) const {
+                std::stringstream ss;
+                ss << l;
+                return ss.str();
+            }
+            size_t size() const {
+                return 1 << point_type::label_dim;
+            }
         private:
             point_type origin;
         };
@@ -132,7 +135,7 @@ namespace phase_space {
         template <typename Point>
         struct hyperplane {
             using point_type = Point;
-            using label_type = label::binary::label;
+            using label_type = label::numeric_label<>;
 
             static void define_parameters(alps::params & params) {
                 point_type::define_parameters(params, "classifier.hyperplane.support.");
@@ -148,30 +151,51 @@ namespace phase_space {
                                std::minus<>{});
                 double res = std::inner_product(pp.begin(), pp.end(),
                                                 normal.begin(), 0.);
-                return res > 0 ? label::binary::ORDERED : label::binary::DISORDERED;
+                return res > 0 ? label_type{1.} : label_type{0.};
+            }
+            std::string const& name(label_type const& l) const {
+                return names[size_t(l)];
+            }
+            size_t size() const {
+                return 2;
             }
         private:
+            static const std::string names[];
             point_type support, normal;
         };
 
-        template <typename Point, typename Label>
+        template <typename Point>
+        const std::string hyperplane<Point>::names[] = {
+            "DISORDERED",
+            "ORDERED",
+        };
+
+        template <typename Point>
+        struct phase_diagram;
+
+        template <typename Point>
+        struct phase_diagram_database {
+            static const typename phase_diagram<Point>::map_type map;
+        };
+
+        template <typename Point>
         struct phase_diagram {
             using point_type = Point;
-            using label_type = Label;
+            using label_type = label::numeric_label<>;
+            using database_type = phase_diagram_database<point_type>;
             using map_type = std::map<std::string, phase_diagram>;
-            using pair_type = std::pair<label_type, polygon<point_type>>;
+            using pair_type = std::pair<std::string, polygon<point_type>>;
 
             static void define_parameters(alps::params & params) {
                 params.define<std::string>("classifier.phase_diagram.name",
                                            "key of the phase diagram map entry");
             }
 
-            static inline auto get_map();
-
             phase_diagram(alps::params const& params)
                 : phase_diagram([&] {
                         try {
-                            return get_map().at(params["classifier.phase_diagram.name"]);
+                            return database_type::map.at(
+                                params["classifier.phase_diagram.name"]);
                         } catch (...) {
                             std::stringstream ss;
                             ss << "unknown phase diagram \""
@@ -188,33 +212,32 @@ namespace phase_space {
             }
 
             label_type operator() (point_type pp) {
+                double l = 0.;
                 for (auto const& p : pairs) {
                     if (p.second.is_inside(pp))
-                        return p.first;
+                        return {l};
+                    l += 1;
                 }
                 throw std::runtime_error("phase diagram point not contained in "
                                          "any polygon");
                 return label_type();
             }
+
+            std::string const& name(label_type const& l) const {
+                return pairs[size_t(l)].first;
+            }
+
+            size_t size() const {
+                return pairs.size();
+            }
         private:
             std::vector<pair_type> pairs;
         };
 
-        using D2h_phase_diagram = phase_diagram<point::J1J3, label::D2h::label>;
-        extern typename D2h_phase_diagram::map_type D2h_map;
-
-        using D3h_phase_diagram = phase_diagram<point::J1J3, label::D3h::label>;
-        extern typename D3h_phase_diagram::map_type D3h_map;
-
         template <>
-        inline auto phase_diagram<point::J1J3, label::D2h::label>::get_map() {
-            return D2h_map;
-        }
-
-        template <>
-        inline auto phase_diagram<point::J1J3, label::D3h::label>::get_map() {
-            return D3h_map;
-        }
+        struct phase_diagram_database<point::J1J3> {
+            static const typename phase_diagram<point::J1J3>::map_type map;
+        };
 
     }
 
@@ -771,6 +794,14 @@ namespace phase_space {
                 }
                 return i;
             }
+            std::string name(label_type const& l) const {
+                std::stringstream ss;
+                ss << 'P' << (size_t(l) + 1);
+                return ss.str();
+            }
+            size_t size() const {
+                return points.size();
+            }
         private:
             std::vector<point_type> points;
             const point_type infty = point::infinity<point_type>{}();
@@ -793,8 +824,8 @@ namespace phase_space {
             {
                 for (size_t i = 1; i <= dim; ++i)
                     subdivs[i-1] = params[grid_type::format_subdiv(i, "sweep.")];
-                size = std::accumulate(subdivs.begin(), subdivs.end(),
-                                       1, std::multiplies<>());
+                size_ = std::accumulate(subdivs.begin(), subdivs.end(), 1,
+                    std::multiplies<>());
             }
 
             label_type operator() (point_type pp) {
@@ -818,7 +849,7 @@ namespace phase_space {
                     tot = *itc + *its * tot;
                 }
 
-                if (tot < 0 || size <= tot)
+                if (tot < 0 || size_ <= tot)
                     throw std::runtime_error([&pp] {
                             std::stringstream ss;
                             ss << "phase point " << pp
@@ -827,10 +858,25 @@ namespace phase_space {
                         }());
                 return tot;
             }
+
+            std::string name(label_type const& l) const {
+                size_t n = l;
+                std::stringstream ss;
+                ss << "G|";
+                for (size_t s : subdivs) {
+                    ss << (n % s) << '|';
+                    n /= s;
+                }
+                return ss.str();
+            }
+
+            size_t size() const {
+                return size_;
+            }
         private:
             std::array<size_t, dim> subdivs;
             point_type a, b;
-            size_t size;
+            size_t size_;
         };
 
         template <typename Point>
@@ -848,7 +894,7 @@ namespace phase_space {
                 std::string prefix = "sweep.";
                 for (size_t i = 1; i <= dim; ++i)
                     subdivs[i-1] = params[grid_type::format_subdiv(i, prefix)];
-                size = std::accumulate(subdivs.begin(), subdivs.end(),
+                size_ = std::accumulate(subdivs.begin(), subdivs.end(),
                                        1, std::multiplies<>());
                 auto max = *std::max_element(subdivs.begin(), subdivs.end());
                 for (size_t i = 1; i <= max; ++i)
@@ -864,10 +910,7 @@ namespace phase_space {
                 for (size_t i = 0; itc != coords.end(); ++itc, ++its, ++itp, ++i) {
                     for (size_t j = 0; j < *its; ++j)
                         dists[j] = std::abs(*itp - *std::next(ppoints[j].begin(), i));
-                    *itc = std::min_element(dists.begin(), dists.begin() + *its)
-                            - dists.begin();
-                }
-
+                    *itc = std::min_element(dists.begin(), dists.begin() + *its) - dists.begin(); }
                 long tot = 0;
                 for (auto itc = coords.rbegin(), its = subdivs.rbegin();
                      itc != coords.rend();
@@ -876,7 +919,7 @@ namespace phase_space {
                     tot = *itc + *its * tot;
                 }
 
-                if (tot < 0 || size <= tot)
+                if (tot < 0 || size_ <= tot)
                     throw std::runtime_error([&pp] {
                             std::stringstream ss;
                             ss << "phase point " << pp
@@ -885,10 +928,25 @@ namespace phase_space {
                         }());
                 return tot;
             }
+
+            std::string name(label_type const& l) const {
+                size_t n = l;
+                std::stringstream ss;
+                ss << "G|";
+                for (size_t s : subdivs) {
+                    ss << (n % s) << '|';
+                    n /= s;
+                }
+                return ss.str();
+            }
+
+            size_t size() const {
+                return size_;
+            }
         private:
             std::array<size_t, dim> subdivs;
             std::vector<point_type> ppoints;
-            size_t size;
+            size_t size_;
         };
 
     }
