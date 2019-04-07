@@ -25,18 +25,29 @@ const std::string classifier::critical_temperature::names[] = {
     "ORDERED",
 };
 
-void classifier::critical_temperature::define_parameters(alps::params & params) {
-    params.define<double>("classifier.critical_temperature.temp_crit",
-                          1., "decriminatory temperature");
+void classifier::critical_temperature::define_parameters(alps::params & params,
+                                                         std::string const& prefix)
+{
+    params.define<double>(prefix + "critical_temperature.temp_crit",
+                          1., "discriminatory temperature");
 }
 
-classifier::critical_temperature::critical_temperature (alps::params const& params)
-    : temp_crit(params["classifier.critical_temperature.temp_crit"].as<double>()) {}
+classifier::critical_temperature::critical_temperature(alps::params const& params,
+                                                       std::string const& prefix)
+    : temp_crit(params[prefix + "critical_temperature.temp_crit"].as<double>()) {}
 
-auto classifier::critical_temperature::operator() (point_type pp)
+auto classifier::critical_temperature::operator()(point_type pp)
     -> classifier::critical_temperature::label_type
 {
     return (pp.temp < temp_crit) ? label_type{1.} : label_type{0.};
+}
+
+std::string classifier::critical_temperature::name(label_type const& l) const {
+    return names[size_t(l)];
+}
+
+size_t classifier::critical_temperature::size() const {
+    return 2;
 }
 
 const typename classifier::phase_diagram<point::J1J3>::map_type

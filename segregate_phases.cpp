@@ -131,8 +131,10 @@ int main(int argc, char** argv)
     std::map<label_t, size_t> index_map;
     std::vector<label_t> labels;
     size_t graph_dim = [&] {
-        using classifier_t = typename sim_base::phase_classifier;
-        auto grid_sweep = phase_space::sweep::from_parameters<phase_point>(parameters, "sweep.");
+        auto grid_sweep = phase_space::sweep::from_parameters<phase_point>(
+            parameters, "sweep.");
+        auto classifier = phase_space::classifier::from_parameters<phase_point>(
+            parameters, "classifier.");
 
         // read mask if specified
         std::vector<int> mask = [&] {
@@ -162,14 +164,13 @@ int main(int argc, char** argv)
             return std::vector<int>(grid_sweep->size(), 1);
         }();
 
-        classifier_t classifier(parameters);
         phase_point p;
         std::ofstream os("vertices.txt");
         std::mt19937 dummy_rng(42);
         size_t j = 0;
         for (size_t i = 0; i < grid_sweep->size(); ++i) {
             grid_sweep->yield(p, dummy_rng);
-            auto l = classifier(p);
+            auto l = (*classifier)(p);
             phase_points[l] = p;
             if (!mask[i])
                 continue;

@@ -55,7 +55,7 @@ public:
 
         // Adds the parameters of the base class
         Simulation::define_parameters(parameters);
-        phase_classifier::define_parameters(parameters);
+        phase_classifier::define_parameters(parameters, "classifier.");
         phase_space::sweep::define_parameters<phase_point>(parameters, "sweep.");
         parameters
             .define<std::string>("sweep.policy", "cycle",
