@@ -16,18 +16,8 @@
 
 #pragma once
 
-#ifdef ISING
-    #include "ising.hpp"
-    using sim_base = ising_sim;
-#else
-#ifdef GAUGE
-    #include "gauge.hpp"
-    using sim_base = gauge_sim;
-#else
-#ifdef FRUSTMAG
-    #include "config_frustmag_sim.hpp"
-#else
-    #error Unknown model
-#endif
-#endif
-#endif
+#define QUOTE(x) #x
+#define QUOTE_AND_EXPAND(x) QUOTE(x)
+#include QUOTE_AND_EXPAND(SVMOP_SIMINCL)
+#undef QUOTE_AND_EXPAND
+#undef QUOTE

@@ -79,14 +79,14 @@ add_executable(ising-learn
     checkpointing_stop_callback.cpp
     ising/ising.cpp
     )
-target_compile_definitions(ising-learn PUBLIC -DISING)
+target_compile_definitions(ising-learn PUBLIC -DSVMOP_SIMINCL=ising.hpp)
 
 add_executable(ising-test
     test.cpp
     phase_space_policy.cpp
     ising/ising.cpp
     )
-target_compile_definitions(ising-test PUBLIC -DISING)
+target_compile_definitions(ising-test PUBLIC -DSVMOP_SIMINCL=ising.hpp)
 
 add_executable(ising-coeffs
     coeffs.cpp
@@ -95,7 +95,7 @@ add_executable(ising-coeffs
     contraction.cpp
     results.cpp
     )
-target_compile_definitions(ising-coeffs PUBLIC -DISING)
+target_compile_definitions(ising-coeffs PUBLIC -DSVMOP_SIMINCL=ising.hpp)
 
 include_directories(gauge)
 add_executable(gauge-sample
@@ -105,7 +105,7 @@ add_executable(gauge-sample
     gauge/nematicities.cpp
     gauge/point_groups.cpp
     )
-target_compile_definitions(gauge-sample PUBLIC -DGAUGE)
+target_compile_definitions(gauge-sample PUBLIC -DSVMOP_SIMINCL=gauge.hpp)
 
 add_executable(gauge-learn
     learn.cpp
@@ -115,7 +115,7 @@ add_executable(gauge-learn
     gauge/nematicities.cpp
     gauge/point_groups.cpp
     )
-target_compile_definitions(gauge-learn PUBLIC -DGAUGE)
+target_compile_definitions(gauge-learn PUBLIC -DSVMOP_SIMINCL=gauge.hpp)
 
 add_executable(gauge-test
     test.cpp
@@ -124,7 +124,7 @@ add_executable(gauge-test
     gauge/nematicities.cpp
     gauge/point_groups.cpp
     )
-target_compile_definitions(gauge-test PUBLIC -DGAUGE)
+target_compile_definitions(gauge-test PUBLIC -DSVMOP_SIMINCL=gauge.hpp)
 
 add_executable(gauge-coeffs
     coeffs.cpp
@@ -135,7 +135,7 @@ add_executable(gauge-coeffs
     contraction.cpp
     results.cpp
     )
-target_compile_definitions(gauge-coeffs PUBLIC -DGAUGE)
+target_compile_definitions(gauge-coeffs PUBLIC -DSVMOP_SIMINCL=gauge.hpp)
 
 add_executable(gauge-segregate-phases
     segregate_phases.cpp
@@ -144,8 +144,7 @@ add_executable(gauge-segregate-phases
     gauge/nematicities.cpp
     gauge/point_groups.cpp
     )
-
-target_compile_definitions(gauge-segregate-phases PUBLIC -DGAUGE)
+target_compile_definitions(gauge-segregate-phases PUBLIC -DSVMOP_SIMINCL=gauge.hpp)
 
 add_executable(output-contractions
     output_contractions.cpp
@@ -158,19 +157,19 @@ add_executable(frustmag-sample
     sample.cpp
     phase_space_policy.cpp
     )
-target_compile_definitions(frustmag-sample PUBLIC -DFRUSTMAG -DHAS_SVM)
+target_compile_definitions(frustmag-sample PUBLIC -DSVMOP_SIMINCL=config_frustmag_sim.hpp -DHAS_SVM)
 
 add_executable(frustmag-learn
     learn.cpp
     phase_space_policy.cpp
     )
-target_compile_definitions(frustmag-learn PUBLIC -DFRUSTMAG -DHAS_SVM)
+target_compile_definitions(frustmag-learn PUBLIC -DSVMOP_SIMINCL=config_frustmag_sim.hpp -DHAS_SVM)
 
 add_executable(frustmag-test
     test.cpp
     phase_space_policy.cpp
     )
-target_compile_definitions(frustmag-test PUBLIC -DFRUSTMAG -DHAS_SVM)
+target_compile_definitions(frustmag-test PUBLIC -DSVMOP_SIMINCL=config_frustmag_sim.hpp -DHAS_SVM)
 
 add_executable(frustmag-coeffs
     coeffs.cpp
@@ -178,7 +177,7 @@ add_executable(frustmag-coeffs
     contraction.cpp
     results.cpp
     )
-target_compile_definitions(frustmag-coeffs PUBLIC -DFRUSTMAG -DHAS_SVM)
+target_compile_definitions(frustmag-coeffs PUBLIC -DSVMOP_SIMINCL=config_frustmag_sim.hpp -DHAS_SVM)
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore
 target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm stdc++fs)

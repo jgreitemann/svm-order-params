@@ -212,3 +212,5 @@ struct config_serializer<gauge_sim::Rt_array> {
         }
     }
 };
+
+using sim_base = gauge_sim;

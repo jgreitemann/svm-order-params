@@ -77,3 +77,5 @@ public:
     virtual void save(alps::hdf5::archive & ar) const;
     virtual void load(alps::hdf5::archive & ar);
 };
+
+using sim_base = ising_sim;
