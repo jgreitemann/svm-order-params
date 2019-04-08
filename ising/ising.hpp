@@ -20,10 +20,9 @@
 // serialization functions (save/load)
 class ising_sim : public embarrassing_adapter<phase_space::point::temperature> {
 public:
-    using Base = embarrassing_adapter<phase_space::point::temperature>;
-    using phase_classifier = phase_space::classifier::critical_temperature;
-    using phase_label = phase_classifier::label_type;
-    using phase_point = phase_classifier::point_type;
+    using phase_point = phase_space::point::temperature;
+    using Base = embarrassing_adapter<phase_point>;
+    using phase_label = typename phase_space::classifier::policy<phase_point>::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
     int length; // the same in both dimensions

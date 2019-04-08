@@ -41,16 +41,7 @@ class gauge_sim : public embarrassing_adapter<phase_space::point::J1J3> {
 public:
     using Base = embarrassing_adapter<phase_space::point::J1J3>;
     using phase_point = phase_space::point::J1J3;
-#if defined(GAUGE_CLASSIFIER_HYPERPLANE)
-    using phase_classifier = phase_space::classifier::hyperplane<phase_point>;
-#elif defined(GAUGE_CLASSIFIER_SWEEP)
-    using phase_classifier = phase_space::classifier::fixed_from_sweep<phase_point>;
-#elif defined(GAUGE_CLASSIFIER_PHASE_DIAGRAM)
-    using phase_classifier = phase_space::classifier::phase_diagram<phase_point>;
-#else
-    #error unknown / missing gauge classifier
-#endif
-    using phase_label = phase_classifier::label_type;
+    using phase_label = typename phase_space::classifier::policy<phase_point>::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
     int L;

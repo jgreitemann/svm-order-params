@@ -48,8 +48,7 @@ using sim_type = training_adapter<sim_base>;
 #endif
 
 using kernel_t = typename sim_type::kernel_t;
-using classifier_t = typename sim_type::phase_classifier;
-using phase_point = typename classifier_t::point_type;
+using phase_point = typename sim_type::phase_point;
 
 
 int main(int argc, char** argv)
