@@ -40,7 +40,7 @@ using sim_type = training_adapter<sim_base>;
 
 using kernel_t = typename sim_type::kernel_t;
 using label_t = typename sim_type::phase_label;
-using classifier_t = typename sim_type::phase_classifier;
+using phase_point = typename sim_type::phase_point;
 using model_t = svm::model<kernel_t, label_t>;
 using problem_t = typename model_t::problem_t;
 
@@ -69,7 +69,8 @@ int main(int argc, char** argv)
         }
 
         problem_t prob(0);
-        classifier_t classifier(parameters);
+        auto classifier = phase_space::classifier::from_parameters<phase_point>(
+            parameters, "classifier.");
 
         std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
 
@@ -104,14 +105,13 @@ int main(int argc, char** argv)
             cp[checkpoint_path] >> sim;
 
             if (prob.dim() == 0) {
-                prob = problem_t(sim.surrender_problem(), classifier);
+                prob = problem_t(sim.surrender_problem(), classifier->get_functor());
             } else {
-                prob.append_problem(sim.surrender_problem(), classifier);
+                prob.append_problem(sim.surrender_problem(), classifier->get_functor());
             }
         }
 
         if (cmdl[{"-i", "--infinite-temperature"}]) {
-            using phase_point = typename classifier_t::point_type;
             phase_point ppoint = phase_space::point::infinity<phase_point>{}();
 
             training_adapter<sim_base> sim(parameters, 0);
@@ -120,7 +120,7 @@ int main(int argc, char** argv)
             for (size_t i = 0; i < N_samples; ++i) {
                 sim.sample_config(sim.random_configuration(), ppoint);
             }
-            prob.append_problem(sim.surrender_problem(), classifier);
+            prob.append_problem(sim.surrender_problem(), classifier->get_functor());
         }
 
         /* print label statistics */ {
@@ -136,7 +136,7 @@ int main(int argc, char** argv)
             }
             std::cout << "\nLabel statistics:\n";
             for (auto const& p : label_stat) {
-                std::cout << p.first << ": " << p.second << '\n';
+                std::cout << classifier->name(p.first) << ": " << p.second << '\n';
             }
             std::cout << std::endl;
         }

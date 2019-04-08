@@ -52,8 +52,7 @@ struct frustmag_sim : public pt_adapter<typename Hamiltonian::phase_point>
     using update_type = Update<Hamiltonian>;
 
 #ifdef HAS_SVM
-    using phase_classifier = phase_space::classifier::critical_temperature;
-    using phase_label = phase_classifier::label_type;
+    using phase_label = typename phase_space::classifier::policy<phase_point>::label_type;
     using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 
     template <typename Introspector>

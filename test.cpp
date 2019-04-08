@@ -289,11 +289,15 @@ int main(int argc, char** argv)
             for (std::string const& opname : sim.order_param_names())
                 annotate(opname);
             if (sim.has_model()) {
+                auto phase_classifier =
+                    phase_space::classifier::from_parameters<phase_point>(
+                        parameters, "classifier.");
                 annotate("SVM classification label");
                 for (auto const& cl : classifiers) {
                     std::stringstream ss;
-                    ss << "decision function " << cl.label1 << " / "
-                       << cl.label2;
+                    ss << "decision function "
+                       << phase_classifier->name(cl.label1) << " / "
+                       << phase_classifier->name(cl.label2);
                     annotate(ss.str());
                     annotate(ss.str() + " variance");
                 }

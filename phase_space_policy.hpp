@@ -23,7 +23,6 @@
 #include <cmath>
 #include <functional>
 #include <iostream>
-#include <limits>
 #include <map>
 #include <numeric>
 #include <random>
@@ -42,23 +41,6 @@ namespace phase_space {
 
     namespace label {
 
-        SVM_LABEL_BEGIN(binary, 2)
-        SVM_LABEL_ADD(ORDERED)
-        SVM_LABEL_ADD(DISORDERED)
-        SVM_LABEL_END()
-
-        SVM_LABEL_BEGIN(D2h, 3)
-        SVM_LABEL_ADD(O3)
-        SVM_LABEL_ADD(Dinfh)
-        SVM_LABEL_ADD(D2h)
-        SVM_LABEL_END()
-
-        SVM_LABEL_BEGIN(D3h, 3)
-        SVM_LABEL_ADD(O3)
-        SVM_LABEL_ADD(Dinfh)
-        SVM_LABEL_ADD(D3h)
-        SVM_LABEL_END()
-
         template <size_t nr = svm::DYNAMIC>
         struct numeric_label {
             static const size_t nr_labels = nr;
@@ -66,21 +48,26 @@ namespace phase_space {
             numeric_label () : val(0) {}
             template <class Iterator,
                       typename Tag = typename std::iterator_traits<Iterator>::value_type>
-            numeric_label (Iterator begin) : val (floor(*begin)) {
+            numeric_label(Iterator begin) : val (floor(*begin)) {
                 if (val < 0 || val >= nr_labels)
-                    throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
+                    throw std::runtime_error(static_cast<std::stringstream&>(
+                        std::stringstream{} << "invalid label: " << val).str());
             }
-            numeric_label (double x) : val (floor(x)) {
+            numeric_label(double x) : val (floor(x)) {
                 if (val < 0. || val >= nr_labels)
-                    throw std::runtime_error(static_cast<std::stringstream&>(std::stringstream{} << "invalid label: " << val).str());
+                    throw std::runtime_error(static_cast<std::stringstream&>(
+                        std::stringstream{} << "invalid label: " << val).str());
             }
             operator double() const { return val; }
+            explicit operator size_t() const {
+                return static_cast<size_t>(val + 0.5);
+            }
             double const * begin() const { return &val; }
             double const * end() const { return &val + 1; }
             friend bool operator== (numeric_label lhs, numeric_label rhs) {
                 return lhs.val == rhs.val;
             }
-            friend std::ostream & operator<< (std::ostream & os, numeric_label l) {
+            friend std::ostream & operator<<(std::ostream & os, numeric_label l) {
                 return os << l.val;
             }
         private:
@@ -88,135 +75,6 @@ namespace phase_space {
         };
 
     };
-
-    namespace classifier {
-
-        struct critical_temperature {
-            using point_type = point::temperature;
-            using label_type = label::binary::label;
-
-            static void define_parameters(alps::params & params);
-
-            critical_temperature(alps::params const& params);
-            label_type operator() (point_type pp);
-        private:
-            double temp_crit;
-        };
-
-        template <typename Point>
-        struct orthants {
-            using point_type = Point;
-            using label_type = label::numeric_label<(1 << point_type::label_dim)>;
-
-            static void define_parameters(alps::params & params) {
-                point_type::define_parameters(params, "classifier.orthants.");
-            }
-
-            orthants(alps::params const& params)
-                : origin(params) {}
-            label_type operator() (point_type pp) {
-                size_t res = 0;
-                auto oit = origin.begin();
-                for (double x : pp) {
-                    res *= 2;
-                    if (x > *oit)
-                        res += 1;
-                    ++oit;
-                }
-                return label_type {double(res)};
-            }
-        private:
-            point_type origin;
-        };
-
-        template <typename Point>
-        struct hyperplane {
-            using point_type = Point;
-            using label_type = label::binary::label;
-
-            static void define_parameters(alps::params & params) {
-                point_type::define_parameters(params, "classifier.hyperplane.support.");
-                point_type::define_parameters(params, "classifier.hyperplane.normal.");
-            }
-
-            hyperplane(alps::params const& params)
-                : support(params, "classifier.hyperplane.support.")
-                , normal(params, "classifier.hyperplane.normal.") {}
-
-            label_type operator() (point_type pp) {
-                std::transform(pp.begin(), pp.end(), support.begin(), pp.begin(),
-                               std::minus<>{});
-                double res = std::inner_product(pp.begin(), pp.end(),
-                                                normal.begin(), 0.);
-                return res > 0 ? label::binary::ORDERED : label::binary::DISORDERED;
-            }
-        private:
-            point_type support, normal;
-        };
-
-        template <typename Point, typename Label>
-        struct phase_diagram {
-            using point_type = Point;
-            using label_type = Label;
-            using map_type = std::map<std::string, phase_diagram>;
-            using pair_type = std::pair<label_type, polygon<point_type>>;
-
-            static void define_parameters(alps::params & params) {
-                params.define<std::string>("classifier.phase_diagram.name",
-                                           "key of the phase diagram map entry");
-            }
-
-            static inline auto get_map();
-
-            phase_diagram(alps::params const& params)
-                : phase_diagram([&] {
-                        try {
-                            return get_map().at(params["classifier.phase_diagram.name"]);
-                        } catch (...) {
-                            std::stringstream ss;
-                            ss << "unknown phase diagram \""
-                               << params["classifier.phase_diagram.name"].as<std::string>()
-                               << "\"";
-                            throw std::runtime_error(ss.str());
-                        }
-                    }()) {}
-
-            phase_diagram(std::initializer_list<pair_type> il) {
-                pairs.reserve(il.size());
-                for (auto const& p : il)
-                    pairs.push_back(p);
-            }
-
-            label_type operator() (point_type pp) {
-                for (auto const& p : pairs) {
-                    if (p.second.is_inside(pp))
-                        return p.first;
-                }
-                throw std::runtime_error("phase diagram point not contained in "
-                                         "any polygon");
-                return label_type();
-            }
-        private:
-            std::vector<pair_type> pairs;
-        };
-
-        using D2h_phase_diagram = phase_diagram<point::J1J3, label::D2h::label>;
-        extern typename D2h_phase_diagram::map_type D2h_map;
-
-        using D3h_phase_diagram = phase_diagram<point::J1J3, label::D3h::label>;
-        extern typename D3h_phase_diagram::map_type D3h_map;
-
-        template <>
-        inline auto phase_diagram<point::J1J3, label::D2h::label>::get_map() {
-            return D2h_map;
-        }
-
-        template <>
-        inline auto phase_diagram<point::J1J3, label::D3h::label>::get_map() {
-            return D3h_map;
-        }
-
-    }
 
     namespace sweep {
 
@@ -741,35 +599,230 @@ namespace phase_space {
     namespace classifier {
 
         template <typename Point>
-        struct fixed_from_cycle {
+        struct policy {
             using point_type = Point;
-            using label_type = label::numeric_label<svm::DYNAMIC>;
+            using label_type = label::numeric_label<>;
 
-            static void define_parameters(alps::params & params) {
+            virtual label_type operator()(point_type) = 0;
+            virtual std::string name(label_type const& l) const = 0;
+            virtual size_t size() const = 0;
+
+            auto get_functor() {
+                return [this](point_type pp) {
+                    return (*this)(pp);
+                };
+            }
+        };
+
+        struct critical_temperature : policy<point::temperature> {
+            static void define_parameters(alps::params &, std::string const&);
+
+            critical_temperature(alps::params const&, std::string const&);
+            virtual label_type operator() (point_type pp) override;
+            virtual std::string name(label_type const& l) const override;
+            virtual size_t size() const override;
+        private:
+            static const std::string names[];
+            double temp_crit;
+        };
+
+        template <typename Point>
+        struct orthants : policy<Point> {
+            using typename policy<Point>::point_type;
+            using typename policy<Point>::label_type;
+
+            static void define_parameters(alps::params & params,
+                                          std::string const& prefix)
+            {
+                point_type::define_parameters(params, prefix + "orthants.");
             }
 
-            fixed_from_cycle(alps::params const& params) {
-                using cycs = sweep::cycle<point_type>;
-                for (size_t i = 1; i <= cycs::MAX_CYCLE
-                    && point_type::supplied(params, cycs::format_prefix(i, "sweep.")); ++i)
-                {
-                    points.emplace_back(params, cycs::format_prefix(i, "sweep."));
+            orthants(alps::params const& params,
+                     std::string const& prefix)
+                : origin(params, prefix + "orthants.") {}
+            virtual label_type operator()(point_type pp) override {
+                size_t res = 0;
+                auto oit = origin.begin();
+                for (double x : pp) {
+                    res *= 2;
+                    if (x > *oit)
+                        res += 1;
+                    ++oit;
                 }
+                return label_type {double(res)};
             }
-            label_type operator() (point_type pp) {
+            virtual std::string name(label_type const& l) const override {
+                std::stringstream ss;
+                ss << l;
+                return ss.str();
+            }
+            virtual size_t size() const override {
+                return 1 << point_type::label_dim;
+            }
+        private:
+            point_type origin;
+        };
+
+        template <typename Point>
+        struct hyperplane : policy<Point> {
+            using typename policy<Point>::point_type;
+            using typename policy<Point>::label_type;
+
+            static void define_parameters(alps::params & params,
+                                          std::string const& prefix)
+            {
+                point_type::define_parameters(params, prefix + "hyperplane.support.");
+                point_type::define_parameters(params, prefix + "hyperplane.normal.");
+            }
+
+            hyperplane(alps::params const& params,
+                       std::string const& prefix)
+                : support(params, prefix + "hyperplane.support.")
+                , normal(params, prefix + "hyperplane.normal.") {}
+
+            virtual label_type operator()(point_type pp) override {
+                std::transform(pp.begin(), pp.end(), support.begin(), pp.begin(),
+                               std::minus<>{});
+                double res = std::inner_product(pp.begin(), pp.end(),
+                                                normal.begin(), 0.);
+                return res > 0 ? label_type{1.} : label_type{0.};
+            }
+
+            virtual std::string name(label_type const& l) const override {
+                return names[size_t(l)];
+            }
+
+            virtual size_t size() const override {
+                return 2;
+            }
+
+        private:
+            static const std::string names[];
+            point_type support, normal;
+        };
+
+        template <typename Point>
+        const std::string hyperplane<Point>::names[] = {
+            "DISORDERED",
+            "ORDERED",
+        };
+
+        template <typename Point>
+        struct phase_diagram;
+
+        template <typename Point>
+        struct phase_diagram_database {
+            static const typename phase_diagram<Point>::map_type map;
+        };
+
+        template <typename Point>
+        const typename phase_diagram<Point>::map_type
+        phase_diagram_database<Point>::map {};
+
+        template <typename Point>
+        struct phase_diagram : policy<Point> {
+            using typename policy<Point>::point_type;
+            using typename policy<Point>::label_type;
+            using database_type = phase_diagram_database<point_type>;
+            using map_type = std::map<std::string, phase_diagram>;
+            using pair_type = std::pair<std::string, polygon<point_type>>;
+
+            static void define_parameters(alps::params & params,
+                                          std::string const& prefix)
+            {
+                params.define<std::string>("classifier.phase_diagram.name",
+                                           "key of the phase diagram map entry");
+            }
+
+            phase_diagram(alps::params const& params,
+                          std::string const& prefix)
+                : phase_diagram([&] {
+                        try {
+                            return database_type::map.at(
+                                params[prefix + "phase_diagram.name"]);
+                        } catch (...) {
+                            std::stringstream ss;
+                            ss << "unknown phase diagram \""
+                               << params[prefix + "phase_diagram.name"].as<std::string>()
+                               << "\"";
+                            throw std::runtime_error(ss.str());
+                        }
+                    }()) {}
+
+            phase_diagram(std::initializer_list<pair_type> il) {
+                pairs.reserve(il.size());
+                for (auto const& p : il)
+                    pairs.push_back(p);
+            }
+
+            virtual label_type operator()(point_type pp) override {
+                double l = 0.;
+                for (auto const& p : pairs) {
+                    if (p.second.is_inside(pp))
+                        return {l};
+                    l += 1;
+                }
+                throw std::runtime_error("phase diagram point not contained in "
+                                         "any polygon");
+                return label_type();
+            }
+
+            virtual std::string name(label_type const& l) const override {
+                return pairs[size_t(l)].first;
+            }
+
+            virtual size_t size() const override {
+                return pairs.size();
+            }
+        private:
+            std::vector<pair_type> pairs;
+        };
+
+        template <>
+        struct phase_diagram_database<point::J1J3> {
+            static const typename phase_diagram<point::J1J3>::map_type map;
+        };
+
+        template <typename Point>
+        struct fixed_from_sweep : policy<Point> {
+            using typename policy<Point>::point_type;
+            using typename policy<Point>::label_type;
+
+            static void define_parameters(alps::params &, std::string const&) {
+            }
+
+            fixed_from_sweep(alps::params const& parameters,
+                             std::string const&)
+            {
+                auto sweep_pol = phase_space::sweep::from_parameters<point_type>(
+                    parameters, "sweep.");
+                std::mt19937 rng{parameters["SEED"].as<size_t>()};
+                std::generate_n(std::back_inserter(points), sweep_pol->size(),
+                    [&, p=point_type{}]() mutable {
+                        sweep_pol->yield(p, rng);
+                        return p;
+                    });
+            }
+
+            virtual label_type operator()(point_type pp) override {
                 if (pp == infty)
-                    return sweep::cycle<point_type>::MAX_CYCLE;
-                size_t i = 0;
-                double d = std::numeric_limits<double>::max();
+                    return {static_cast<double>(size())};
                 point::distance<point_type> dist{};
-                for (size_t j = 0; j < points.size(); ++j) {
-                    double dd = dist(points[j], pp);
-                    if (dd < d) {
-                        i = j;
-                        d = dd;
-                    }
-                }
-                return i;
+                auto closest_it = std::min_element(points.begin(), points.end(),
+                    [&](point_type const& lhs, point_type const& rhs) {
+                        return dist(lhs, pp) < dist(rhs, pp);
+                    });
+                return {static_cast<double>(closest_it - points.begin())};
+            }
+
+            virtual std::string name(label_type const& l) const override {
+                std::stringstream ss;
+                ss << 'P' << (size_t(l) + 1);
+                return ss.str();
+            }
+
+            virtual size_t size() const override {
+                return points.size();
             }
         private:
             std::vector<point_type> points;
@@ -777,119 +830,52 @@ namespace phase_space {
         };
 
         template <typename Point>
-        struct fixed_from_grid {
-            using point_type = Point;
-            using grid_type = sweep::grid<point_type>;
-            using label_type = label::numeric_label<svm::DYNAMIC>;
-
-            static const size_t dim = point_type::label_dim;
-
-            static void define_parameters(alps::params & params) {
-            }
-
-            fixed_from_grid (alps::params const& params)
-                : a(params, "sweep.grid.a.")
-                , b(params, "sweep.grid.b.")
-            {
-                for (size_t i = 1; i <= dim; ++i)
-                    subdivs[i-1] = params[grid_type::format_subdiv(i, "sweep.")];
-                size = std::accumulate(subdivs.begin(), subdivs.end(),
-                                       1, std::multiplies<>());
-            }
-
-            label_type operator() (point_type pp) {
-                std::array<long, dim> coords;
-                auto ita = a.begin(), itb = b.begin(), itp = pp.begin();
-                for (auto itc = coords.begin(), its = subdivs.begin();
-                     itc != coords.end();
-                     ++itc, ++its, ++ita, ++itb, ++itp)
-                {
-                    if (*its > 1)
-                        *itc = (*itp - *ita) / (*itb - *ita) * (*its - 1) + 0.5;
-                    else
-                        *itc = 0;
-                }
-
-                long tot = 0;
-                for (auto itc = coords.rbegin(), its = subdivs.rbegin();
-                     itc != coords.rend();
-                     ++itc, ++its)
-                {
-                    tot = *itc + *its * tot;
-                }
-
-                if (tot < 0 || size <= tot)
-                    throw std::runtime_error([&pp] {
-                            std::stringstream ss;
-                            ss << "phase point " << pp
-                               << " exceeds limits of grid";
-                            return ss.str();
-                        }());
-                return tot;
-            }
-        private:
-            std::array<size_t, dim> subdivs;
-            point_type a, b;
-            size_t size;
-        };
+        void define_parameters(alps::params & params,
+                               std::string && prefix = "classifier.")
+        {
+            params.define<std::string>(prefix + "policy",
+                "fixed_from_sweep",
+                "name of the classifier policy");
+            orthants<Point>::define_parameters(params, prefix);
+            hyperplane<Point>::define_parameters(params, prefix);
+            phase_diagram<Point>::define_parameters(params, prefix);
+            fixed_from_sweep<Point>::define_parameters(params, prefix);
+            if (std::is_same<Point, point::temperature>::value)
+                critical_temperature::define_parameters(params, prefix);
+        }
 
         template <typename Point>
-        struct fixed_from_nonuniform_grid {
-            using point_type = Point;
-            using grid_type = sweep::nonuniform_grid<point_type>;
-            using label_type = label::numeric_label<svm::DYNAMIC>;
-
-            static const size_t dim = point_type::label_dim;
-
-            static void define_parameters(alps::params & params) {
-            }
-
-            fixed_from_nonuniform_grid (alps::params const& params) {
-                std::string prefix = "sweep.";
-                for (size_t i = 1; i <= dim; ++i)
-                    subdivs[i-1] = params[grid_type::format_subdiv(i, prefix)];
-                size = std::accumulate(subdivs.begin(), subdivs.end(),
-                                       1, std::multiplies<>());
-                auto max = *std::max_element(subdivs.begin(), subdivs.end());
-                for (size_t i = 1; i <= max; ++i)
-                    ppoints.emplace_back(params,
-                                         grid_type::format_stop(i, prefix));
-            }
-
-            label_type operator() (point_type pp) {
-                std::array<long, dim> coords;
-                std::vector<double> dists(ppoints.size());
-
-                auto itc = coords.begin(), its = subdivs.begin(), itp = pp.begin();
-                for (size_t i = 0; itc != coords.end(); ++itc, ++its, ++itp, ++i) {
-                    for (size_t j = 0; j < *its; ++j)
-                        dists[j] = std::abs(*itp - *std::next(ppoints[j].begin(), i));
-                    *itc = std::min_element(dists.begin(), dists.begin() + *its)
-                            - dists.begin();
+        auto from_parameters(alps::params const& params,
+                             std::string && prefix = "classifier.")
+        {
+            return std::unique_ptr<policy<Point>>{[&] () -> policy<Point>* {
+                std::string pol_name = params[prefix + "policy"];
+                if (pol_name == "orthants")
+                    return dynamic_cast<policy<Point>*>(
+                        new orthants<Point>(params, prefix));
+                if (pol_name == "hyperplane")
+                    return dynamic_cast<policy<Point>*>(
+                        new hyperplane<Point>(params, prefix));
+                if (pol_name == "phase_diagram")
+                    return dynamic_cast<policy<Point>*>(
+                        new phase_diagram<Point>(params, prefix));
+                if (pol_name == "fixed_from_sweep")
+                    return dynamic_cast<policy<Point>*>(
+                        new fixed_from_sweep<Point>(params, prefix));
+                if (pol_name == "critical_temperature") {
+                    if (std::is_same<Point, point::temperature>::value)
+                        return dynamic_cast<policy<Point>*>(
+                            new critical_temperature(params, prefix));
+                    else
+                        throw std::runtime_error(
+                            "critical_temperature classifier is only available "
+                            "for use with `temperature` phase space points");
                 }
-
-                long tot = 0;
-                for (auto itc = coords.rbegin(), its = subdivs.rbegin();
-                     itc != coords.rend();
-                     ++itc, ++its)
-                {
-                    tot = *itc + *its * tot;
-                }
-
-                if (tot < 0 || size <= tot)
-                    throw std::runtime_error([&pp] {
-                            std::stringstream ss;
-                            ss << "phase point " << pp
-                               << " exceeds limits of grid";
-                            return ss.str();
-                        }());
-                return tot;
-            }
-        private:
-            std::array<size_t, dim> subdivs;
-            std::vector<point_type> ppoints;
-            size_t size;
-        };
+                throw std::runtime_error("Invalid classifier policy \""
+                    + pol_name + "\"");
+                return nullptr;
+            }()};
+        }
 
     }
 

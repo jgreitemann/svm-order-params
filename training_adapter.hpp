@@ -36,7 +36,6 @@ public:
     typedef alps::mcbase::parameters_type parameters_type;
 
     using phase_point = typename Simulation::phase_point;
-    using phase_classifier = typename Simulation::phase_classifier;
     using label_t = typename Simulation::phase_label;
 
     using kernel_t = svm::kernel::polynomial<2>;
@@ -55,7 +54,7 @@ public:
 
         // Adds the parameters of the base class
         Simulation::define_parameters(parameters);
-        phase_classifier::define_parameters(parameters);
+        phase_space::classifier::define_parameters<phase_point>(parameters, "classifier.");
         phase_space::sweep::define_parameters<phase_point>(parameters, "sweep.");
         parameters
             .define<std::string>("sweep.policy", "cycle",

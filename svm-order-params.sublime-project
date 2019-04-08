@@ -15,7 +15,7 @@
             "-fopenmp",
             "-fconcepts",
             "-DGAUGE",
-            "-DGAUGE_CLASSIFIER_D2H",
+            "-DGAUGE_CLASSIFIER_PHASE_DIAGRAM",
             "-DHEISENBERG_HAMILTONIAN",
             "-DKAGOME",
         ],

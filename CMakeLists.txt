@@ -32,29 +32,6 @@ else()
   message(FATAL_ERROR "Unknown configuration mapping")
 endif()
 
-set(GAUGE_CLASSIFIER "D2h" CACHE STRING "The classifier used to label samples in the gauge sim")
-if(GAUGE_CLASSIFIER STREQUAL HYPERPLANE)
-  add_definitions(-DGAUGE_CLASSIFIER_HYPERPLANE)
-  message(STATUS "Using gauge classifier: hyperplane")
-elseif(GAUGE_CLASSIFIER STREQUAL CYCLE)
-  add_definitions(-DGAUGE_CLASSIFIER_CYCLE)
-  message(STATUS "Using gauge classifier: fixed_from_cycle")
-elseif(GAUGE_CLASSIFIER STREQUAL D2h)
-  add_definitions(-DGAUGE_CLASSIFIER_D2H)
-  message(STATUS "Using gauge classifier: D2h_phase_diagram")
-elseif(GAUGE_CLASSIFIER STREQUAL D3h)
-  add_definitions(-DGAUGE_CLASSIFIER_D3H)
-  message(STATUS "Using gauge classifier: D3h_phase_diagram")
-elseif(GAUGE_CLASSIFIER STREQUAL GRID)
-  add_definitions(-DGAUGE_CLASSIFIER_GRID)
-  message(STATUS "Using gauge classifier: fixed_from_grid")
-elseif(GAUGE_CLASSIFIER STREQUAL NONUNIFORM_GRID)
-  add_definitions(-DGAUGE_CLASSIFIER_NONUNIFORM_GRID)
-  message(STATUS "Using gauge classifier: fixed_from_nonuniform_grid")
-else()
-  message(FATAL_ERROR "Unknown gauge classifier")
-endif()
-
 set(HAMILTONIAN "heisenberg" CACHE STRING "The Hamiltonian for the frustmag simulation")
 if(HAMILTONIAN STREQUAL heisenberg)
   add_definitions(-DHEISENBERG_HAMILTONIAN)
@@ -106,12 +83,14 @@ target_compile_definitions(ising-learn PUBLIC -DISING)
 
 add_executable(ising-test
     test.cpp
+    phase_space_policy.cpp
     ising/ising.cpp
     )
 target_compile_definitions(ising-test PUBLIC -DISING)
 
 add_executable(ising-coeffs
     coeffs.cpp
+    phase_space_policy.cpp
     ising/ising.cpp
     contraction.cpp
     results.cpp
@@ -140,6 +119,7 @@ target_compile_definitions(gauge-learn PUBLIC -DGAUGE)
 
 add_executable(gauge-test
     test.cpp
+    phase_space_policy.cpp
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
@@ -148,6 +128,7 @@ target_compile_definitions(gauge-test PUBLIC -DGAUGE)
 
 add_executable(gauge-coeffs
     coeffs.cpp
+    phase_space_policy.cpp
     gauge/gauge.cpp
     gauge/nematicities.cpp
     gauge/point_groups.cpp
@@ -187,11 +168,13 @@ target_compile_definitions(frustmag-learn PUBLIC -DFRUSTMAG -DHAS_SVM)
 
 add_executable(frustmag-test
     test.cpp
+    phase_space_policy.cpp
     )
 target_compile_definitions(frustmag-test PUBLIC -DFRUSTMAG -DHAS_SVM)
 
 add_executable(frustmag-coeffs
     coeffs.cpp
+    phase_space_policy.cpp
     contraction.cpp
     results.cpp
     )

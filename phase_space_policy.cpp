@@ -20,23 +20,40 @@
 
 using namespace phase_space;
 
-void classifier::critical_temperature::define_parameters(alps::params & params) {
-    params.define<double>("classifier.critical_temperature.temp_crit",
-                          1., "decriminatory temperature");
+const std::string classifier::critical_temperature::names[] = {
+    "DISORDERED",
+    "ORDERED",
+};
+
+void classifier::critical_temperature::define_parameters(alps::params & params,
+                                                         std::string const& prefix)
+{
+    params.define<double>(prefix + "critical_temperature.temp_crit",
+                          1., "discriminatory temperature");
 }
 
-classifier::critical_temperature::critical_temperature (alps::params const& params)
-    : temp_crit(params["classifier.critical_temperature.temp_crit"].as<double>()) {}
+classifier::critical_temperature::critical_temperature(alps::params const& params,
+                                                       std::string const& prefix)
+    : temp_crit(params[prefix + "critical_temperature.temp_crit"].as<double>()) {}
 
-classifier::critical_temperature::label_type classifier::critical_temperature::operator() (point_type pp) {
-    return (pp.temp < temp_crit
-            ? label::binary::ORDERED
-            : label::binary::DISORDERED);
+auto classifier::critical_temperature::operator()(point_type pp)
+    -> classifier::critical_temperature::label_type
+{
+    return (pp.temp < temp_crit) ? label_type{1.} : label_type{0.};
 }
 
-typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
+std::string classifier::critical_temperature::name(label_type const& l) const {
+    return names[size_t(l)];
+}
+
+size_t classifier::critical_temperature::size() const {
+    return 2;
+}
+
+const typename classifier::phase_diagram<point::J1J3>::map_type
+classifier::phase_diagram_database<point::J1J3>::map {
     {"D2h_Ke", {
-            {label::D2h::O3, {
+            {"O(3)", {
                     {1.34, 0.0},
                     {1.32, 0.4},
                     {1.26, 0.8},
@@ -52,7 +69,7 @@ typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
                     {-0.1, -0.1},
                     {1.34, -0.1}
                 }},
-            {label::D2h::Dinfh, {
+            {"Dinfh", {
                     {1.04, 1.3},
                     {0.78, 1.5},
                     {0.62, 1.6},
@@ -66,7 +83,7 @@ typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
                     {0.88, 1.6},
                     {0.96, 1.5}
                 }},
-            {label::D2h::D2h, {
+            {"D2h", {
                     {1.34, -0.1},
                     {1.34, 0.0},
                     {1.32, 0.4},
@@ -85,7 +102,7 @@ typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
                 }}
         }},
     {"D2h", {
-            {label::D2h::O3, {
+            {"O(3)", {
                     {1.65397566334, 0.0},
                     {1.64426209513, 0.25},
                     {1.60143597214, 0.5},
@@ -102,7 +119,7 @@ typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
                     {-0.1, -0.1},
                     {1.65397566334, -0.1}
                 }},
-            {label::D2h::Dinfh, {
+            {"Dinfh", {
                     {1.24229797657, 1.5},
                     {1.0, 1.68934826357},
                     {0.75, 1.83607892474},
@@ -119,7 +136,7 @@ typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
                     {1.11361516676, 2.0},
                     {1.14552589345, 1.75}
                 }},
-            {label::D2h::D2h, {
+            {"D2h", {
                     {1.65397566334, -0.1},
                     {1.65397566334, 0.0},
                     {1.64426209513, 0.25},
@@ -138,12 +155,9 @@ typename classifier::D2h_phase_diagram::map_type classifier::D2h_map {
                     {100.0, 100.0},
                     {100.0, -0.1}
                 }}
-        }}
-};
-
-typename classifier::D3h_phase_diagram::map_type classifier::D3h_map {
+        }},
     {"D3h", {
-            {label::D3h::O3, {
+            {"O(3)", {
                     {2.245, -0.1},
                     {2.245, 0.0},
                     {2.226, 0.25},
@@ -159,7 +173,7 @@ typename classifier::D3h_phase_diagram::map_type classifier::D3h_map {
                     {-0.1, 2.000},
                     {-0.1, -0.1},
                 }},
-            {label::D3h::Dinfh, {
+            {"Dinfh", {
                     {1.841, 100.0},
                     {1.841, 2.5},
                     {1.839, 2.0},
@@ -178,7 +192,7 @@ typename classifier::D3h_phase_diagram::map_type classifier::D3h_map {
                     {-0.1, 2.000},
                     {-0.1, 100.0},
                 }},
-            {label::D3h::D3h, {
+            {"D3h", {
                     {1.841, 100.0},
                     {1.841, 2.5},
                     {1.839, 2.0},
