@@ -88,6 +88,7 @@ int main(int argc, char** argv)
             return 1;
         }
 
+        phase_point first_point;
         for (int tid = 0; tid < n_clones; ++tid) {
             sim_type sim(parameters, tid);
 
@@ -105,22 +106,25 @@ int main(int argc, char** argv)
             cp[checkpoint_path] >> sim;
 
             if (prob.dim() == 0) {
-                prob = problem_t(sim.surrender_problem(), classifier->get_functor());
+                auto surrendered_problem = sim.surrender_problem();
+                first_point = surrendered_problem[0].second;
+                prob = problem_t(std::move(surrendered_problem), classifier->get_functor());
             } else {
                 prob.append_problem(sim.surrender_problem(), classifier->get_functor());
             }
         }
 
         if (cmdl[{"-i", "--infinite-temperature"}]) {
-            phase_point ppoint = phase_space::point::infinity<phase_point>{}();
-
             training_adapter<sim_base> sim(parameters, 0);
+            sim.update_phase_point(first_point);
 
             size_t N_samples = parameters["sweep.samples"].as<size_t>();
             for (size_t i = 0; i < N_samples; ++i) {
-                sim.sample_config(sim.random_configuration(), ppoint);
+                sim.sample_config(sim.random_configuration(), phase_point{});
             }
-            prob.append_problem(sim.surrender_problem(), classifier->get_functor());
+            prob.append_problem(sim.surrender_problem(), [&](phase_point) {
+                return classifier->infinity_label();
+            });
         }
 
         /* print label statistics */ {

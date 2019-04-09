@@ -43,6 +43,8 @@ auto classifier::critical_temperature::operator()(point_type pp)
 }
 
 std::string classifier::critical_temperature::name(label_type const& l) const {
+    if (size_t(l) >= 2)
+        return classifier::policy<point_type>::name(l);
     return names[size_t(l)];
 }
 

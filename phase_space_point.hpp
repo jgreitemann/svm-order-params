@@ -136,14 +136,5 @@ namespace phase_space {
                     }));
             }
         };
-
-        template <typename Point>
-        struct infinity {
-            Point operator()() const {
-                Point p{};
-                std::fill(p.begin(), p.end(), 999999.);
-                return p;
-            }
-        };
     }
 }

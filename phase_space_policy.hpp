@@ -604,13 +604,21 @@ namespace phase_space {
             using label_type = label::numeric_label<>;
 
             virtual label_type operator()(point_type) = 0;
-            virtual std::string name(label_type const& l) const = 0;
+            virtual std::string name(label_type const& l) const {
+                if (size_t(l) == size())
+                    return "InfT";
+                return "None";
+            }
             virtual size_t size() const = 0;
 
             auto get_functor() {
                 return [this](point_type pp) {
                     return (*this)(pp);
                 };
+            }
+
+            label_type infinity_label() const {
+                return {static_cast<double>(size())};
             }
         };
 
@@ -652,6 +660,8 @@ namespace phase_space {
                 return label_type {double(res)};
             }
             virtual std::string name(label_type const& l) const override {
+                if (size_t(l) >= size())
+                    return policy<point_type>::name(l);
                 std::stringstream ss;
                 ss << l;
                 return ss.str();
@@ -689,6 +699,8 @@ namespace phase_space {
             }
 
             virtual std::string name(label_type const& l) const override {
+                if (size_t(l) >= 2)
+                    return policy<point_type>::name(l);
                 return names[size_t(l)];
             }
 
@@ -762,12 +774,12 @@ namespace phase_space {
                         return {l};
                     l += 1;
                 }
-                throw std::runtime_error("phase diagram point not contained in "
-                                         "any polygon");
-                return label_type();
+                return label_type{static_cast<double>(pairs.size() + 1)};
             }
 
             virtual std::string name(label_type const& l) const override {
+                if (size_t(l) >= size())
+                    return policy<point_type>::name(l);
                 return pairs[size_t(l)].first;
             }
 
@@ -805,8 +817,6 @@ namespace phase_space {
             }
 
             virtual label_type operator()(point_type pp) override {
-                if (pp == infty)
-                    return {static_cast<double>(size())};
                 point::distance<point_type> dist{};
                 auto closest_it = std::min_element(points.begin(), points.end(),
                     [&](point_type const& lhs, point_type const& rhs) {
@@ -816,6 +826,8 @@ namespace phase_space {
             }
 
             virtual std::string name(label_type const& l) const override {
+                if (size_t(l) >= size())
+                    return policy<point_type>::name(l);
                 std::stringstream ss;
                 ss << 'P' << (size_t(l) + 1);
                 return ss.str();
@@ -826,7 +838,6 @@ namespace phase_space {
             }
         private:
             std::vector<point_type> points;
-            const point_type infty = point::infinity<point_type>{}();
         };
 
         template <typename Point>
