@@ -45,8 +45,6 @@ public:
             parameters
                 .define<std::string>("test.filename", "", "test output file name")
                 .define<std::string>("test.txtname", "", "test output txt name")
-                .define<std::string>("test.policy", "line_scan",
-                    "test phase space point sweep policy")
                 ;
         }
     }

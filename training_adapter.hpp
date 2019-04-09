@@ -57,8 +57,6 @@ public:
         phase_space::classifier::define_parameters<phase_point>(parameters, "classifier.");
         phase_space::sweep::define_parameters<phase_point>(parameters, "sweep.");
         parameters
-            .define<std::string>("sweep.policy", "cycle",
-                                 "phase space point sweep policy name")
             .define<size_t>("sweep.samples", 1000,
                             "number of configuration samples taken"
                             " at each phase point")

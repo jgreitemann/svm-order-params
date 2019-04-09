@@ -551,6 +551,8 @@ namespace phase_space {
         void define_parameters(alps::params & params,
                                std::string const& prefix)
         {
+            params.define<std::string>(prefix + "policy", "cycle",
+               "phase space point sweep policy name");
             cycle<Point>::define_parameters(params, prefix);
             grid<Point>::define_parameters(params, prefix);
             nonuniform_grid<Point>::define_parameters(params, prefix);
