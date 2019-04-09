@@ -114,6 +114,45 @@ namespace phase_space {
                 rhs.begin(), rhs.end());
         }
 
+        struct JpmT {
+            static const size_t label_dim = 2;
+            using iterator = double *;
+            using const_iterator = double const *;
+
+            static void define_parameters(alps::params & params, std::string prefix="") {
+                params
+                    .define<double>(prefix + "Jpm", 0., "Jpm coupling")
+                    .define<double>(prefix + "T", 0., "temperature");
+            }
+
+            static bool supplied(alps::params const& params, std::string prefix="") {
+                return params.supplied(prefix + "Jpm")
+                    && params.supplied(prefix + "T");
+            }
+
+            JpmT(alps::params const& params, std::string prefix="")
+                : p{params[prefix + "Jpm"].as<double>(),
+                    params[prefix + "T"].as<double>()} {}
+
+            JpmT() : p{-1, -1} {}
+            JpmT(double Jpm, double T) : p{Jpm, T} {}
+
+            template <class Iterator>
+            JpmT(Iterator begin) : p {*begin, *(++begin)} {}
+
+            const_iterator begin() const { return p; }
+            iterator begin() { return p; }
+            const_iterator end() const { return p + 2; }
+            iterator end() { return p + 2; }
+
+            double const& Jpm() const { return p[0]; }
+            double & Jpm() { return p[0]; }
+            double const& temperature() const { return p[1]; }
+            double & temperature() { return p[1]; }
+
+            double p[2];
+        };
+
         template <typename Point,
                   typename = std::enable_if_t<(Point::label_dim > 0)>>
         std::ostream& operator<< (std::ostream & os, Point const& p) {
@@ -134,6 +173,15 @@ namespace phase_space {
                     [](double a, double b) {
                         return (a - b) * (a - b);
                     }));
+            }
+        };
+
+        template <>
+        struct distance<JpmT> {
+            double operator() (JpmT const& lhs, JpmT const& rhs) const {
+                return sqrt(
+                    0.01 * pow(log(lhs.temperature() / rhs.temperature()), 2.)
+                    + pow(lhs.Jpm() - rhs.Jpm(), 2.));
             }
         };
     }
