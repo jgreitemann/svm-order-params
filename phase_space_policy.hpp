@@ -77,6 +77,11 @@ namespace phase_space {
     };
 
     namespace sweep {
+        template <typename Point>
+        void define_parameters(alps::params &, std::string const&, bool = true);
+
+        template <typename Point>
+        auto from_parameters(alps::params const&, std::string const&, size_t = 0);
 
         template <typename Point, typename RNG = std::mt19937>
         struct policy {
@@ -330,6 +335,84 @@ namespace phase_space {
         };
 
         template <typename Point>
+        struct sweep_grid : public policy<Point> {
+            using point_type = typename policy<Point>::point_type;
+            using rng_type = typename policy<Point>::rng_type;
+
+            static const size_t dim = point_type::label_dim;
+
+            static void define_parameters(alps::params & params,
+                                          std::string const& prefix)
+            {
+                for (size_t i = 1; i <= dim; ++i) {
+                    sweep::define_parameters<point_type>(params,
+                        format_sweep(i, prefix), false);
+                }
+            }
+
+            sweep_grid(alps::params const& params,
+                       std::string const& prefix,
+                       size_t offset = 0)
+            {
+                for (size_t i = 0; i < dim; ++i) {
+                    sweeps[i] = sweep::from_parameters<point_type>(params,
+                        format_sweep(i + 1, prefix));
+                    ns[i] = sweeps[i]->size() - 1;
+                }
+            }
+
+            virtual size_t size() const final override {
+                return std::accumulate(sweeps.begin(), sweeps.end(), 1ul,
+                    [](size_t acc, sweep_ptr const& s) {
+                        return acc * s->size();
+                    });
+            }
+
+            virtual bool yield (point_type & point, rng_type & rng) final override {
+                for (size_t i = 0; i < dim; ++i) {
+                    sweeps[i]->yield(points[i], rng);
+                    ++ns[i];
+                    if (ns[i] == sweeps[i]->size()) {
+                        ns[i] = 0;
+                    } else {
+                        break;
+                    }
+                }
+
+                size_t i = 0;
+                for (double & x : point) {
+                    x = *std::next(points[i].begin(), i);
+                    ++i;
+                }
+                return true;
+            }
+
+            virtual void save (alps::hdf5::archive & ar) const final override {
+                ar["ns"] << std::vector<size_t>{ns.begin(), ns.end()};
+            }
+
+            virtual void load (alps::hdf5::archive & ar) final override {
+                std::vector<size_t> ns_vec;
+                ar["ns"] >> ns_vec;
+                std::copy(ns_vec.begin(), ns_vec.end(), ns.begin());
+            }
+
+            static std::string format_sweep(size_t i,
+                                            std::string const& prefix)
+            {
+                std::stringstream ss;
+                ss << prefix + "sweep_grid.sweep" << i << '.';
+                return ss.str();
+            }
+
+        private:
+            using sweep_ptr = std::unique_ptr<policy<point_type>>;
+            std::array<sweep_ptr, dim> sweeps;
+            std::array<point_type, dim> points;
+            std::array<size_t, dim> ns;
+        };
+
+        template <typename Point>
         struct uniform : public policy<Point> {
             using point_type = typename policy<Point>::point_type;
             using rng_type = typename policy<Point>::rng_type;
@@ -448,8 +531,6 @@ namespace phase_space {
             }
 
             bool yield (point_type & point) {
-                if (n == N)
-                    return false;
                 auto it_a = a.begin();
                 auto it_b = b.begin();
                 double x = 1. * n / (N - 1);
@@ -457,7 +538,7 @@ namespace phase_space {
                     c = *it_b * x + *it_a * (1. - x);
                     ++it_a, ++it_b;
                 }
-                ++n;
+                n = (n + 1) % size();
                 return true;
             }
 
@@ -528,7 +609,7 @@ namespace phase_space {
                     else
                         *it = *it_a + (*it_b - *it_a) * n / (N - 1);
                 }
-                ++n;
+                n = (n + 1) % size();
                 return true;
             }
 
@@ -549,13 +630,16 @@ namespace phase_space {
 
         template <typename Point>
         void define_parameters(alps::params & params,
-                               std::string const& prefix)
+                               std::string const& prefix,
+                               bool allow_recursive)
         {
             params.define<std::string>(prefix + "policy", "cycle",
                "phase space point sweep policy name");
             cycle<Point>::define_parameters(params, prefix);
             grid<Point>::define_parameters(params, prefix);
             nonuniform_grid<Point>::define_parameters(params, prefix);
+            if (allow_recursive)
+                sweep_grid<Point>::define_parameters(params, prefix);
             uniform<Point>::define_parameters(params, prefix);
             uniform_line<Point>::define_parameters(params, prefix);
             line_scan<Point>::define_parameters(params, prefix);
@@ -565,7 +649,7 @@ namespace phase_space {
         template <typename Point>
         auto from_parameters(alps::params const& params,
                              std::string const& prefix,
-                             size_t seed_offset = 0)
+                             size_t seed_offset)
         {
             return std::unique_ptr<policy<Point>>{[&] () -> policy<Point>* {
                 std::string pol_name = params[prefix + "policy"];
@@ -578,6 +662,9 @@ namespace phase_space {
                 if (pol_name == "nonuniform_grid")
                     return dynamic_cast<policy<Point>*>(
                         new nonuniform_grid<Point>(params, prefix, seed_offset));
+                if (pol_name == "sweep_grid")
+                    return dynamic_cast<policy<Point>*>(
+                        new sweep_grid<Point>(params, prefix, seed_offset));
                 if (pol_name == "uniform")
                     return dynamic_cast<policy<Point>*>(
                         new uniform<Point>(params, prefix));
