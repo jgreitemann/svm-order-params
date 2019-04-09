@@ -105,12 +105,19 @@ int main(int argc, char** argv)
             alps::hdf5::archive cp(checkpoint_file, "r");
             cp[checkpoint_path] >> sim;
 
+            auto valid = [size = classifier->size()](label_t const& l) {
+                return size_t(l) <= size;
+            };
             if (prob.dim() == 0) {
                 auto surrendered_problem = sim.surrender_problem();
                 first_point = surrendered_problem[0].second;
-                prob = problem_t(std::move(surrendered_problem), classifier->get_functor());
+                prob = problem_t(std::move(surrendered_problem),
+                    classifier->get_functor(),
+                    valid);
             } else {
-                prob.append_problem(sim.surrender_problem(), classifier->get_functor());
+                prob.append_problem(sim.surrender_problem(),
+                    classifier->get_functor(),
+                    valid);
             }
         }
 
