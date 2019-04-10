@@ -27,6 +27,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <tuple>
@@ -138,28 +139,43 @@ int main(int argc, char** argv)
 
         // read mask if specified
         std::vector<int> mask = [&] {
-            std::string mask_name;
-            if (cmdl({"-m", "--mask"}) >> mask_name) {
-                std::ifstream is{mask_name};
-                if (!is) {
-                    std::cerr << "unable to open mask file: " << mask_name
-                              << "\tskipping...\n";
-                    return std::vector<int>(grid_sweep->size(), 1);
-                }
-                phase_point p;
-                std::vector<int> mask;
-                while (true) {
-                    for (double & x : p)
-                        if (!(is >> x))
+            std::string mask_string;
+            if (cmdl({"-m", "--mask"}) >> mask_string) {
+                std::regex re{"[^:,]+"};
+                auto parse_mask = [&](std::string mask_name) {
+                    log_msg("Applying mask: " + mask_name);
+                    std::ifstream is{mask_name};
+                    if (!is) {
+                        std::cerr << "unable to open mask file: " << mask_name
+                                  << "\tskipping...\n";
+                        return std::vector<int>(grid_sweep->size(), 1);
+                    }
+                    phase_point p;
+                    std::vector<int> mask;
+                    while (true) {
+                        for (double & x : p)
+                            if (!(is >> x))
+                                break;
+                        if (!is)
                             break;
-                    if (!is)
-                        break;
-                    mask.emplace_back();
-                    is >> mask.back();
+                        mask.emplace_back();
+                        is >> mask.back();
+                    }
+                    if (mask.size() != grid_sweep->size())
+                        throw std::runtime_error("inconsistent mask size");
+                    return mask;
+                };
+
+                std::smatch sm;
+                std::regex_search(mask_string, sm, re);
+                std::vector<int> combined_mask = parse_mask(sm.str());
+                while (mask_string = sm.suffix(), std::regex_search(mask_string, sm, re)) {
+                    auto other_mask = parse_mask(sm.str());
+                    std::transform(combined_mask.begin(), combined_mask.end(),
+                        other_mask.begin(), combined_mask.begin(),
+                        std::multiplies<>{});
                 }
-                if (mask.size() != grid_sweep->size())
-                    throw std::runtime_error("inconsistent mask size");
-                return mask;
+                return combined_mask;
             }
             return std::vector<int>(grid_sweep->size(), 1);
         }();
