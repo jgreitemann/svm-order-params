@@ -228,14 +228,15 @@ int main(int argc, char** argv)
 
             os << std::abs(transition.rho()) << '\t' << w << '\n';
 
-            if (dist(phase_points[labels.first], phase_points[labels.second]) > radius)
-                continue;
-
             if (index_map.find(labels.first) == index_map.end()
                 || index_map.find(labels.second) == index_map.end())
             {
                 continue;
             }
+
+            if (dist(phase_points[labels.first], phase_points[labels.second]) > radius)
+                continue;
+
             size_t i = index_map[labels.first], j = index_map[labels.second];
             if (w > 0) {
                 std::copy(phase_points[labels.first].begin(),
