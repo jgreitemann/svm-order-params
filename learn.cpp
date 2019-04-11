@@ -152,7 +152,7 @@ int main(int argc, char** argv)
             std::cout << std::endl;
         }
 
-        {
+        if (!cmdl["--statistics-only"]) {
             // create the model
             svm::parameters<kernel_t> kernel_params(parameters["nu"].as<double>(),
                                                     svm::machine_type::NU_SVC);
