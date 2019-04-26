@@ -236,6 +236,10 @@ int main(int argc, char** argv)
         phase_space::point::distance<phase_point> dist{};
         for (auto const& transition : model.classifiers()) {
             auto labels = transition.labels();
+            if (size_t(labels.first) == phase_points.size()
+                || size_t(labels.second) == phase_points.size())
+                continue;
+
             double w = weight(transition.rho());
 
             // combine weights from auxiliary graphs
