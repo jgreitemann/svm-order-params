@@ -179,6 +179,12 @@ add_executable(frustmag-coeffs
     )
 target_compile_definitions(frustmag-coeffs PUBLIC -DSVMOP_SIMINCL=config_frustmag_sim.hpp -DHAS_SVM)
 
+add_executable(frustmag-segregate-phases
+    segregate_phases.cpp
+    phase_space_policy.cpp
+    )
+target_compile_definitions(frustmag-segregate-phases PUBLIC -DSVMOP_SIMINCL=config_frustmag_sim.hpp -DHAS_SVM)
+
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore
 target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm stdc++fs)
@@ -195,6 +201,7 @@ target_link_libraries(frustmag-sample ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(frustmag-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)
+target_link_libraries(frustmag-segregate-phases ${ALPSCore_LIBRARIES} svm stdc++fs)
 
 install(TARGETS
   ising-learn
@@ -210,4 +217,5 @@ install(TARGETS
   frustmag-learn
   frustmag-test
   frustmag-coeffs
+  frustmag-segregate-phases
   DESTINATION bin)
