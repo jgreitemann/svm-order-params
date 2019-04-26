@@ -32,9 +32,7 @@ public:
     using typename Base::parameters_type;
 
     using typename Base::phase_point;
-    using typename Base::phase_classifier;
     using typename Base::label_t;
-    using typename Base::phase_sweep_policy_type;
 
     using typename Base::kernel_t;
     using typename Base::problem_t;
