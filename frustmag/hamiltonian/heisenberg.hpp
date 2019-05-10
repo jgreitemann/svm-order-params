@@ -20,6 +20,7 @@
 #include "phase_space_point.hpp"
 #include "site/spin_O3.hpp"
 #include "update/single_flip.hpp"
+#include "update/heatbath.hpp"
 #include "update/overrelaxation.hpp"
 #include "update/global_trafo.hpp"
 #include "update/parallel_tempering.hpp"
@@ -96,6 +97,15 @@ struct heisenberg {
         return lattice_;
     }
 
+    auto local_field(site_iterator site_it) const {
+        auto nn = lattice().nearest_neighbors(site_it);
+        return std::accumulate(nn.begin(), nn.end(),
+           Eigen::Vector3d{Eigen::Vector3d::Zero()},
+           [] (auto const& a, auto const& b) {
+               return a + *b;
+           });
+    }
+
     template <typename RNG>
     // requires UniformRandomBitGenerator<RNG>
     bool metropolis(update::single_flip_proposal<lattice_type> const& p,
@@ -122,12 +132,7 @@ struct heisenberg {
     bool metropolis(update::overrelaxation_proposal<lattice_type> const& p,
                     RNG &)
     {
-        auto nn = lattice().nearest_neighbors(p.site_it);
-        auto n = std::accumulate(nn.begin(), nn.end(),
-                                 Eigen::Vector3d{Eigen::Vector3d::Zero()},
-                                 [] (auto const& a, auto const& b) {
-                                     return a + *b;
-                                 });
+        auto n = local_field(p.site_it);
         *(p.site_it) = site_state_type{2. * p.site_it->dot(n) / n.squaredNorm() * n
                                        - *(p.site_it)};
         return true;
@@ -163,6 +168,26 @@ struct heisenberg {
         }
         return true;
     }
+
+    template <typename RNG>
+    // requires UniformRandomBitGenerator<RNG>
+    bool metropolis(update::heatbath_proposal<lattice_type> const& p,
+                    RNG & rng)
+    {
+        site_state_type m = local_field(p.site_it);
+        double alpha = beta * m.norm();
+        double phi_p = std::uniform_real_distribution<double>{0., 2. * M_PI}(rng);
+        double u = std::uniform_real_distribution<double>{}(rng);
+        double cos_theta_p = -1 - std::log(1 - u * (1 - std::exp(-2*alpha))) / alpha;
+        double sin_theta_p = std::sqrt(1 - std::pow(cos_theta_p, 2));
+        site_state_type s_p;
+        s_p << sin_theta_p * std::cos(phi_p),
+               sin_theta_p * std::sin(phi_p),
+               cos_theta_p;
+        *p.site_it = m.relative_spin(s_p);
+        return true;
+    }
+
 
     double log_weight(phase_point const& other) const {
         return (ppoint.temp - other.temp) * energy();

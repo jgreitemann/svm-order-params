@@ -42,24 +42,29 @@ struct spin_O3 : Eigen::Vector3d {
     spin_O3() = default;
 
     spin_O3(Eigen::Vector3d const& other) : Eigen::Vector3d{other} {}
-    
-    template <typename RNG>
-    spin_O3 flipped(RNG & rng, double cos_theta_0 = -1) const {
-        double cos_theta = (*this)[2];
+
+    spin_O3 relative_spin(spin_O3 const& other) const {
+        double norm = this->norm();
+        double cos_theta = (*this)[2] / norm;
         double sin_theta = std::sqrt(1 - std::pow(cos_theta, 2));
-        double cos_phi = (*this)[0] / sin_theta;
-        double sin_phi = (*this)[1] / sin_theta;
+        double cos_phi = (*this)[0] / norm / sin_theta;
+        double sin_phi = (*this)[1] / norm / sin_theta;
         Eigen::Matrix3d R;
         R <<
             cos_theta * cos_phi, -sin_phi, sin_theta * cos_phi,
             cos_theta * sin_phi, cos_phi, sin_theta * sin_phi,
             -sin_theta, 0, cos_theta;
-        spin_O3 ret{R * random(rng, cos_theta_0)};
+        spin_O3 ret{R * other};
 
         // important: renormalize to avoid exponential growth of rounding errors
         ret /= ret.norm();
 
         return ret;
+    }
+
+    template <typename RNG>
+    spin_O3 flipped(RNG & rng, double cos_theta_0 = -1) const {
+        return relative_spin(random(rng, cos_theta_0));
     }
 
     static const size_t size = 3;
