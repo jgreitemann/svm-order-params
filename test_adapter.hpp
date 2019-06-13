@@ -88,6 +88,7 @@ public:
 
     virtual void reset_sweeps(bool skip_therm = false) override {
         Simulation::reset_sweeps(skip_therm);
+        measurements().reset();
     }
 
     virtual void save (alps::hdf5::archive & ar) const override {
