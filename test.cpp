@@ -32,6 +32,7 @@
 #include <map>
 #include <memory>
 #include <mutex>
+#include <regex>
 #include <sstream>
 #include <tuple>
 #include <utility>
@@ -286,8 +287,30 @@ int main(int argc, char** argv)
                    << name << " (error)\n";
                 k += 2;
             };
-            for (std::string const& opname : sim.order_param_names())
+            auto squared_name =
+            [re = std::regex{"^(.+)\\^([0-9]+)$"}](std::string const& name) {
+                std::smatch match;
+                if (std::regex_match(name, match, re)) {
+                    std::stringstream ss;
+                    ss << match[1].str() << '^'
+                       << 2 * std::stoi(match[2].str());
+                    return ss.str();
+                } else {
+                    return name + "^2";
+                }
+            };
+            const auto opnames = sim.order_param_names();
+            for (std::string const& opname : opnames) {
+                auto sqname = squared_name(opname);
                 annotate(opname);
+                if (!all_results.empty()
+                    && all_results.begin()->second.has(sqname))
+                {
+                    if (std::find(opnames.begin(), opnames.end(), sqname) == opnames.end())
+                        annotate(sqname);
+                    annotate(opname + " variance");
+                }
+            }
             if (sim.has_model()) {
                 auto phase_classifier =
                     phase_space::classifier::from_parameters<phase_point>(
@@ -309,9 +332,19 @@ int main(int argc, char** argv)
                 results_type const& res = p.second;
                 std::copy(pp.begin(), pp.end(),
                     std::ostream_iterator<double>{os, "\t"});
-                for (std::string const& opname : sim.order_param_names())
+                for (std::string const& opname : opnames) {
+                    auto sqname = squared_name(opname);
                     os << res[opname].mean<double>() << '\t'
                        << res[opname].error<double>() << '\t';
+                    if (res.has(sqname)) {
+                        if (std::find(opnames.begin(), opnames.end(), sqname) == opnames.end())
+                            os << res[sqname].mean<double>() << '\t'
+                               << res[sqname].error<double>() << '\t';
+                        auto var = res[sqname] - res[opname] * res[opname];
+                        os << var.mean<double>() << '\t'
+                           << var.error<double>() << '\t';
+                   }
+                }
                 if (sim.has_model()) {
                     auto svm_mean = res["SVM"].mean<std::vector<double>>();
                     rescale(svm_mean, 1, 1.);
