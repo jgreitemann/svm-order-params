@@ -71,7 +71,7 @@ public:
 
     virtual void measure () override {
         Simulation::measure();
-        if (has_model() && Simulation::is_thermalized()) {
+        if (has_model() && Simulation::is_thermalized() && Simulation::fraction_completed() < 1.) {
             auto res = model(svm::dataset(confpol->configuration(Simulation::configuration())));
             measurements()["label"] << double(res.first);
 
