@@ -288,13 +288,16 @@ int main(int argc, char** argv)
                 k += 2;
             };
             auto squared_name =
-            [re = std::regex{"^(.+)\\^([0-9]+)$"}](std::string const& name) {
+            [re_exp = std::regex{"^(.+)\\^([0-9]+)$"},
+             re_abs = std::regex{"^\\|(.+)\\|$"}](std::string const& name) {
                 std::smatch match;
-                if (std::regex_match(name, match, re)) {
+                if (std::regex_match(name, match, re_exp)) {
                     std::stringstream ss;
                     ss << match[1].str() << '^'
                        << 2 * std::stoi(match[2].str());
                     return ss.str();
+                } if (std::regex_match(name, match, re_abs)) {
+                    return match[1].str() + "^2";
                 } else {
                     return name + "^2";
                 }
