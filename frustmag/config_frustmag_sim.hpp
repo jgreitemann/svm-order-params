@@ -27,6 +27,7 @@
 #include "lattice/kagome.hpp"
 #include "lattice/dice.hpp"
 #include "update/single_flip.hpp"
+#include "update/heatbath.hpp"
 #include "update/overrelaxation.hpp"
 #include "update/mux.hpp"
 
@@ -96,7 +97,7 @@ template <template <typename> typename Lat>
 struct update_t<hamiltonian::heisenberg<Lat>> {
     template <typename LatticeH>
     using type = update::muxer<
-        update::single_flip
+        update::heatbath
         , update::overrelaxation
         , update::global_trafo
         , update::parallel_tempering
