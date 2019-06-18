@@ -72,13 +72,51 @@ int main(int argc, char** argv)
         auto classifier = phase_space::classifier::from_parameters<phase_point>(
             parameters, "classifier.");
 
-        std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
-
-        int n_clones;
-        if (parameters.is_restored()) {
-            alps::hdf5::archive cp(checkpoint_file, "r");
-
+        auto process_archive = [&](alps::hdf5::archive & cp) {
+            if (!cp.is_open())
+                throw std::runtime_error(
+                    "Unable to open archive: " + cp.get_filename());
+            int n_clones;
             cp["simulation/n_clones"] >> n_clones;
+
+            phase_point first_point;
+            for (int tid = 0; tid < n_clones; ++tid) {
+                sim_type sim(parameters, tid);
+
+                std::string checkpoint_path = [&] {
+                    std::stringstream ss;
+                    ss << "simulation/clones/" << tid;
+                    return ss.str();
+                } ();
+
+                std::cout << "Restoring samples from " << cp.get_filename()
+                        << " (clone " << tid << ")"
+                        << std::endl;
+                cp[checkpoint_path] >> sim;
+
+                auto valid = [size = classifier->size()](label_t const& l) {
+                    return size_t(l) <= size;
+                };
+                if (prob.dim() == 0) {
+                    auto surrendered_problem = sim.surrender_problem();
+                    first_point = surrendered_problem[0].second;
+                    prob = problem_t(std::move(surrendered_problem),
+                        classifier->get_functor(),
+                        valid);
+                } else {
+                    prob.append_problem(sim.surrender_problem(),
+                        classifier->get_functor(),
+                        valid);
+                }
+            }
+            return first_point;
+        };
+
+        phase_point first_point;
+        if (parameters.is_restored()) {
+            std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
+            alps::hdf5::archive cp(checkpoint_file, "r");
+            first_point = process_archive(cp);
         } else {
             std::cerr
             << "The *-learn program no longer samples configurations but only "
@@ -88,37 +126,10 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        phase_point first_point;
-        for (int tid = 0; tid < n_clones; ++tid) {
-            sim_type sim(parameters, tid);
-
-            std::string checkpoint_path = [&] {
-                std::stringstream ss;
-                ss << "simulation/clones/" << tid;
-                return ss.str();
-            } ();
-
-            // If needed, restore the last checkpoint
-            std::cout << "Restoring checkpoint from " << checkpoint_file
-                    << " (thread " << tid << ")"
-                    << std::endl;
-            alps::hdf5::archive cp(checkpoint_file, "r");
-            cp[checkpoint_path] >> sim;
-
-            auto valid = [size = classifier->size()](label_t const& l) {
-                return size_t(l) <= size;
-            };
-            if (prob.dim() == 0) {
-                auto surrendered_problem = sim.surrender_problem();
-                first_point = surrendered_problem[0].second;
-                prob = problem_t(std::move(surrendered_problem),
-                    classifier->get_functor(),
-                    valid);
-            } else {
-                prob.append_problem(sim.surrender_problem(),
-                    classifier->get_functor(),
-                    valid);
-            }
+        auto merge_is = cmdl({"--merge", "-m"});
+        for (std::string name; std::getline(merge_is, name, ':');) {
+            alps::hdf5::archive cp(name, "r");
+            process_archive(cp);
         }
 
         if (cmdl[{"-i", "--infinite-temperature"}]) {
