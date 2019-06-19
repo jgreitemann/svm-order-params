@@ -28,8 +28,12 @@ struct polygon {
                 continue;
             double x = (*ctest - *c1) / (*c2 - *c1);
             ++c1, ++c2, ++ctest;
-            double y = (*c1) * (1. - x) + (*c2) * x;
-            inside ^= y < *ctest;
+            if (ctest == test.end()) {
+                inside = true;
+            } else {
+                double y = (*c1) * (1. - x) + (*c2) * x;
+                inside ^= y < *ctest;
+            }
         }
         return inside;
     }
