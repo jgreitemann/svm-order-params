@@ -210,3 +210,17 @@ classifier::phase_diagram_database<point::J1J3>::map {
                 }}
         }}
 };
+
+const typename classifier::phase_diagram<point::temperature>::map_type
+classifier::phase_diagram_database<point::temperature>::map {
+    {"Kagome", {
+        {"Low", {{0.}, {0.00002}}},
+        {"Inter", {{0.008}, {0.02}}}
+    }},
+    {"Kagome2", {
+        {"I", {{0.}, {0.004}}},
+        {"II", {{0.004}, {0.4}}},
+        {"III", {{0.4}, {10.}}},
+        {"IV", {{10.}, {10000.}}}
+    }}
+};
