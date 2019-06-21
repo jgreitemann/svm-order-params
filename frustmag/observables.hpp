@@ -22,6 +22,7 @@
 #include <alps/accumulators.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <initializer_list>
 #include <iterator>
 #include <numeric>
@@ -42,15 +43,18 @@ namespace obs {
 
         static measurements_t & define(measurements_t & meas) {
             return meas
-                << alps::accumulators::FullBinningAccumulator<double>("Energy");
+                << alps::accumulators::FullBinningAccumulator<double>("Energy")
+                << alps::accumulators::FullBinningAccumulator<double>("Energy^2");
         }
 
         static std::vector<std::string> names() {
-            return {};
+            return {"Energy"};
         }
 
         measurements_t & measure(measurements_t & meas) const {
-            meas["Energy"] << hamiltonian.energy_per_site();
+            double E = hamiltonian.energy_per_site();
+            meas["Energy"] << E;
+            meas["Energy^2"] << E * E;
             return meas;
         }
     };
@@ -61,18 +65,20 @@ namespace obs {
 
         static measurements_t & define(measurements_t & meas) {
             return meas
-                << alps::accumulators::FullBinningAccumulator<double>("AbsMagnetization")
-                << alps::accumulators::FullBinningAccumulator<double>("Magnetization");
+                << alps::accumulators::FullBinningAccumulator<double>("|Magnetization|")
+                << alps::accumulators::FullBinningAccumulator<double>("Magnetization")
+                << alps::accumulators::FullBinningAccumulator<double>("Magnetization^2");
         }
 
         static std::vector<std::string> names() {
-            return {"AbsMagnetization", "Magnetization"};
+            return {"|Magnetization|", "Magnetization"};
         }
 
         measurements_t & measure(measurements_t & meas) const {
             double mag = hamiltonian.magnetization();
-            meas["AbsMagnetization"] << abs(mag);
+            meas["|Magnetization|"] << abs(mag);
             meas["Magnetization"] << mag;
+            meas["Magnetization^2"] << mag * mag;
             return meas;
         }
     };
@@ -83,11 +89,12 @@ namespace obs {
 
         static measurements_t & define(measurements_t & meas) {
             return meas
+                << alps::accumulators::FullBinningAccumulator<double>("Nematicity")
                 << alps::accumulators::FullBinningAccumulator<double>("Nematicity^2");
         }
 
         static std::vector<std::string> names() {
-            return {"Nematicity^2"};
+            return {"Nematicity"};
         }
 
         measurements_t & measure(measurements_t & meas) const {
@@ -101,6 +108,7 @@ namespace obs {
             double nem = std::inner_product(std::begin(Q), std::end(Q),
                                             std::begin(Q), 0)
                 / pow(hamiltonian.lattice().size(), 2) - 1./3;
+            meas["Nematicity"] << sqrt(nem);
             meas["Nematicity^2"] << nem;
             return meas;
         }
@@ -112,11 +120,12 @@ namespace obs {
 
         static measurements_t & define(measurements_t & meas) {
             return meas
+                << alps::accumulators::FullBinningAccumulator<double>("Octupolarity")
                 << alps::accumulators::FullBinningAccumulator<double>("Octupolarity^2");
         }
 
         static std::vector<std::string> names() {
-            return {"Octupolarity^2"};
+            return {"Octupolarity"};
         }
 
         measurements_t & measure(measurements_t & meas) const {
@@ -136,6 +145,7 @@ namespace obs {
                           - 3./5 * std::inner_product(std::begin(S), std::end(S),
                                                       std::begin(S), 0))
                 / pow(hamiltonian.lattice().size(), 2);
+            meas["Octupolarity"] << sqrt(nem);
             meas["Octupolarity^2"] << nem;
             return meas;
         }
