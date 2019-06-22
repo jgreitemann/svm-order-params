@@ -183,11 +183,8 @@ int main(int argc, char** argv)
             ar["/model"] << serial;
         }
         return 0;
-    } catch (const std::runtime_error& exc) {
+    } catch (const std::exception& exc) {
         std::cout << "Exception caught: " << exc.what() << std::endl;
-        return 2;
-    } catch (...) {
-        std::cout << "Unknown exception caught." << std::endl;
         return 2;
     }
 }

@@ -422,8 +422,5 @@ int main(int argc, char** argv) {
     } catch (const std::exception& exc) {
         std::cout << "Exception caught: " << exc.what() << std::endl;
         return 2;
-    } catch (...) {
-        std::cout << "Unknown exception caught." << std::endl;
-        return 2;
     }
 }
