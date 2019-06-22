@@ -151,6 +151,39 @@ namespace obs {
         }
     };
 
+    template <typename LatticeH>
+    struct constraint {
+        LatticeH const& hamiltonian;
+
+        static measurements_t & define(measurements_t & meas) {
+            return meas << alps::accumulators::FullBinningAccumulator<double>("Gamma")
+                        << alps::accumulators::FullBinningAccumulator<double>("Gamma^2");
+        }
+
+        static std::vector<std::string> names() {
+            return {"Gamma"};
+        }
+
+        measurements_t & measure(measurements_t & meas) const {
+            using site_t = typename LatticeH::site_state_type;
+            double sum_norm = 0.;
+            for (auto const& cell : hamiltonian.lattice().cells()) {
+                double sum[site_t::size] = {};
+                for (auto const& Sj : cell) {
+                    for (size_t i = 0; i < site_t::size; ++i) {
+                        sum[i] += Sj[i];
+                    }
+                }
+                sum_norm += std::inner_product(std::begin(sum), std::end(sum),
+                                               std::begin(sum), 0.);
+            }
+            sum_norm = 1 - sum_norm / hamiltonian.lattice().size();
+            meas["Gamma"] << sum_norm;
+            meas["Gamma^2"] << pow(sum_norm, 2);
+            return meas;
+        }
+    };
+
     template <typename LatticeH, template <typename> typename... Obs>
     struct mux : Obs<LatticeH>... {
         mux(LatticeH const& hamiltonian) : Obs<LatticeH>{hamiltonian}... {}
@@ -200,10 +233,11 @@ struct observables : obs::mux<LatticeH, obs::energy, obs::magnetization> {
 template <>
 struct observables<hamiltonian::heisenberg<lattice::kagome>>
     : obs::mux<hamiltonian::heisenberg<lattice::kagome>,
-               obs::energy, obs::magnetization, obs::nematicity, obs::octupolar>
+               obs::energy, obs::magnetization, obs::nematicity, obs::octupolar,
+               obs::constraint>
 {
     observables(hamiltonian::heisenberg<lattice::kagome> const& hamiltonian)
         : obs::mux<hamiltonian::heisenberg<lattice::kagome>,
                    obs::energy, obs::magnetization, obs::nematicity,
-                   obs::octupolar>{hamiltonian} {}
+                   obs::octupolar, obs::constraint>{hamiltonian} {}
 };
