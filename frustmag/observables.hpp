@@ -108,6 +108,7 @@ namespace obs {
             double nem = std::inner_product(std::begin(Q), std::end(Q),
                                             std::begin(Q), 0)
                 / pow(hamiltonian.lattice().size(), 2) - 1./3;
+            nem = std::max(nem, 0.);
             meas["Nematicity"] << sqrt(nem);
             meas["Nematicity^2"] << nem;
             return meas;
@@ -145,6 +146,7 @@ namespace obs {
                           - 3./5 * std::inner_product(std::begin(S), std::end(S),
                                                       std::begin(S), 0))
                 / pow(hamiltonian.lattice().size(), 2);
+            nem = std::max(nem, 0.);
             meas["Octupolarity"] << sqrt(nem);
             meas["Octupolarity^2"] << nem;
             return meas;
