@@ -100,7 +100,8 @@ public:
         Simulation::load(ar);
         bool has_model;
         ar["has_model"] >> has_model;
-        load_model(parameters["outputfile"]);
+        if (has_model)
+            load_model(parameters["outputfile"]);
     }
 
     bool has_model() const {

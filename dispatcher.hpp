@@ -87,9 +87,6 @@ public:
 	, stop_cb{std::move(stop_cb)}
 	, write_cb{std::move(write_cb)}
 	{
-		if (is_master)
-			background_thread = std::thread{[this] { dispatch_job(); }};
-
         if (resumed) {
             std::string checkpoint_path = [&] {
                 std::stringstream ss;
@@ -102,6 +99,10 @@ public:
                 read_cb(cp[checkpoint_path]);
             }
         }
+
+        if (is_master)
+            background_thread = std::thread{[this] { dispatch_job(); }};
+
 	}
 
 	dispatcher(dispatcher const&) = delete;
