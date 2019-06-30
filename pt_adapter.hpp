@@ -279,10 +279,8 @@ struct pt_adapter : public alps::mcbase {
             // reinstate empty accumulators based on prototype
             auto p_it = prototype_measurements.begin();
             auto p_end = prototype_measurements.end();
-            auto m_it = it_bool.first->second.begin();
-            auto m_end = it_bool.first->second.end();
-            for (; p_it != p_end; ++p_it, ++m_it)
-                for (; p_it != p_end && (m_it == m_end || p_it->first != m_it->first); ++p_it)
+            for (; p_it != p_end; ++p_it)
+                if (!it_bool.first->second.has(p_it->first))
                     it_bool.first->second.insert(p_it->first,
                         acc_ptr{p_it->second->new_clone()});
 
