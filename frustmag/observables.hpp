@@ -90,11 +90,13 @@ namespace obs {
         static measurements_t & define(measurements_t & meas) {
             return meas
                 << alps::accumulators::FullBinningAccumulator<double>("Nematicity")
-                << alps::accumulators::FullBinningAccumulator<double>("Nematicity^2");
+                << alps::accumulators::FullBinningAccumulator<double>("Nematicity^2")
+                << alps::accumulators::FullBinningAccumulator<double>("TriNematicity")
+                << alps::accumulators::FullBinningAccumulator<double>("TriNematicity^2");
         }
 
         static std::vector<std::string> names() {
-            return {"Nematicity"};
+            return {"Nematicity", "TriNematicity"};
         }
 
         measurements_t & measure(measurements_t & meas) const {
@@ -111,6 +113,24 @@ namespace obs {
             nem = std::max(nem, 0.);
             meas["Nematicity"] << sqrt(nem);
             meas["Nematicity^2"] << nem;
+            for (auto const& cell : hamiltonian.lattice().cells()) {
+                double S[site_t::size] {};
+                for (auto const& Salpha : cell)
+                    for (size_t a = 0; a < site_t::size; ++a)
+                        S[a] += Salpha[a];
+                for (size_t a = 0, i = 0; a < site_t::size; ++a)
+                    for (size_t b = 0; b < site_t::size; ++b, ++i)
+                        Q[i] -= (S[a] * S[b]) / 3.;
+            }
+            for (double & Qi : Q)
+                Qi /= hamiltonian.lattice().size();
+            for (size_t a = 0, i = 0; a < site_t::size; ++a, i += site_t::size + 1)
+                Q[i] -= 2./9;
+            nem = std::inner_product(std::begin(Q), std::end(Q),
+                                     std::begin(Q), 0);
+            nem = std::max(nem, 0.);
+            meas["TriNematicity"] << sqrt(nem);
+            meas["TriNematicity^2"] << nem;
             return meas;
         }
     };
@@ -122,11 +142,13 @@ namespace obs {
         static measurements_t & define(measurements_t & meas) {
             return meas
                 << alps::accumulators::FullBinningAccumulator<double>("Octupolarity")
-                << alps::accumulators::FullBinningAccumulator<double>("Octupolarity^2");
+                << alps::accumulators::FullBinningAccumulator<double>("Octupolarity^2")
+                << alps::accumulators::FullBinningAccumulator<double>("TriOctupolarity")
+                << alps::accumulators::FullBinningAccumulator<double>("TriOctupolarity^2");
         }
 
         static std::vector<std::string> names() {
-            return {"Octupolarity"};
+            return {"Octupolarity", "TriOctupolarity"};
         }
 
         measurements_t & measure(measurements_t & meas) const {
@@ -149,6 +171,34 @@ namespace obs {
             nem = std::max(nem, 0.);
             meas["Octupolarity"] << sqrt(nem);
             meas["Octupolarity^2"] << nem;
+
+            for (auto const& cell : hamiltonian.lattice().cells()) {
+                double S[site_t::size] {};
+                for (auto const& Salpha : cell)
+                    for (size_t a = 0; a < site_t::size; ++a)
+                        S[a] += Salpha[a];
+                for (size_t a = 0, i = 0; a < site_t::size; ++a) {
+                    for (size_t b = 0; b < site_t::size; ++b) {
+                        for (size_t c = 0; c < site_t::size; ++c, ++i) {
+                            T[i] +=
+                            + cell[0][a] * cell[1][b] * cell[2][c]
+                            + cell[1][a] * cell[2][b] * cell[0][c]
+                            + cell[2][a] * cell[0][b] * cell[1][c]
+                            + cell[1][a] * cell[0][b] * cell[2][c]
+                            + cell[0][a] * cell[2][b] * cell[1][c]
+                            + cell[2][a] * cell[1][b] * cell[0][c]
+                            - (S[a] * S[b] * S[c]) / 3.;
+                        }
+                    }
+                }
+            }
+            for (double & Ti : T)
+                Ti /= 3 * hamiltonian.lattice().size();
+            nem = std::inner_product(std::begin(T), std::end(T),
+                                     std::begin(T), 0);
+            nem = std::max(nem, 0.);
+            meas["TriOctupolarity"] << sqrt(nem);
+            meas["TriOctupolarity^2"] << nem;
             return meas;
         }
     };
