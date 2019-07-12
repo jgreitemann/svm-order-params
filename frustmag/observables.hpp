@@ -144,11 +144,18 @@ namespace obs {
                 << alps::accumulators::FullBinningAccumulator<double>("Octupolarity")
                 << alps::accumulators::FullBinningAccumulator<double>("Octupolarity^2")
                 << alps::accumulators::FullBinningAccumulator<double>("TriOctupolarity")
-                << alps::accumulators::FullBinningAccumulator<double>("TriOctupolarity^2");
+                << alps::accumulators::FullBinningAccumulator<double>("TriOctupolarity^2")
+                << alps::accumulators::FullBinningAccumulator<double>("TsiteOctupolarity")
+                << alps::accumulators::FullBinningAccumulator<double>("TsiteOctupolarity^2")
+                << alps::accumulators::FullBinningAccumulator<double>("TmutOctupolarity")
+                << alps::accumulators::FullBinningAccumulator<double>("TmutOctupolarity^2")
+                << alps::accumulators::FullBinningAccumulator<double>("TconOctupolarity")
+                << alps::accumulators::FullBinningAccumulator<double>("TconOctupolarity^2");
         }
 
         static std::vector<std::string> names() {
-            return {"Octupolarity", "TriOctupolarity"};
+            return {"Octupolarity", "TriOctupolarity", "TsiteOctupolarity",
+                    "TmutOctupolarity", "TconOctupolarity"};
         }
 
         measurements_t & measure(measurements_t & meas) const {
@@ -172,6 +179,8 @@ namespace obs {
             meas["Octupolarity"] << sqrt(nem);
             meas["Octupolarity^2"] << nem;
 
+            double Tmut[site_t::size * site_t::size * site_t::size] {};
+            double Tcon[site_t::size * site_t::size * site_t::size] {};
             for (auto const& cell : hamiltonian.lattice().cells()) {
                 double S[site_t::size] {};
                 for (auto const& Salpha : cell)
@@ -180,20 +189,42 @@ namespace obs {
                 for (size_t a = 0, i = 0; a < site_t::size; ++a) {
                     for (size_t b = 0; b < site_t::size; ++b) {
                         for (size_t c = 0; c < site_t::size; ++c, ++i) {
-                            T[i] +=
+                            Tmut[i] +=
                             + cell[0][a] * cell[1][b] * cell[2][c]
                             + cell[1][a] * cell[2][b] * cell[0][c]
                             + cell[2][a] * cell[0][b] * cell[1][c]
                             + cell[1][a] * cell[0][b] * cell[2][c]
                             + cell[0][a] * cell[2][b] * cell[1][c]
-                            + cell[2][a] * cell[1][b] * cell[0][c]
-                            - (S[a] * S[b] * S[c]) / 3.;
+                            + cell[2][a] * cell[1][b] * cell[0][c];
+                            Tcon[i] -= (S[a] * S[b] * S[c]) / 3.;
                         }
                     }
                 }
             }
             for (double & Ti : T)
                 Ti /= 3 * hamiltonian.lattice().size();
+            for (double & Ti : Tmut)
+                Ti /= 3 * hamiltonian.lattice().size();
+            for (double & Ti : Tcon)
+                Ti /= 3 * hamiltonian.lattice().size();
+            nem = std::inner_product(std::begin(T), std::end(T),
+                                     std::begin(T), 0);
+            meas["TsiteOctupolarity"] << sqrt(nem);
+            meas["TsiteOctupolarity^2"] << nem;
+
+            nem = std::inner_product(std::begin(Tmut), std::end(Tmut),
+                                     std::begin(Tmut), 0);
+            meas["TmutOctupolarity"] << sqrt(nem);
+            meas["TmutOctupolarity^2"] << nem;
+
+            nem = std::inner_product(std::begin(Tcon), std::end(Tcon),
+                                     std::begin(Tcon), 0);
+            meas["TconOctupolarity"] << sqrt(nem);
+            meas["TconOctupolarity^2"] << nem;
+
+            for (size_t i = 0; i < std::end(T) - std::begin(T); ++i) {
+                T[i] += Tmut[i] + Tcon[i];
+            }
             nem = std::inner_product(std::begin(T), std::end(T),
                                      std::begin(T), 0);
             nem = std::max(nem, 0.);
