@@ -884,6 +884,11 @@ namespace phase_space {
             static const typename phase_diagram<point::J1J3>::map_type map;
         };
 
+        template <>
+        struct phase_diagram_database<point::temperature> {
+            static const typename phase_diagram<point::temperature>::map_type map;
+        };
+
         template <typename Point>
         struct fixed_from_sweep : policy<Point> {
             using typename policy<Point>::point_type;
