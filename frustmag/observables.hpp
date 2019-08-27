@@ -108,7 +108,7 @@ namespace obs {
                         Q[i] += Si[a] * Si[b];
             }
             double nem = std::inner_product(std::begin(Q), std::end(Q),
-                                            std::begin(Q), 0)
+                                            std::begin(Q), 0.)
                 / pow(hamiltonian.lattice().size(), 2) - 1./3;
             nem = std::max(nem, 0.);
             meas["Nematicity"] << sqrt(nem);
@@ -127,7 +127,7 @@ namespace obs {
             for (size_t a = 0, i = 0; a < site_t::size; ++a, i += site_t::size + 1)
                 Q[i] -= 2./9;
             nem = std::inner_product(std::begin(Q), std::end(Q),
-                                     std::begin(Q), 0);
+                                     std::begin(Q), 0.);
             nem = std::max(nem, 0.);
             meas["TriNematicity"] << sqrt(nem);
             meas["TriNematicity^2"] << nem;
@@ -171,9 +171,9 @@ namespace obs {
                     S[a] += Si[a];
             }
             double nem = (std::inner_product(std::begin(T), std::end(T),
-                                             std::begin(T), 0)
+                                             std::begin(T), 0.)
                           - 3./5 * std::inner_product(std::begin(S), std::end(S),
-                                                      std::begin(S), 0))
+                                                      std::begin(S), 0.))
                 / pow(hamiltonian.lattice().size(), 2);
             nem = std::max(nem, 0.);
             meas["Octupolarity"] << sqrt(nem);
@@ -208,17 +208,17 @@ namespace obs {
             for (double & Ti : Tcon)
                 Ti /= 3 * hamiltonian.lattice().size();
             nem = std::inner_product(std::begin(T), std::end(T),
-                                     std::begin(T), 0);
+                                     std::begin(T), 0.);
             meas["TsiteOctupolarity"] << sqrt(nem);
             meas["TsiteOctupolarity^2"] << nem;
 
             nem = std::inner_product(std::begin(Tmut), std::end(Tmut),
-                                     std::begin(Tmut), 0);
+                                     std::begin(Tmut), 0.);
             meas["TmutOctupolarity"] << sqrt(nem);
             meas["TmutOctupolarity^2"] << nem;
 
             nem = std::inner_product(std::begin(Tcon), std::end(Tcon),
-                                     std::begin(Tcon), 0);
+                                     std::begin(Tcon), 0.);
             meas["TconOctupolarity"] << sqrt(nem);
             meas["TconOctupolarity^2"] << nem;
 
@@ -226,7 +226,7 @@ namespace obs {
                 T[i] += Tmut[i] + Tcon[i];
             }
             nem = std::inner_product(std::begin(T), std::end(T),
-                                     std::begin(T), 0);
+                                     std::begin(T), 0.);
             nem = std::max(nem, 0.);
             meas["TriOctupolarity"] << sqrt(nem);
             meas["TriOctupolarity^2"] << nem;
