@@ -10,7 +10,7 @@
 	],
 
 	"settings": {
-        "SublimeLinter.linters.gcc.extra_flags": [
+        "SublimeLinter.linters.g++.args": [
         	"-std=c++14",
             "-fopenmp",
             "-fconcepts",
@@ -18,7 +18,7 @@
             "-DHEISENBERG_HAMILTONIAN",
             "-DKAGOME",
         ],
-        "SublimeLinter.linters.gcc.include_dirs": [
+        "SublimeLinter.linters.g++.I": [
             "${project_path}",
         	"${project_path}/colormap",
             "${project_path}/colormap/test/doctest",
