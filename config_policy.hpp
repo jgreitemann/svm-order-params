@@ -376,6 +376,51 @@ private:
 };
 
 
+template <typename Config, typename Introspector,
+          typename SymmetryPolicy, typename ClusterPolicy>
+struct clustered_config_policy
+    : public monomial_config_policy<Config, Introspector, SymmetryPolicy,
+                                    typename ClusterPolicy::ElementPolicy>
+{
+    using ElementPolicy = typename ClusterPolicy::ElementPolicy;
+    using BasePolicy = monomial_config_policy<Config, Introspector,
+                                              SymmetryPolicy, ElementPolicy>;
+    using config_array = typename BasePolicy::config_array;
+
+    using BasePolicy::BasePolicy;
+
+    using BasePolicy::size;
+    using BasePolicy::rank;
+
+    virtual std::vector<double> configuration(config_array const& R) const override final
+    {
+        std::vector<double> v(size());
+        indices_t ind(rank());
+        ClusterPolicy clusters{R};
+        auto w_it = weights().begin();
+        for (double & elem : v) {
+            for (auto && cell : clusters) {
+                double prod = 1;
+                for (size_t a : ind)
+                    prod *= cell[block(a)][component(a)];
+                elem += prod;
+            }
+            elem *= *w_it / clusters.size();
+
+            advance_ind(ind);
+            ++w_it;
+        }
+        return v;
+    }
+
+private:
+    using BasePolicy::advance_ind;
+    using BasePolicy::weights;
+    using ElementPolicy::block;
+    using ElementPolicy::component;
+};
+
+
 struct dummy_introspector {
     double tensor(std::array<size_t, 2>) const {
         throw std::runtime_error("not implemented / don't call");

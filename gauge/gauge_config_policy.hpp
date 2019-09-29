@@ -76,7 +76,7 @@ namespace element_policy {
     };
 }
 
-namespace lattice {
+namespace cluster_policy {
 
     template <typename BaseElementPolicy, typename Container>
     struct single {
@@ -303,49 +303,11 @@ namespace lattice {
 
 
 template <typename Config, typename Introspector,
-          typename SymmetryPolicy, typename LatticePolicy>
-struct gauge_config_policy
-    : public monomial_config_policy<Config, Introspector, SymmetryPolicy,
-                                    typename LatticePolicy::ElementPolicy>
-{
-    using ElementPolicy = typename LatticePolicy::ElementPolicy;
-    using BasePolicy = monomial_config_policy<Config, Introspector,
-                                              SymmetryPolicy, ElementPolicy>;
-    using config_array = typename BasePolicy::config_array;
-
-    using BasePolicy::BasePolicy;
-
-    using BasePolicy::size;
-    using BasePolicy::rank;
-
-    virtual std::vector<double> configuration(config_array const& R) const override final
-    {
-        std::vector<double> v(size());
-        indices_t ind(rank());
-        LatticePolicy lattice{R};
-        auto w_it = weights().begin();
-        for (double & elem : v) {
-            for (auto && cell : lattice) {
-                double prod = 1;
-                for (size_t a : ind)
-                    prod *= cell[block(a)][component(a)];
-                elem += prod;
-            }
-            elem *= *w_it / lattice.size();
-
-            advance_ind(ind);
-            ++w_it;
-        }
-        return v;
-    }
-
-private:
-    using BasePolicy::advance_ind;
-    using BasePolicy::weights;
-    using ElementPolicy::block;
-    using ElementPolicy::component;
-};
-
+          typename SymmetryPolicy, typename ClusterPolicy>
+using gauge_config_policy = clustered_config_policy<Config,
+                                                    Introspector,
+                                                    SymmetryPolicy,
+                                                    ClusterPolicy>;
 
 inline void define_gauge_config_policy_parameters(alps::params & parameters) {
     parameters
@@ -365,14 +327,14 @@ auto gauge_config_policy_from_parameters(alps::params const& parameters,
 #define CONFPOL_CREATE()                                                \
     return std::unique_ptr<config_policy<Config, Introspector>>(        \
         new gauge_config_policy<                                        \
-        Config, Introspector, SymmetryPolicy, LatticePolicy>(           \
+        Config, Introspector, SymmetryPolicy, ClusterPolicy>(           \
             rank, std::move(elempol), unsymmetrize));                   \
 
 
-#define CONFPOL_BRANCH_SYMM(LATNAME, CLSIZE)                        \
-    using LatticePolicy = lattice:: LATNAME <BaseElementPolicy,     \
-                                             Config>;               \
-    using ElementPolicy = typename LatticePolicy::ElementPolicy;    \
+#define CONFPOL_BRANCH_SYMM(CLNAME, CLSIZE)                         \
+    using ClusterPolicy =                                           \
+        cluster_policy:: CLNAME <BaseElementPolicy, Config>;        \
+    using ElementPolicy = typename ClusterPolicy::ElementPolicy;    \
     ElementPolicy elempol{ CLSIZE };                                \
     if (parameters["symmetrized"].as<bool>()) {                     \
         using SymmetryPolicy = symmetry_policy::symmetrized;        \
