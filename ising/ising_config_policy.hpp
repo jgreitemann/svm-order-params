@@ -44,41 +44,11 @@ namespace element_policy {
 }
 
 template <typename Config, typename Introspector, typename SymmetryPolicy>
-struct ising_config_policy
-    : public monomial_config_policy<Config, Introspector, SymmetryPolicy,
-                                    element_policy::Z2_site>
-{
-    using ElementPolicy = element_policy::Z2_site;
-    using BasePolicy = monomial_config_policy<Config, Introspector,
-                                              SymmetryPolicy, ElementPolicy>;
-    using config_array = typename BasePolicy::config_array;
-
-    using BasePolicy::BasePolicy;
-
-    using BasePolicy::size;
-    using BasePolicy::rank;
-
-    virtual std::vector<double> configuration (config_array const& spins) const override final
-    {
-        std::vector<double> v(size());
-        indices_t ind(rank());
-        auto w_it = weights().begin();
-        for (double & elem : v) {
-            elem = 1;
-            for (size_t a : ind)
-                elem *= spins.data()[a];
-            elem *= *w_it;
-
-            advance_ind(ind);
-            ++w_it;
-        }
-        return v;
-    }
-
-private:
-    using BasePolicy::advance_ind;
-    using BasePolicy::weights;
-};
+using ising_config_policy =
+    clustered_config_policy<Config,
+                            Introspector,
+                            SymmetryPolicy,
+                            cluster_policy::stride<element_policy::Z2_site, Config>>;
 
 
 inline void define_ising_config_policy_parameters(alps::params & parameters) {

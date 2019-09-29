@@ -48,6 +48,77 @@ namespace element_policy {
 
 }
 
+namespace cluster_policy {
+    template <typename BaseElementPolicy, typename Container>
+    struct stride {
+        using ElementPolicy = BaseElementPolicy;
+        using site_const_iterator = typename Container::const_iterator;
+
+        struct unitcell;
+        struct const_iterator {
+            const_iterator & operator++ () { sit += range_; return *this; }
+            const_iterator operator++ (int) {
+                const_iterator old(*this);
+                ++(*this);
+                return old;
+            }
+            const_iterator & operator-- () { sit -= range_; return *this; }
+            const_iterator operator-- (int) {
+                const_iterator old(*this);
+                --(*this);
+                return old;
+            }
+            friend bool operator== (const_iterator lhs, const_iterator rhs) { return lhs.sit == rhs.sit; }
+            friend bool operator!= (const_iterator lhs, const_iterator rhs) { return lhs.sit != rhs.sit; }
+            unitcell operator* () const { return {sit, stride_}; }
+            std::unique_ptr<unitcell> operator-> () const {
+                return std::unique_ptr<unitcell>(new unitcell(sit, stride_));
+            }
+            friend stride;
+        private:
+            const_iterator (site_const_iterator it, size_t range, size_t stride)
+                : sit {it}, range_{range}, stride_{stride} {}
+            site_const_iterator sit;
+            size_t range_, stride_;
+        };
+
+        struct unitcell {
+            auto operator[](size_t block) const {
+                return it + block * stride_;
+            }
+            friend const_iterator;
+        private:
+            unitcell (site_const_iterator it, size_t stride)
+                : it{it}, stride_{stride} {}
+            site_const_iterator it;
+            size_t stride_;
+        };
+
+        stride(ElementPolicy && elempol, Container const& linear)
+            : linear{linear}
+            , range_{elempol.range()}
+            , stride_{elempol.range() / elempol.n_block()}
+        {
+        }
+
+        const_iterator begin () const {
+            return {linear.begin(), range_, stride_};
+        }
+
+        const_iterator end () const {
+            return {linear.end(), range_, stride_};
+        }
+
+        size_t size () const {
+            return std::distance(linear.begin(), linear.end()) / range_;
+        }
+
+    private:
+        Container const& linear;
+        size_t range_, stride_;
+    };
+}
+
 namespace symmetry_policy {
 
     struct none {
@@ -396,7 +467,7 @@ struct clustered_config_policy
     {
         std::vector<double> v(size());
         indices_t ind(rank());
-        ClusterPolicy clusters{R};
+        ClusterPolicy clusters{ElementPolicy{*this}, R};
         auto w_it = weights().begin();
         for (double & elem : v) {
             for (auto && cell : clusters) {

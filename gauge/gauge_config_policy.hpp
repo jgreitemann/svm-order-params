@@ -120,7 +120,7 @@ namespace cluster_policy {
             site_const_iterator it;
         };
 
-        single (Container const& linear) : linear(linear) {}
+        single (ElementPolicy, Container const& linear) : linear(linear) {}
 
         const_iterator begin () const {
             return {linear.begin()};
@@ -217,7 +217,7 @@ namespace cluster_policy {
             size_t L;
         };
 
-        square (Container const& linear) : linear(linear) {
+        square (ElementPolicy, Container const& linear) : linear(linear) {
             L = static_cast<size_t>(pow(linear.size() + 0.5, 1./DIM));
             if (combinatorics::ipow(L, DIM) != linear.size())
                 throw std::runtime_error("linear configuration size doesn't match DIM");
@@ -281,7 +281,7 @@ namespace cluster_policy {
             site_const_iterator root;
         };
 
-        full (Container const& linear) : linear(linear) {}
+        full (ElementPolicy, Container const& linear) : linear(linear) {}
 
         const_iterator begin () const {
             return {linear.begin(), linear.size()};

@@ -15,6 +15,7 @@ private:
     std::vector<int> data_;
     size_t ncols;
 public:
+    using const_iterator = std::vector<int>::const_iterator;
     // Constructor
     storage_type(size_t nrows, size_t ncols)
         : data_(nrows * ncols), ncols(ncols)
