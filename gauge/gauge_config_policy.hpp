@@ -112,7 +112,7 @@ namespace lattice {
         struct unitcell {
             auto operator[](size_t block) const {
                 typename Container::const_reference mat = *it;
-                return mat.col(ElementPolicy::color_of_block(block));
+                return mat.row(ElementPolicy::color_of_block(block));
             }
             friend const_iterator;
         private:
@@ -206,7 +206,7 @@ namespace lattice {
                 size_t color = ElementPolicy::color_of_block(block);
                 typename Container::const_reference mat =
                     root[subl ? (idx / L * L + (idx + 1) % L) : idx];
-                return mat.col(color);
+                return mat.row(color);
             }
             friend const_iterator;
         private:
@@ -276,7 +276,7 @@ namespace lattice {
                 size_t subl = ElementPolicy::sublattice_of_block(block);
                 size_t color = ElementPolicy::color_of_block(block);
                 typename Container::const_reference mat = root[subl];
-                return mat.col(color);
+                return mat.row(color);
             }
             site_const_iterator root;
         };
