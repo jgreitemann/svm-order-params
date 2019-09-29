@@ -206,7 +206,7 @@ void ising_sim::load(alps::hdf5::archive & ar) {
 
     // Restore the internal state that came from parameters
     length = parameters["length"];
-    thermalization_sweeps = parameters["thermalization"];
+    thermalization_sweeps = parameters["thermalization_sweeps"];
     // Note: `total_sweeps` is not restored here!
     ppoint.temp = parameters["temperature"].as<double>();
     iexp_ = exp_beta(-1. / ppoint.temp);
