@@ -240,7 +240,7 @@ struct pt_adapter : public alps::mcbase {
         Base::load(ar);
 
         size_t n, index;
-        if (communicator.rank() == 0)
+        if (communicator.rank() == 0 && ar.is_data("pt/permutation"))
             ar["pt/permutation"] >> perm;
         ar["pt/slice_measurements/size"] >> n;
 
