@@ -43,13 +43,14 @@ struct bravais {
     using size_type = std::size_t;
     using lengths_type = std::array<size_t, dim + 1>;
     using unitcell_type = std::array<Site, n_basis>;
+    using unitcell_collection_type = std::vector<unitcell_type>;
 
     template <typename BaseIt>
     struct basic_unitcell_iterator;
     using unitcell_iterator =
-        basic_unitcell_iterator<typename std::vector<unitcell_type>::iterator>;
+        basic_unitcell_iterator<typename unitcell_collection_type::iterator>;
     using unitcell_const_iterator =
-        basic_unitcell_iterator<typename std::vector<unitcell_type>::const_iterator>;
+        basic_unitcell_iterator<typename unitcell_collection_type::const_iterator>;
 
     template <typename BaseIt>
     struct basic_unitcell_iterator {
@@ -313,7 +314,7 @@ struct bravais {
                     plengths.data(), periodic}, 0};
     }
 
-    std::vector<unitcell_type> const& cells() const {
+    unitcell_collection_type const& cells() const {
         return cells_;
     }
 
@@ -371,7 +372,7 @@ private:
     }
 
     bool periodic;
-    std::vector<unitcell_type> cells_;
+    unitcell_collection_type cells_;
     lengths_type plengths;
 };
 
