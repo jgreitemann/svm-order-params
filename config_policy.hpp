@@ -463,7 +463,7 @@ struct clustered_config_policy
     using BasePolicy::size;
     using BasePolicy::rank;
 
-    virtual std::vector<double> configuration(config_array const& R) const override final
+    virtual std::vector<double> configuration(config_array const& R) const override
     {
         std::vector<double> v(size());
         indices_t ind(rank());
