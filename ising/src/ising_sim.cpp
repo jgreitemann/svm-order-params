@@ -4,12 +4,22 @@
  * For use in publications, see ACKNOWLEDGE.TXT
  */
 
-#include "ising.hpp"
-#include "convenience_params.hpp"
-
 #include <algorithm>
+#include <cmath>
+#include <random>
 #include <sstream>
+#include <string>
 
+#include <alps/accumulators.hpp>
+#include <alps/hdf5.hpp>
+
+#include <tksvm/utilities/convenience_params.hpp>
+
+#include <tksvm/ising/config_policy.hpp>
+#include <tksvm/ising/ising_sim.hpp>
+
+
+using namespace tksvm::ising;
 
 // Defines the parameters for the ising simulation
 void ising_sim::define_parameters(parameters_type & parameters) {
@@ -30,7 +40,7 @@ void ising_sim::define_parameters(parameters_type & parameters) {
         .define<double>("temperature", "temperature of the system");
     phase_point::define_parameters(parameters);
 
-    define_ising_config_policy_parameters(parameters);
+    define_config_policy_parameters(parameters);
 }
 
 // Creates a new simulation.

@@ -14,38 +14,34 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "argh.h"
-#include "checkpointing_stop_callback.hpp"
-#include "config_sim_base.hpp"
-#include "dispatcher.hpp"
-#include "embarrassing_adapter.hpp"
-#include "mpi.hpp"
-#include "phase_space_policy.hpp"
-#include "svm-wrapper.hpp"
-#include "test_adapter.hpp"
-
 #include <algorithm>
+#include <exception>
 #include <iostream>
 #include <iterator>
 #include <random>
-#include <sstream>
-#include <stdexcept>
 #include <string>
-#include <utility>
 #include <vector>
 
-#include <alps/accumulators.hpp>
-#include <alps/mc/api.hpp>
-#include <alps/mc/mcbase.hpp>
+#include <argh.h>
+
+#include <alps/params.hpp>
 #include <alps/mc/stop_callback.hpp>
 
+#include <tksvm/config_sim_base.hpp>
+#include <tksvm/sim_adapters/test_adapter.hpp>
+#include <tksvm/utilities/mpi/dispatcher.hpp>
+#include <tksvm/utilities/mpi/mpi.hpp>
+
 #ifdef CONFIG_MAPPING_LAZY
-#include "procrastination_adapter.hpp"
-using sim_type = procrastination_adapter<sim_base>;
+#include <tksvm/sim_adapters/procrastination_adapter.hpp>
+using sim_type = tksvm::procrastination_adapter<tksvm::sim_base>;
 #else
-#include "training_adapter.hpp"
-using sim_type = training_adapter<sim_base>;
+#include <tksvm/sim_adapters/training_adapter.hpp>
+using sim_type = tksvm::training_adapter<tksvm::sim_base>;
 #endif
+
+
+using namespace tksvm;
 
 using kernel_t = typename sim_type::kernel_t;
 using phase_point = typename sim_type::phase_point;
@@ -103,9 +99,9 @@ int main(int argc, char** argv)
         mpi::mutex archive_mutex(comm_world);
 
         using batches_type = sim_type::batcher::batches_type;
-        using proxy_t = dispatcher<batches_type>::archive_proxy_type;
+        using proxy_t = mpi::dispatcher<batches_type>::archive_proxy_type;
 
-        dispatcher<batches_type> dispatch(checkpoint_file,
+        mpi::dispatcher<batches_type> dispatch(checkpoint_file,
             archive_mutex,
             resumed,
             sim_type::batcher{parameters}(all_phase_points),

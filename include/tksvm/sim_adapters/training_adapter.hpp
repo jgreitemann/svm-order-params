@@ -16,19 +16,20 @@
 
 #pragma once
 
-#include "svm-wrapper.hpp"
-#include "hdf5_serialization.hpp"
-#include "phase_space_policy.hpp"
-
-#include <cmath>
-#include <functional>
-#include <iostream>
-#include <limits>
+#include <memory>
 #include <stdexcept>
-#include <type_traits>
+#include <utility>
 
 #include <alps/mc/mcbase.hpp>
 
+#include <svm/svm.hpp>
+#include <svm/serialization/hdf5.hpp>
+
+#include <tksvm/phase_space/classifier.hpp>
+#include <tksvm/phase_space/sweep.hpp>
+
+
+namespace tksvm {
 
 template <class Simulation>
 class training_adapter : public Simulation {
@@ -142,5 +143,7 @@ private:
     size_t i_sample = 0;
 
     problem_t problem;
-    svm::problem_serializer<svm::hdf5_tag, problem_t> prob_serializer;
+    svm::serialization::problem_serializer<svm::hdf5_tag, problem_t> prob_serializer;
 };
+
+}

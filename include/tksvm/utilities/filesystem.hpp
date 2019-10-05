@@ -16,11 +16,13 @@
 
 #pragma once
 
+#include <algorithm>
+#include <string>
 #include <experimental/filesystem>
 
 
+namespace tksvm {
 namespace fs = std::experimental::filesystem;
-
 
 inline std::string replace_extension (std::string const& ini_or_h5, std::string const& new_ext) {
     fs::path ext;
@@ -40,4 +42,6 @@ inline std::string replace_extension (std::string const& ini_or_h5, std::string 
             break;
     }
     return p += new_ext;
+}
+
 }

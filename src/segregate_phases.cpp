@@ -14,11 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "phase_space_policy.hpp"
-#include "svm-wrapper.hpp"
-#include "hdf5_serialization.hpp"
-#include "argh.h"
-
 #include <algorithm>
 #include <cmath>
 #include <fstream>
@@ -27,16 +22,31 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <random>
 #include <regex>
-#include <sstream>
+#include <stdexcept>
 #include <string>
 #include <tuple>
-#include <type_traits>
+#include <utility>
 #include <vector>
+
+#include <argh.h>
+
+#include <alps/hdf5.hpp>
+#include <alps/params.hpp>
 
 #include <Eigen/Eigenvalues>
 
-#include "config_sim_base.hpp"
+#include <svm/svm.hpp>
+#include <svm/serialization/hdf5.hpp>
+
+#include <tksvm/config_sim_base.hpp>
+#include <tksvm/phase_space/classifier.hpp>
+#include <tksvm/phase_space/sweep.hpp>
+#include <tksvm/phase_space/point/common.hpp>
+
+
+using namespace tksvm;
 
 using phase_point = typename sim_base::phase_point;
 using kernel_t = svm::kernel::polynomial<2>;
@@ -78,7 +88,7 @@ int main(int argc, char** argv)
     model_t model;
     {
         alps::hdf5::archive ar(arname, "r");
-        svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+        svm::serialization::model_serializer<svm::hdf5_tag, model_t> serial(model);
         ar["model"] >> serial;
     }
 

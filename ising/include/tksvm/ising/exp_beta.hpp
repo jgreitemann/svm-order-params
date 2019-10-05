@@ -4,12 +4,14 @@
  * For use in publications, see ACKNOWLEDGE.TXT
  */
 
-#ifndef ALPS_TUTORIALS_MC_ISING2_EXP_BETA_HPP_9acbc85664694341b6ccec3bbda91e31
-#define ALPS_TUTORIALS_MC_ISING2_EXP_BETA_HPP_9acbc85664694341b6ccec3bbda91e31
+#pragma once
 
 #include <cassert>
 #include <cmath>
 #include <vector>
+
+namespace tksvm {
+namespace ising {
 
 /// Functor class for table-lookup implementation of exp(beta*delta) for 2D Ising. Note: no "minus" sign!
 class exp_beta {
@@ -54,4 +56,5 @@ class exp_beta {
     }
 };
 
-#endif /* ALPS_TUTORIALS_MC_ISING2_EXP_BETA_HPP_9acbc85664694341b6ccec3bbda91e31 */
+}
+}

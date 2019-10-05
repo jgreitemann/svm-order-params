@@ -16,14 +16,17 @@
 
 #pragma once
 
-#include <alps/utilities/mpi.hpp>
-
 #include <chrono>
+#include <exception>
+#include <iterator>
 #include <stdexcept>
 #include <thread>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#include <alps/utilities/mpi.hpp>
+
 
 namespace {
 
@@ -47,6 +50,7 @@ namespace {
 
 }
 
+namespace tksvm {
 namespace mpi {
 
     using alps::mpi::communicator;
@@ -409,4 +413,5 @@ namespace mpi {
         return {sub, alps::mpi::take_ownership};
     }
 
+}
 }

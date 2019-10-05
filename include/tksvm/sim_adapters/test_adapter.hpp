@@ -16,14 +16,22 @@
 
 #pragma once
 
-#include "hdf5_serialization.hpp"
-#include "phase_space_policy.hpp"
-#include "svm-wrapper.hpp"
-
+#include <algorithm>
+#include <functional>
+#include <memory>
+#include <string>
 #include <tuple>
+#include <vector>
 
 #include <alps/mc/mcbase.hpp>
 
+#include <svm/svm.hpp>
+#include <svm/serialization/hdf5.hpp>
+
+#include <tksvm/phase_space/sweep.hpp>
+
+
+namespace tksvm {
 
 template <class Simulation>
 class test_adapter : public Simulation {
@@ -118,7 +126,9 @@ private:
     void load_model(std::string const& arname) {
         alps::hdf5::archive ar(arname, "r");
 
-        svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+        svm::serialization::model_serializer<svm::hdf5_tag, model_t> serial(model);
         ar["model"] >> serial;
     }
 };
+
+}

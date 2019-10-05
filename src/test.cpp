@@ -14,36 +14,54 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "argh.h"
-#include "config_sim_base.hpp"
-#include "dispatcher.hpp"
-#include "embarrassing_adapter.hpp"
-#include "filesystem.hpp"
-#include "mpi.hpp"
-#include "pt_adapter.hpp"
-#include "svm-wrapper.hpp"
-#include "test_adapter.hpp"
+// #include "argh.h"
+// #include "config_sim_base.hpp"
+// #include "dispatcher.hpp"
+// #include "embarrassing_adapter.hpp"
+// #include "filesystem.hpp"
+// #include "mpi.hpp"
+// #include "pt_adapter.hpp"
+// #include "svm-wrapper.hpp"
+// #include "test_adapter.hpp"
 
 #include <algorithm>
 #include <cmath>
-#include <iomanip>
+#include <exception>
+#include <fstream>
+#include <functional>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <map>
-#include <memory>
 #include <mutex>
+#include <random>
 #include <regex>
 #include <sstream>
+#include <string>
 #include <tuple>
-#include <utility>
+#include <vector>
 
+#include <argh.h>
+
+#include <alps/hdf5.hpp>
+#include <alps/params.hpp>
 #include <alps/accumulators.hpp>
 #include <alps/mc/api.hpp>
-#include <alps/mc/mcbase.hpp>
 #include <alps/mc/stop_callback.hpp>
-#include <alps/hdf5/multi_array.hpp>
 
-#include <boost/multi_array.hpp>
+#include <svm/svm.hpp>
+#include <svm/serialization/hdf5.hpp>
+
+#include <tksvm/config_sim_base.hpp>
+#include <tksvm/phase_space/classifier.hpp>
+#include <tksvm/phase_space/sweep.hpp>
+#include <tksvm/sim_adapters/test_adapter.hpp>
+#include <tksvm/utilities/filesystem.hpp>
+#include <tksvm/utilities/mpi/dispatcher.hpp>
+#include <tksvm/utilities/mpi/mpi.hpp>
+
+
+using namespace tksvm;
 
 using sim_type = test_adapter<sim_base>;
 using results_type = alps::results_type<sim_type>::type;
@@ -121,7 +139,7 @@ int main(int argc, char** argv)
                 alps::hdf5::archive ar(arname, "r");
 
                 model_t model;
-                svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+                svm::serialization::model_serializer<svm::hdf5_tag, model_t> serial(model);
                 ar["model"] >> serial;
                 for (auto const& c : model.classifiers())
                     cl.push_back({c.labels().first, c.labels().second, c.rho()});
@@ -134,9 +152,9 @@ int main(int argc, char** argv)
         alps::stop_callback stop_cb(parameters["timelimit"].as<size_t>());
 
         using batches_type = typename sim_type::batcher::batches_type;
-        using proxy_t = dispatcher<batches_type>::archive_proxy_type;
+        using proxy_t = mpi::dispatcher<batches_type>::archive_proxy_type;
 
-        dispatcher<batches_type> dispatch(test_filename,
+        mpi::dispatcher<batches_type> dispatch(test_filename,
             archive_mutex,
             resumed,
             sim_type::batcher{parameters}(all_phase_points),

@@ -14,27 +14,32 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "argh.h"
-#include "config_policy.hpp"
-#include "contraction.hpp"
-#include "matrix_output.hpp"
-
-#include <algorithm>
-#include <iostream>
 #include <sstream>
 #include <stdexcept>
-#include <vector>
+#include <string>
+
+#include <argh.h>
 
 #include <boost/multi_array.hpp>
 
+#include <colormap/colormap.hpp>
+
+#include <tksvm/config/block_policy.hpp>
+#include <tksvm/element_policy/components.hpp>
+#include <tksvm/symmetry_policy/none.hpp>
+#include <tksvm/utilities/contraction.hpp>
+#include <tksvm/utilities/matrix_output.hpp>
+
+
+using namespace tksvm;
 
 int main(int argc, char** argv) {
     argh::parser cmdl;
     cmdl.parse(argc, argv, argh::parser::SINGLE_DASH_IS_MULTIFLAG);
 
     using ElementPolicy = element_policy::components;
-    using confpol_t = block_config_policy<symmetry_policy::none,
-                                          ElementPolicy>;
+    using confpol_t = config::block_policy<symmetry_policy::none,
+                                           ElementPolicy>;
     size_t rank;
     if (!(cmdl(1) >> rank))
         throw std::runtime_error("invalid rank '" + cmdl[1] + "'");
@@ -64,7 +69,7 @@ int main(int argc, char** argv) {
             for (size_t j = 0; j < block.size(); ++j)
                 c[i][j] = contractions[k](block[i].second, block[j].second) ? 1 : 0;
 
-        write_matrix(c, cname, color::grayscale.rescale(1, 0));
+        write_matrix(c, cname, colormap::grayscale.rescale(1, 0));
     }
 
 }

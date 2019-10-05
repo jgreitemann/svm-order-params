@@ -16,12 +16,9 @@
 
 #pragma once
 
-#include "mpi.hpp"
-
 #include <algorithm>
 #include <chrono>
 #include <functional>
-#include <iostream>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -31,6 +28,12 @@
 #include <vector>
 
 #include <alps/hdf5/archive.hpp>
+
+#include <tksvm/utilities/mpi/mpi.hpp>
+
+
+namespace tksvm {
+namespace mpi {
 
 template <typename BatchesContainer>
 struct dispatcher {
@@ -216,3 +219,6 @@ private:
         }
 	}
 };
+
+}
+}

@@ -14,30 +14,42 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "config_policy.hpp"
-#include "config_sim_base.hpp"
-#include "results.hpp"
-#include "svm-wrapper.hpp"
-#include "hdf5_serialization.hpp"
-#include "colormap.hpp"
-#include "argh.h"
-#include "filesystem.hpp"
-#include "contraction.hpp"
-#include "matrix_output.hpp"
-
-#include <array>
+#include <algorithm>
+#include <exception>
+#include <fstream>
 #include <iostream>
 #include <regex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <vector>
+
+#include <argh.h>
 
 #include <alps/hdf5.hpp>
+#include <alps/params.hpp>
 
 #include <boost/multi_array.hpp>
 
+#include <colormap/colormap.hpp>
+
 #include <Eigen/SVD>
 
+#include <svm/svm.hpp>
+#include <svm/serialization/hdf5.hpp>
+
+#include <tksvm/config_sim_base.hpp>
+#include <tksvm/config/block_policy.hpp>
+#include <tksvm/element_policy/components.hpp>
+#include <tksvm/phase_space/classifier.hpp>
+#include <tksvm/utilities/contraction.hpp>
+#include <tksvm/utilities/filesystem.hpp>
+#include <tksvm/utilities/matrix_output.hpp>
+#include <tksvm/utilities/results/results.hpp>
+
+
 using kernel_t = svm::kernel::polynomial<2>;
+using namespace tksvm;
 
 
 int main(int argc, char** argv) {
@@ -72,7 +84,7 @@ int main(int argc, char** argv) {
         model_t model;
         {
             alps::hdf5::archive ar(arname, "r");
-            svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+            svm::serialization::model_serializer<svm::hdf5_tag, model_t> serial(model);
             ar["model"] >> serial;
         }
 
@@ -146,8 +158,8 @@ int main(int argc, char** argv) {
                         log_msg("Analyzing contractions...");
 
                         using ElementPolicy = element_policy::components;
-                        using confpol_t = block_config_policy<symmetry_policy::none,
-                                                              ElementPolicy>;
+                        using confpol_t = config::block_policy<symmetry_policy::none,
+                                                               ElementPolicy>;
                         confpol_t block_confpol(confpol->rank(),
                                                 ElementPolicy{confpol->n_components()},
                                                 false);
@@ -204,7 +216,7 @@ int main(int argc, char** argv) {
                                                    "."
                                                    + block_str(bi.first, bj.first)
                                                    + ".coeffs"),
-                                 color::palettes.at("rdwhbu").rescale(-1, 1));
+                                 colormap::palettes.at("rdwhbu").rescale(-1, 1));
                 } else {
                     coeffs.resize(boost::extents[bi.second.size()][bj.second.size()]);
                     log_msg("Filling coeffs...");
@@ -223,7 +235,7 @@ int main(int argc, char** argv) {
                                                    "."
                                                    + block_str(bi.first, bj.first)
                                                    + ".coeffs"),
-                                 color::palettes.at("rdwhbu").rescale(-1, 1));
+                                 colormap::palettes.at("rdwhbu").rescale(-1, 1));
                 }
 
             } else {
@@ -314,7 +326,7 @@ int main(int argc, char** argv) {
                     log_msg("Writing coeffs...");
                     write_matrix(rearranged_coeffs,
                                  replace_extension(basename, ".coeffs"),
-                                 color::palettes.at("rdwhbu").rescale(-1, 1));
+                                 colormap::palettes.at("rdwhbu").rescale(-1, 1));
                     if (cmdl[{"-e", "--exact"}] || cmdl[{"-d", "--diff"}]) {
                         alps::params nosymm_params(parameters);
                         nosymm_params["symmetrized"] = false;
@@ -328,7 +340,7 @@ int main(int argc, char** argv) {
                             if (cmdl[{"-e", "--exact"}]) {
                                 write_matrix(exact,
                                              replace_extension(basename, ".exact"),
-                                             color::palettes.at("rdwhbu").rescale(-1, 1));
+                                             colormap::palettes.at("rdwhbu").rescale(-1, 1));
                             }
 
                             if (cmdl[{"-d", "--diff"}]) {
@@ -349,7 +361,7 @@ int main(int argc, char** argv) {
                                           << std::endl;
                                 write_matrix(rearranged_coeffs,
                                             replace_extension(basename, ".diff"),
-                                            color::palettes.at("rdwhbu").rescale(-1, 1));
+                                            colormap::palettes.at("rdwhbu").rescale(-1, 1));
                                 std::cout << "deviation metric: "
                                           << double(norm_diff) << '\n'
                                           << "total Frobenius norm: "
@@ -381,7 +393,7 @@ int main(int argc, char** argv) {
                     log_msg("Writing coeffs...");
                     write_matrix(coeffs,
                                  replace_extension(basename, ".coeffs"),
-                                 color::palettes.at("rdwhbu").rescale(-1, 1));
+                                 colormap::palettes.at("rdwhbu").rescale(-1, 1));
                 }
                 {
                     log_msg("Block structure...");
@@ -389,11 +401,11 @@ int main(int argc, char** argv) {
                     normalize_matrix(block_structure.first);
                     write_matrix(block_structure.first,
                                 replace_extension(basename, ".blocks.norm2"),
-                                color::palettes.at("whgnbu"));
+                                colormap::palettes.at("whgnbu"));
                     normalize_matrix(block_structure.second);
                     write_matrix(block_structure.second,
                                 replace_extension(basename, ".blocks.sum"),
-                                color::palettes.at("rdwhbu").rescale(-1, 1));
+                                colormap::palettes.at("rdwhbu").rescale(-1, 1));
                 }
             }
         };

@@ -16,12 +16,6 @@
 
 #pragma once
 
-#include "config_serialization.hpp"
-#include "embarrassing_adapter.hpp"
-#include "point_groups.hpp"
-#include "phase_space_policy.hpp"
-#include "gauge_config_policy.hpp"
-
 #include <cmath>
 #include <memory>
 #include <random>
@@ -34,6 +28,19 @@
 
 #include <Eigen/Dense>
 
+#include <tksvm/config/policy.hpp>
+#include <tksvm/config/serializer.hpp>
+#include <tksvm/phase_space/classifier/policy.hpp>
+#include <tksvm/phase_space/sweep/policy.hpp>
+#include <tksvm/sim_adapters/embarrassing_adapter.hpp>
+
+#include <tksvm/gauge/config_policy.hpp>
+#include <tksvm/gauge/phase_space/point/J1J3.hpp>
+#include <tksvm/gauge/point_groups.hpp>
+
+
+namespace tksvm {
+namespace gauge {
 
 constexpr double pi2(boost::math::constants::two_pi<double>());
 
@@ -115,14 +122,14 @@ public:
     static void define_parameters(parameters_type & parameters);
 
     template <typename Introspector>
-    using config_policy_type = config_policy<Rt_array, Introspector>;
+    using config_policy_type = config::policy<Rt_array, Introspector>;
 
     template <typename Introspector>
     static auto config_policy_from_parameters(parameters_type const& parameters,
                                               bool unsymmetrize = true)
         -> std::unique_ptr<config_policy_type<Introspector>>
     {
-        return gauge_config_policy_from_parameters<Rt_array, Introspector>(
+        return gauge::config_policy_from_parameters<Rt_array, Introspector>(
             parameters, unsymmetrize);
     }
 
@@ -187,9 +194,15 @@ public:
     virtual bool update_phase_point(phase_point const&) override;
 };
 
+}
+
+using sim_base = gauge::gauge_sim;
+
+namespace config {
+
 template <>
-struct config_serializer<gauge_sim::Rt_array> {
-    using config_t = gauge_sim::Rt_array;
+struct serializer<gauge::gauge_sim::Rt_array> {
+    using config_t = gauge::gauge_sim::Rt_array;
     template <typename OutputIterator>
     void serialize(config_t const& conf, OutputIterator it) const {
         for (auto const& mat : conf) {
@@ -213,4 +226,6 @@ struct config_serializer<gauge_sim::Rt_array> {
     }
 };
 
-using sim_base = gauge_sim;
+}
+
+}

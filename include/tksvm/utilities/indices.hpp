@@ -22,6 +22,8 @@
 #include <vector>
 
 
+namespace tksvm {
+
 using indices_t = std::vector<size_t>;
 
 using index_assoc_t = std::pair<size_t, indices_t>;
@@ -50,4 +52,6 @@ inline std::string block_str (indices_t const& bii, indices_t const& bjj) {
     ss << '[' << block_indices_t{bii}
     << ';' << block_indices_t{bjj} << ']';
     return ss.str();
+}
+
 }

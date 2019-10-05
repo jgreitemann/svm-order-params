@@ -15,11 +15,18 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
-#include <boost/multi_array.hpp>
-#include "Eigen/Dense"
-#include <string>
-#include <boost/math/constants/constants.hpp>
+
 #include <iostream>
+#include <string>
+
+#include <boost/math/constants/constants.hpp>
+#include <boost/multi_array.hpp>
+
+#include <Eigen/Dense>
+
+
+namespace tksvm {
+namespace gauge {
 
 /*golden ratio*/
 constexpr double gr(boost::math::constants::phi<double>());
@@ -65,4 +72,7 @@ class point_groups {
 
 	void determine_symmetry(std::string str1, int size, bool hds, Rt_array& arr1);
 
-	};
+};
+
+}
+}

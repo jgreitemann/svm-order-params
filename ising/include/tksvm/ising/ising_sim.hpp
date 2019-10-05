@@ -6,13 +6,24 @@
 
 #pragma once
 
-#include "embarrassing_adapter.hpp"
-#include "ising_config_policy.hpp"
-#include "storage_type.hpp"
-#include "exp_beta.hpp"
-#include "phase_space_policy.hpp"
-
+#include <memory>
 #include <random>
+#include <string>
+#include <vector>
+
+#include <tksvm/config/policy.hpp>
+#include <tksvm/phase_space/classifier/policy.hpp>
+#include <tksvm/phase_space/point/temperature.hpp>
+#include <tksvm/sim_adapters/embarrassing_adapter.hpp>
+#include <tksvm/phase_space/sweep/policy.hpp>
+
+#include <tksvm/ising/config_policy.hpp>
+#include <tksvm/ising/exp_beta.hpp>
+#include <tksvm/ising/storage_type.hpp>
+
+
+namespace tksvm {
+namespace ising {
 
 // Simulation class for 2D Ising model (square lattice).
 // Extends alps::mcbase, the base class of all Monte Carlo simulations.
@@ -57,14 +68,14 @@ public:
     virtual bool update_phase_point(phase_point const&) override;
 
     template <typename Introspector>
-    using config_policy_type = config_policy<storage_type, Introspector>;
+    using config_policy_type = config::policy<storage_type, Introspector>;
 
     template <typename Introspector>
     static auto config_policy_from_parameters(parameters_type const& parameters,
                                               bool unsymmetrize = true)
         -> std::unique_ptr<config_policy_type<Introspector>>
     {
-        return ising_config_policy_from_parameters<storage_type, Introspector>(
+        return ising::config_policy_from_parameters<storage_type, Introspector>(
             parameters, unsymmetrize);
     }
 
@@ -78,4 +89,8 @@ public:
     virtual void load(alps::hdf5::archive & ar);
 };
 
-using sim_base = ising_sim;
+}
+
+using sim_base = ising::ising_sim;
+
+}

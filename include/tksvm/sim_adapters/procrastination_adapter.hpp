@@ -16,14 +16,20 @@
 
 #pragma once
 
-#include "config_serialization.hpp"
-#include "hdf5_serialization.hpp"
-#include "training_adapter.hpp"
-
+#include <algorithm>
 #include <deque>
+#include <iterator>
 #include <sstream>
+#include <utility>
+#include <vector>
 
 #include <boost/multi_array.hpp>
+
+#include <tksvm/config/serializer.hpp>
+#include <tksvm/sim_adapters/training_adapter.hpp>
+
+
+namespace tksvm {
 
 template <class Simulation>
 class procrastination_adapter : public training_adapter<Simulation> {
@@ -54,7 +60,7 @@ public:
     virtual void save (alps::hdf5::archive & ar) const override {
         Base::save(ar);
         if (!config_buffer.empty()) {
-            config_serializer<config_array> serializer;
+            config::serializer<config_array> serializer;
             size_t config_size = [&] {
                 auto config = Simulation::configuration();
                 std::vector<double> dummy;
@@ -76,12 +82,11 @@ public:
 
     using alps::mcbase::load;
     virtual void load (alps::hdf5::archive & ar) override {
-        using namespace std::literals::string_literals;
         Base::load(ar);
 
         boost::multi_array<double, 2> buffer_multi_array;
         ar["training/config_buffer"] >> buffer_multi_array;
-        config_serializer<config_array> serializer;
+        config::serializer<config_array> serializer;
         for (auto const& row : buffer_multi_array) {
             config_buffer.push_back({Simulation::configuration(),
                 {row.begin()}});
@@ -112,3 +117,5 @@ private:
 
     using Base::confpol;
 };
+
+}

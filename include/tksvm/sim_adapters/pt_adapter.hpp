@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include "mpi.hpp"
-
 #include <algorithm>
 #include <chrono>
 #include <functional>
 #include <iterator>
 #include <map>
+#include <memory>
+#include <numeric>
 #include <random>
 #include <sstream>
 #include <stdexcept>
@@ -36,6 +36,11 @@
 #include <alps/mc/mcbase.hpp>
 
 #include <boost/function.hpp>
+
+#include <tksvm/utilities/mpi/mpi.hpp>
+
+
+namespace tksvm {
 
 template <typename Point>
 struct iso_batcher {
@@ -482,13 +487,9 @@ public:
                 mpi::send(communicator, static_cast<int>(acc), partner_rank,
                     acceptance_tag);
                 if (acc) {
-                    // std::cout << "successful PT update (ranks " << communicator.rank()
-                    // << " and " << partner_rank << ")" << std::endl;
                     mpi::send(communicator,
                         static_cast<int>(query_type::acceptance), 0, query_tag);
                 } else {
-                    // std::cout << "failed PT update (ranks " << communicator.rank()
-                    // << " and " << partner_rank << ")" << std::endl;
                     mpi::send(communicator,
                         static_cast<int>(query_type::rejection), 0, query_tag);
                 }
@@ -525,3 +526,4 @@ public:
     }
 };
 
+}

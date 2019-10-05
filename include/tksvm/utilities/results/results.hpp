@@ -16,10 +16,6 @@
 
 #pragma once
 
-#include "config_policy.hpp"
-#include "indices.hpp"
-
-#include <initializer_list>
 #include <map>
 #include <memory>
 #include <string>
@@ -28,7 +24,11 @@
 
 #include <boost/multi_array.hpp>
 
+#include <tksvm/symmetry_policy/none.hpp>
+#include <tksvm/utilities/indices.hpp>
 
+
+namespace tksvm {
 namespace results {
 
     struct index_rule {
@@ -154,4 +154,5 @@ namespace results {
         }
     };
 
+}
 }

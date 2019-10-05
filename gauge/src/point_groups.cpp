@@ -14,7 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "point_groups.hpp"
+#include <iostream>
+#include <string>
+
+#include <boost/multi_array.hpp>
+
+#include <tksvm/gauge/point_groups.hpp>
+
+
+using namespace tksvm::gauge;
 
 void point_groups::determine_symmetry(std::string str1, int size, bool hds, Rt_array& arr1)
 {

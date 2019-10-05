@@ -7,7 +7,12 @@
 #pragma once
 
 #include <vector>
+
 #include <alps/hdf5.hpp>
+
+
+namespace tksvm {
+namespace ising {
 
 // Storage class for 2D spin array.
 class storage_type {
@@ -51,3 +56,6 @@ public:
         ar["ncols"] >> ncols;
     }
 };
+
+}
+}

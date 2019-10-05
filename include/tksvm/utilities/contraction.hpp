@@ -16,14 +16,16 @@
 
 #pragma once
 
-#include "indices.hpp"
-
 #include <iostream>
 #include <utility>
 #include <vector>
 
 #include <Eigen/Dense>
 
+#include <tksvm/utilities/indices.hpp>
+
+
+namespace tksvm {
 
 struct contraction {
     typedef std::vector<size_t> ep_type;
@@ -47,3 +49,5 @@ using contraction_vector_t = Eigen::Matrix<double, Eigen::Dynamic, 1>;
 contraction_matrix_t contraction_matrix(std::vector<contraction> const&,
                                         index_assoc_vec const& is,
                                         index_assoc_vec const& js);
+
+}

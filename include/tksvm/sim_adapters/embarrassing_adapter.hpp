@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include "mpi.hpp"
-
 #include <algorithm>
+#include <functional>
 #include <iterator>
 #include <vector>
 
@@ -26,6 +25,11 @@
 #include <alps/mc/mpiadapter.hpp>
 
 #include <boost/function.hpp>
+
+#include <tksvm/utilities/mpi/mpi.hpp>
+
+
+namespace tksvm {
 
 template <typename PhasePoint>
 struct embarrassing_adapter : public alps::mcmpiadapter<alps::mcbase> {
@@ -114,3 +118,5 @@ protected:
         return Base::measurements;
     }
 };
+
+}

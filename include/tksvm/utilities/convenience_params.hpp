@@ -16,8 +16,15 @@
 
 #pragma once
 
+#include <cstdlib>
+#include <string>
+
 #include <alps/params.hpp>
-#include "filesystem.hpp"
+
+#include <tksvm/utilities/filesystem.hpp>
+
+
+namespace tksvm {
 
 inline alps::params& define_convenience_parameters(alps::params & parameters) {
     const std::string origin = alps::origin_name(parameters);
@@ -31,4 +38,6 @@ inline alps::params& define_convenience_parameters(alps::params & parameters) {
                              "name of the checkpoint file to save to")
         ;
     return parameters;
+}
+
 }

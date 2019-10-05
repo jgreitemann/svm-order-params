@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "gauge.hpp"
+#include <tksvm/gauge/gauge_sim.hpp>
+
+
+using namespace tksvm::gauge;
 
 //compute glocal order parameters
 // and return the square of the nematicity magnitude;

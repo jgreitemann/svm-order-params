@@ -4,6 +4,8 @@
 #include <vector>
 
 
+namespace tksvm {
+
 template <typename Point>
 struct polygon {
     using point_type = Point;
@@ -40,3 +42,5 @@ struct polygon {
 private:
     std::vector<point_type> points;
 };
+
+}

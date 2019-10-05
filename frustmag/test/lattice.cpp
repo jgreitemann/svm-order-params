@@ -16,18 +16,20 @@
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
-#include "doctest.h"
-#include <lattice/chain.hpp>
-#include <lattice/ortho.hpp>
-#include <lattice/triangular.hpp>
-#include <lattice/honeycomb.hpp>
-#include <lattice/kagome.hpp>
-#include <lattice/dice.hpp>
+#include "doctest/doctest.h"
 
 #include <algorithm>
 #include <iostream>
 #include <iterator>
 #include <vector>
+
+#include <tksvm/frustmag/lattice/chain.hpp>
+#include <tksvm/frustmag/lattice/ortho.hpp>
+#include <tksvm/frustmag/lattice/triangular.hpp>
+#include <tksvm/frustmag/lattice/honeycomb.hpp>
+#include <tksvm/frustmag/lattice/kagome.hpp>
+#include <tksvm/frustmag/lattice/dice.hpp>
+
 
 struct int_site {
     int i;
@@ -59,7 +61,7 @@ void test_nn(Lattice && l, int nn_ind[][Lattice::coordination]) {
             std::copy(nni.begin(), nni.end(),
                       std::ostream_iterator<int>{std::cout, ", "});
             std::cout << std::endl;
-            
+
         }
         CHECK(nn_equal);
     }

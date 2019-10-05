@@ -14,14 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "gauge.hpp"
-#include "convenience_params.hpp"
-
 #include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
 
+#include <alps/accumulators.hpp>
+#include <alps/hdf5.hpp>
 #include <alps/hdf5/vector.hpp>
 #include <alps/hdf5/multi_array.hpp>
 
+#include <tksvm/gauge/gauge_sim.hpp>
+#include <tksvm/utilities/convenience_params.hpp>
+
+
+using namespace tksvm::gauge;
 
 // Defines the parameters
 void gauge_sim::define_parameters(parameters_type & parameters) {
@@ -51,7 +58,7 @@ void gauge_sim::define_parameters(parameters_type & parameters) {
         .define<double>("spacing_nem", 0.001, "spacing of nematicity");
     phase_point::define_parameters(parameters);
 
-    define_gauge_config_policy_parameters(parameters);
+    define_config_policy_parameters(parameters);
 }
 
 

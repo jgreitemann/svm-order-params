@@ -14,29 +14,38 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#include "checkpointing_stop_callback.hpp"
-#include "config_sim_base.hpp"
-#include "mpi.hpp"
-#include "svm-wrapper.hpp"
-#include "test_adapter.hpp"
-#include "argh.h"
-
 #include <iostream>
-#include <memory>
+#include <exception>
+#include <map>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <tuple>
 #include <utility>
 
-#include <alps/accumulators.hpp>
-#include <alps/mc/api.hpp>
-#include <alps/mc/mcbase.hpp>
-#include <alps/mc/stop_callback.hpp>
+#include <argh.h>
+
+#include <alps/hdf5.hpp>
+#include <alps/params.hpp>
+
+#include <svm/svm.hpp>
+#include <svm/serialization/hdf5.hpp>
+
+#include <tksvm/config_sim_base.hpp>
+#include <tksvm/phase_space/classifier.hpp>
+#include <tksvm/sim_adapters/test_adapter.hpp>
+#include <tksvm/utilities/mpi/mpi.hpp>
 
 #ifdef CONFIG_MAPPING_LAZY
-#include "procrastination_adapter.hpp"
-using sim_type = procrastination_adapter<sim_base>;
+#include <tksvm/sim_adapters/procrastination_adapter.hpp>
+using sim_type = tksvm::procrastination_adapter<tksvm::sim_base>;
 #else
-#include "training_adapter.hpp"
-using sim_type = training_adapter<sim_base>;
+#include <tksvm/sim_adapters/training_adapter.hpp>
+using sim_type = tksvm::training_adapter<tksvm::sim_base>;
 #endif
+
+
+using namespace tksvm;
 
 using kernel_t = typename sim_type::kernel_t;
 using label_t = typename sim_type::phase_label;
@@ -174,7 +183,7 @@ int main(int argc, char** argv)
             model_t model(std::move(prob), kernel_params);
 
             // set up serializer
-            svm::model_serializer<svm::hdf5_tag, model_t> serial(model);
+            svm::serialization::model_serializer<svm::hdf5_tag, model_t> serial(model);
 
             // Saving to the output file
             std::string output_file = parameters["outputfile"];

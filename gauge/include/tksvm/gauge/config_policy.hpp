@@ -16,300 +16,35 @@
 
 #pragma once
 
-#include "combinatorics.hpp"
-#include "config_policy.hpp"
-#include "indices.hpp"
-
-#include <array>
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <vector>
+#include <utility>
 
 #include <alps/params.hpp>
 
+#include <tksvm/config/clustered_policy.hpp>
+#include <tksvm/config/policy.hpp>
+#include <tksvm/symmetry_policy/none.hpp>
+#include <tksvm/symmetry_policy/symmetrized.hpp>
 
-namespace element_policy {
+#include <tksvm/gauge/cluster_policy/full.hpp>
+#include <tksvm/gauge/cluster_policy/single.hpp>
+#include <tksvm/gauge/cluster_policy/square.hpp>
+#include <tksvm/gauge/element_policy/mono.hpp>
+#include <tksvm/gauge/element_policy/triad.hpp>
 
-    struct mono : components {
-        mono() : components{3} {}
-        static constexpr size_t n_color() { return 1; }
-        static constexpr size_t sublattice_of_block(size_t) { return 0; }
-        static constexpr size_t color_of_block(size_t) { return 2; }
-    };
-
-    struct triad {
-        constexpr size_t n_block() const { return 3; }
-        constexpr size_t range() const { return 9; }
-        constexpr size_t block(size_t index) const { return index / 3; }
-        constexpr size_t component(size_t index) const { return index % 3; }
-        static constexpr size_t n_color() { return 3; }
-        static constexpr size_t sublattice_of_block(size_t) { return 0; }
-        static constexpr size_t color_of_block(size_t block) { return block; }
-    };
-
-    template <typename BaseElementPolicy>
-    struct n_partite : private BaseElementPolicy {
-        n_partite(size_t n) : n_unit(n) {}
-
-        constexpr size_t n_block() const {
-            return n_unit * BaseElementPolicy::n_block();
-        }
-        constexpr size_t range() const {
-            return n_unit * BaseElementPolicy::range();
-        }
-        constexpr size_t block(size_t index) const {
-            return (index / BaseElementPolicy::range()) * BaseElementPolicy::n_block()
-                + BaseElementPolicy::block(index % BaseElementPolicy::range());
-        }
-        constexpr size_t component(size_t index) const {
-            return BaseElementPolicy::component(index % BaseElementPolicy::range());
-        }
-        static constexpr size_t sublattice_of_block(size_t block) {
-            return block / BaseElementPolicy::n_color();
-        }
-        static constexpr size_t color_of_block(size_t block) {
-            return BaseElementPolicy::color_of_block(block % BaseElementPolicy::n_color());
-        }
-    private:
-        const size_t n_unit;
-    };
-}
-
-namespace cluster_policy {
-
-    template <typename BaseElementPolicy, typename Container>
-    struct single {
-        using ElementPolicy = BaseElementPolicy;
-        using site_const_iterator = typename Container::const_iterator;
-
-        struct unitcell;
-        struct const_iterator {
-            const_iterator & operator++ () { ++sit; return *this; }
-            const_iterator operator++ (int) {
-                const_iterator old(*this);
-                ++(*this);
-                return old;
-            }
-            const_iterator & operator-- () { --sit; return *this; }
-            const_iterator operator-- (int) {
-                const_iterator old(*this);
-                --(*this);
-                return old;
-            }
-            friend bool operator== (const_iterator lhs, const_iterator rhs) { return lhs.sit == rhs.sit; }
-            friend bool operator!= (const_iterator lhs, const_iterator rhs) { return lhs.sit != rhs.sit; }
-            unitcell operator* () const { return {sit}; }
-            std::unique_ptr<unitcell> operator-> () const {
-                return std::unique_ptr<unitcell>(new unitcell(sit));
-            }
-            friend single;
-        private:
-            const_iterator (site_const_iterator it) : sit {it} {}
-            site_const_iterator sit;
-        };
-
-        struct unitcell {
-            auto operator[](size_t block) const {
-                typename Container::const_reference mat = *it;
-                return mat.row(ElementPolicy::color_of_block(block));
-            }
-            friend const_iterator;
-        private:
-            unitcell (site_const_iterator it) : it {it} {}
-            site_const_iterator it;
-        };
-
-        single (ElementPolicy, Container const& linear) : linear(linear) {}
-
-        const_iterator begin () const {
-            return {linear.begin()};
-        }
-
-        const_iterator end () const {
-            return {linear.end()};
-        }
-
-        size_t size () const {
-            return linear.size();
-        }
-
-    private:
-        Container const& linear;
-    };
-
-    template <typename BaseElementPolicy, typename Container, size_t DIM = 3>
-    struct square {
-        using ElementPolicy = element_policy::n_partite<BaseElementPolicy>;
-        using site_const_iterator = typename Container::const_iterator;
-        using coord_t = std::array<size_t, DIM>;
-
-        struct unitcell;
-        struct const_iterator {
-            const_iterator & operator++ () {
-                coord[0] += 2;
-                if (coord[0] >= L) {
-                    size_t i;
-                    for (i = 1; i < coord.size(); ++i) {
-                        ++coord[i];
-                        if (coord[i] < L)
-                            break;
-                        coord[i] = 0;
-                    }
-                    if (i == coord.size()) {
-                        coord[0] = L;
-                    } else {
-                        size_t sum = 0;
-                        for (i = 1; i < coord.size(); ++i) {
-                            sum += coord[i];
-                        }
-                        coord[0] = sum % 2;
-                    }
-                }
-                return *this;
-            }
-            const_iterator operator++ (int) {
-                const_iterator old(*this);
-                ++(*this);
-                return old;
-            }
-            friend bool operator== (const_iterator lhs, const_iterator rhs) {
-                return (lhs.coord == rhs.coord
-                        && lhs.root == rhs.root
-                        && lhs.L == rhs.L);
-            }
-            friend bool operator!= (const_iterator lhs, const_iterator rhs) { return !(lhs == rhs); }
-            unitcell operator* () const { return {root, lin_index(), L}; }
-            std::unique_ptr<unitcell> operator-> () const {
-                return std::make_unique<unitcell>(root, lin_index(), L);
-            }
-            friend square;
-        private:
-            const_iterator (site_const_iterator it, coord_t c, size_t L)
-                : root{it}, coord{c}, L{L} {}
-            size_t lin_index () const {
-                size_t sum = 0;
-                for (size_t c : coord) {
-                    sum *= L;
-                    sum += c;
-                }
-                return sum;
-            }
-            site_const_iterator root;
-            coord_t coord;
-            size_t L;
-        };
-
-        struct unitcell {
-            auto operator[](size_t block) const {
-                size_t subl = ElementPolicy::sublattice_of_block(block);
-                size_t color = ElementPolicy::color_of_block(block);
-                typename Container::const_reference mat =
-                    root[subl ? (idx / L * L + (idx + 1) % L) : idx];
-                return mat.row(color);
-            }
-            friend const_iterator;
-        private:
-            unitcell (site_const_iterator it, size_t idx, size_t L)
-                : root{it}, idx{idx}, L{L} {}
-            site_const_iterator root;
-            size_t idx;
-            size_t L;
-        };
-
-        square (ElementPolicy, Container const& linear) : linear(linear) {
-            L = static_cast<size_t>(pow(linear.size() + 0.5, 1./DIM));
-            if (combinatorics::ipow(L, DIM) != linear.size())
-                throw std::runtime_error("linear configuration size doesn't match DIM");
-            if (L % 2 != 0)
-                throw std::runtime_error("lattice not bipartite w.r.t. PBCs");
-        }
-
-        const_iterator begin () const {
-            return {linear.begin(), {0}, L};
-        }
-
-        const_iterator end () const {
-            return {linear.begin(), {L}, L};
-        }
-
-        size_t size () const {
-            return linear.size() / 2;
-        }
-
-    private:
-        Container const& linear;
-        size_t L;
-    };
-
-
-    template <typename BaseElementPolicy, typename Container>
-    struct full {
-        using ElementPolicy = element_policy::n_partite<BaseElementPolicy>;
-        using site_const_iterator = typename Container::const_iterator;
-
-        struct unitcell;
-        struct const_iterator {
-            const_iterator & operator++ () {
-                root += size;
-                return *this;
-            }
-            const_iterator operator++ (int) {
-                const_iterator old(*this);
-                ++(*this);
-                return old;
-            }
-            friend bool operator== (const_iterator lhs, const_iterator rhs) {
-                return lhs.root == rhs.root;
-            }
-            friend bool operator!= (const_iterator lhs, const_iterator rhs) { return !(lhs == rhs); }
-            unitcell operator* () const { return {root}; }
-            std::unique_ptr<unitcell> operator-> () const {
-                return std::make_unique<unitcell>(root);
-            }
-            site_const_iterator root;
-            size_t size;
-        };
-
-        struct unitcell {
-            auto operator[](size_t block) const {
-                size_t subl = ElementPolicy::sublattice_of_block(block);
-                size_t color = ElementPolicy::color_of_block(block);
-                typename Container::const_reference mat = root[subl];
-                return mat.row(color);
-            }
-            site_const_iterator root;
-        };
-
-        full (ElementPolicy, Container const& linear) : linear(linear) {}
-
-        const_iterator begin () const {
-            return {linear.begin(), linear.size()};
-        }
-
-        const_iterator end () const {
-            return {linear.end(), linear.size()};
-        }
-
-        size_t size () const {
-            return 1;
-        }
-
-    private:
-        Container const& linear;
-    };
-
-}
-
+namespace tksvm {
+namespace gauge {
 
 template <typename Config, typename Introspector,
           typename SymmetryPolicy, typename ClusterPolicy>
-using gauge_config_policy = clustered_config_policy<Config,
-                                                    Introspector,
-                                                    SymmetryPolicy,
-                                                    ClusterPolicy>;
+using gauge_config_policy = config::clustered_policy<Config,
+                                                     Introspector,
+                                                     SymmetryPolicy,
+                                                     ClusterPolicy>;
 
-inline void define_gauge_config_policy_parameters(alps::params & parameters) {
+inline void define_config_policy_parameters(alps::params & parameters) {
     parameters
         .define<std::string>("color", "triad",
                              "use 3 colored spins (triad) or just one (mono)")
@@ -320,12 +55,12 @@ inline void define_gauge_config_policy_parameters(alps::params & parameters) {
 
 
 template <typename Config, typename Introspector>
-auto gauge_config_policy_from_parameters(alps::params const& parameters,
-                                         bool unsymmetrize = true)
-    -> std::unique_ptr<config_policy<Config, Introspector>>
+auto config_policy_from_parameters(alps::params const& parameters,
+                                   bool unsymmetrize = true)
+    -> std::unique_ptr<config::policy<Config, Introspector>>
 {
 #define CONFPOL_CREATE()                                                \
-    return std::unique_ptr<config_policy<Config, Introspector>>(        \
+    return std::unique_ptr<config::policy<Config, Introspector>>(       \
         new gauge_config_policy<                                        \
         Config, Introspector, SymmetryPolicy, ClusterPolicy>(           \
             rank, std::move(elempol), unsymmetrize));                   \
@@ -377,4 +112,7 @@ auto gauge_config_policy_from_parameters(alps::params const& parameters,
 #undef CONFPOL_BRANCH_CLUSTER
 #undef CONFPOL_BRANCH_SYMM
 #undef CONFPOL_CREATE
+}
+
+}
 }

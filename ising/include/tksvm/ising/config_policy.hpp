@@ -16,42 +16,31 @@
 
 #pragma once
 
-#include "combinatorics.hpp"
-#include "config_policy.hpp"
-#include "indices.hpp"
-
-#include <array>
 #include <memory>
-#include <numeric>
-#include <stdexcept>
-#include <string>
-#include <vector>
+#include <utility>
 
 #include <alps/params.hpp>
 
+#include <tksvm/cluster_policy/stride.hpp>
+#include <tksvm/config/clustered_policy.hpp>
+#include <tksvm/symmetry_policy/none.hpp>
+#include <tksvm/symmetry_policy/symmetrized.hpp>
 
-namespace element_policy {
-    struct Z2_site {
-        Z2_site(size_t L) : L(L) {}
-        constexpr size_t n_block() const { return L; }
-        constexpr size_t range() const { return L; }
-        constexpr size_t block(size_t index) const { return index; }
-        constexpr size_t component(size_t) const { return 0; }
+#include <tksvm/ising/element_policy/Z2_site.hpp>
 
-    private:
-        size_t L;
-    };
-}
+
+namespace tksvm {
+namespace ising {
 
 template <typename Config, typename Introspector, typename SymmetryPolicy>
 using ising_config_policy =
-    clustered_config_policy<Config,
-                            Introspector,
-                            SymmetryPolicy,
-                            cluster_policy::stride<element_policy::Z2_site, Config>>;
+    config::clustered_policy<Config,
+                             Introspector,
+                             SymmetryPolicy,
+                             cluster_policy::stride<element_policy::Z2_site, Config>>;
 
 
-inline void define_ising_config_policy_parameters(alps::params & parameters) {
+inline void define_config_policy_parameters(alps::params & parameters) {
     parameters
         .define<bool>("symmetrized", true, "use symmetry <S_x S_y> == <S_y S_x>")
         .define<size_t>("rank", "rank of the order parameter tensor");
@@ -59,12 +48,12 @@ inline void define_ising_config_policy_parameters(alps::params & parameters) {
 
 
 template <typename Config, typename Introspector>
-auto ising_config_policy_from_parameters(alps::params const& parameters,
-                                         bool unsymmetrize = true)
-    -> std::unique_ptr<config_policy<Config, Introspector>>
+auto config_policy_from_parameters(alps::params const& parameters,
+                                   bool unsymmetrize = true)
+    -> std::unique_ptr<config::policy<Config, Introspector>>
 {
 #define CONFPOL_CREATE()                                                \
-    return std::unique_ptr<config_policy<Config, Introspector>>(        \
+    return std::unique_ptr<config::policy<Config, Introspector>>(        \
         new ising_config_policy<Config, Introspector, SymmetryPolicy>(  \
             rank, std::move(elempol), unsymmetrize));                   \
 
@@ -84,4 +73,7 @@ auto ising_config_policy_from_parameters(alps::params const& parameters,
 
 
 #undef CONFPOL_CREATE
+}
+
+}
 }
