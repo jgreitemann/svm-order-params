@@ -73,6 +73,13 @@ endif()
 include_directories(colormap)
 
 include_directories(ising)
+add_executable(ising-sample
+    sample.cpp
+    phase_space_policy.cpp
+    ising/ising.cpp
+    )
+target_compile_definitions(ising-sample PUBLIC -DSVMOP_SIMINCL=ising.hpp)
+
 add_executable(ising-learn
     learn.cpp
     phase_space_policy.cpp
@@ -186,6 +193,7 @@ add_executable(frustmag-segregate-phases
 target_compile_definitions(frustmag-segregate-phases PUBLIC -DSVMOP_SIMINCL=config_frustmag_sim.hpp -DHAS_SVM)
 
 # Use ALPSCore_LIBRARIES variable to link to ALPSCore
+target_link_libraries(ising-sample ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(ising-learn ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(ising-test ${ALPSCore_LIBRARIES} svm stdc++fs)
 target_link_libraries(ising-coeffs ${ALPSCore_LIBRARIES} svm stdc++fs)

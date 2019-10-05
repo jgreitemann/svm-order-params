@@ -60,53 +60,101 @@ namespace element_policy {
     };
 }
 
-template <typename Config, typename Introspector, typename SymmetryPolicy,
-          typename ElementPolicy>
-struct frustmag_config_policy
-    : public monomial_config_policy<Config, Introspector, SymmetryPolicy,
-                                    ElementPolicy>
-{
-    using BasePolicy = monomial_config_policy<Config, Introspector,
-                                              SymmetryPolicy, ElementPolicy>;
-    using config_array = typename BasePolicy::config_array;
+namespace cluster_policy {
+    template <typename Lattice>
+    struct frustmag_single {
+        using ElementPolicy = typename element_policy::single<Lattice>;
+        using site_const_iterator = typename Lattice::const_iterator;
 
-    using BasePolicy::BasePolicy;
-
-    using BasePolicy::size;
-    using BasePolicy::rank;
-
-    virtual std::vector<double> configuration (config_array const& lat) const override final
-    {
-        std::vector<double> v(size());
-        indices_t ind(rank());
-        auto w_it = weights().begin();
-        for (double & elem : v) {
-            elem = 0;
-            for (auto const& cell : lat.cells()) {
-                for (size_t ic = 0; ic < cell.size() / n_block(); ++ic) {
-                    double prod = 1;
-                    for (size_t a : ind) {
-                        prod *= cell[ic * n_block() + block(a)][component(a)];
-                    }
-                    elem += prod;
-                }
+        struct unitcell;
+        struct const_iterator {
+            const_iterator & operator++ () { ++sit; return *this; }
+            const_iterator operator++ (int) {
+                const_iterator old(*this);
+                ++(*this);
+                return old;
             }
-            elem *= *w_it / (lat.cells().size() * config_array::n_basis / n_block());
+            const_iterator & operator-- () { --sit; return *this; }
+            const_iterator operator-- (int) {
+                const_iterator old(*this);
+                --(*this);
+                return old;
+            }
+            friend bool operator== (const_iterator lhs, const_iterator rhs) { return lhs.sit == rhs.sit; }
+            friend bool operator!= (const_iterator lhs, const_iterator rhs) { return lhs.sit != rhs.sit; }
+            unitcell operator* () const { return {sit}; }
+            std::unique_ptr<unitcell> operator-> () const {
+                return std::unique_ptr<unitcell>(new unitcell(sit));
+            }
+            friend frustmag_single;
+        private:
+            const_iterator (site_const_iterator it) : sit {it} {}
+            site_const_iterator sit;
+        };
 
-            advance_ind(ind);
-            ++w_it;
+        struct unitcell {
+            auto operator[](size_t) const {
+                return *it;
+            }
+            friend const_iterator;
+        private:
+            unitcell (site_const_iterator it) : it{it} {}
+            site_const_iterator it;
+        };
+
+        frustmag_single(ElementPolicy, Lattice const& sites) : sites{sites} {}
+
+        const_iterator begin () const {
+            return {sites.begin()};
         }
-        return v;
-    }
 
-private:
-    using ElementPolicy::block;
-    using ElementPolicy::n_block;
-    using ElementPolicy::component;
-    using BasePolicy::advance_ind;
-    using BasePolicy::weights;
-};
+        const_iterator end () const {
+            return {sites.end()};
+        }
 
+        size_t size () const {
+            return sites.size();
+        }
+
+    private:
+        Lattice const& sites;
+        size_t range_, stride_;
+    };
+
+    template <typename Lattice>
+    struct frustmag_lattice {
+        using ElementPolicy = element_policy::lattice<Lattice>;
+        using const_iterator = typename Lattice::unitcell_collection_type::const_iterator;
+
+        frustmag_lattice(ElementPolicy, Lattice const& lat)
+            : cells_{lat.cells()}
+        {
+        }
+
+        const_iterator begin() const {
+            return cells_.begin();
+        }
+
+        const_iterator end() const {
+            return cells_.end();
+        }
+
+        auto size() const {
+            return cells_.size();
+        }
+
+    private:
+        typename Lattice::unitcell_collection_type const& cells_;
+    };
+}
+
+template <typename Config, typename Introspector, typename SymmetryPolicy,
+          template<typename> typename ClusterPolicy>
+using frustmag_config_policy =
+    clustered_config_policy<Config,
+                            Introspector,
+                            SymmetryPolicy,
+                            ClusterPolicy<Config>>;
 
 inline void define_frustmag_config_policy_parameters(alps::params & parameters) {
     parameters
@@ -121,19 +169,19 @@ auto frustmag_config_policy_from_parameters(alps::params const& parameters,
                                             bool unsymmetrize = true)
     -> std::unique_ptr<config_policy<Config, Introspector>>
 {
-#define CONFPOL_CREATE()                                                \
+#define CONFPOL_CREATE(CLNAME)                                          \
     return std::unique_ptr<config_policy<Config, Introspector>>(        \
         new frustmag_config_policy<Config, Introspector,                \
-            SymmetryPolicy, decltype(elempol)>(                         \
-                rank, std::move(elempol), unsymmetrize));
+            SymmetryPolicy, cluster_policy::frustmag_##CLNAME >(        \
+                rank, element_policy:: CLNAME <Config>{}, unsymmetrize));
 
-#define CONFPOL_BRANCH_SYMM()                                           \
+#define CONFPOL_BRANCH_SYMM(CLNAME)                                     \
     if (parameters["symmetrized"].as<bool>()) {                         \
         using SymmetryPolicy = symmetry_policy::symmetrized;            \
-        CONFPOL_CREATE()                                                \
+        CONFPOL_CREATE(CLNAME)                                          \
     } else {                                                            \
         using SymmetryPolicy = symmetry_policy::none;                   \
-        CONFPOL_CREATE()                                                \
+        CONFPOL_CREATE(CLNAME)                                          \
     }
 
 
@@ -141,11 +189,9 @@ auto frustmag_config_policy_from_parameters(alps::params const& parameters,
     size_t rank = parameters["rank"].as<size_t>();
     std::string clname = parameters["cluster"];
     if (clname == "lattice") {
-        element_policy::lattice<Config> elempol{};
-        CONFPOL_BRANCH_SYMM()
+        CONFPOL_BRANCH_SYMM(lattice)
     } else if (clname == "single") {
-        element_policy::single<Config> elempol{};
-        CONFPOL_BRANCH_SYMM()
+        CONFPOL_BRANCH_SYMM(single)
     } else {
         throw std::runtime_error("Invalid cluster spec: " + clname);
     }

@@ -33,53 +33,50 @@ namespace element_policy {
 
     struct mono : components {
         mono() : components{3} {}
-        constexpr size_t n_color() const { return 1; }
-        constexpr size_t sublattice(size_t) const { return 0; }
-        constexpr size_t color(size_t) const { return 2; }
+        static constexpr size_t n_color() { return 1; }
+        static constexpr size_t sublattice_of_block(size_t) { return 0; }
+        static constexpr size_t color_of_block(size_t) { return 2; }
     };
 
     struct triad {
-        constexpr size_t n_color() const { return 3; }
         constexpr size_t n_block() const { return 3; }
-        constexpr size_t range() const { return 3 * n_color(); }
-        constexpr size_t sublattice(size_t) const { return 0; }
-        constexpr size_t color(size_t index) const { return index / 3; }
-        constexpr size_t block(size_t index) const { return color(index); }
+        constexpr size_t range() const { return 9; }
+        constexpr size_t block(size_t index) const { return index / 3; }
         constexpr size_t component(size_t index) const { return index % 3; }
+        static constexpr size_t n_color() { return 3; }
+        static constexpr size_t sublattice_of_block(size_t) { return 0; }
+        static constexpr size_t color_of_block(size_t block) { return block; }
     };
 
     template <typename BaseElementPolicy>
     struct n_partite : private BaseElementPolicy {
         n_partite(size_t n) : n_unit(n) {}
 
-        constexpr size_t n_unitcell() const { return n_unit; }
-        constexpr size_t n_color() const { return BaseElementPolicy::n_color(); }
         constexpr size_t n_block() const {
-            return n_unitcell() * BaseElementPolicy::n_block();
+            return n_unit * BaseElementPolicy::n_block();
         }
         constexpr size_t range() const {
-            return n_unitcell() * BaseElementPolicy::range();
-        }
-        constexpr size_t sublattice(size_t index) const {
-            return index / BaseElementPolicy::range();
-        }
-        constexpr size_t color(size_t index) const {
-            return BaseElementPolicy::color(index % BaseElementPolicy::range());
+            return n_unit * BaseElementPolicy::range();
         }
         constexpr size_t block(size_t index) const {
-            return sublattice(index) * BaseElementPolicy::n_block()
+            return (index / BaseElementPolicy::range()) * BaseElementPolicy::n_block()
                 + BaseElementPolicy::block(index % BaseElementPolicy::range());
         }
         constexpr size_t component(size_t index) const {
             return BaseElementPolicy::component(index % BaseElementPolicy::range());
         }
-
+        static constexpr size_t sublattice_of_block(size_t block) {
+            return block / BaseElementPolicy::n_color();
+        }
+        static constexpr size_t color_of_block(size_t block) {
+            return BaseElementPolicy::color_of_block(block % BaseElementPolicy::n_color());
+        }
     private:
         const size_t n_unit;
     };
 }
 
-namespace lattice {
+namespace cluster_policy {
 
     template <typename BaseElementPolicy, typename Container>
     struct single {
@@ -113,10 +110,9 @@ namespace lattice {
         };
 
         struct unitcell {
-            typename Container::value_type const& sublattice (size_t i = 0) const {
-                if (i != 0)
-                    throw std::runtime_error("invalid sublattice index");
-                return it[i];
+            auto operator[](size_t block) const {
+                typename Container::const_reference mat = *it;
+                return mat.row(ElementPolicy::color_of_block(block));
             }
             friend const_iterator;
         private:
@@ -124,7 +120,7 @@ namespace lattice {
             site_const_iterator it;
         };
 
-        single (Container const& linear) : linear(linear) {}
+        single (ElementPolicy, Container const& linear) : linear(linear) {}
 
         const_iterator begin () const {
             return {linear.begin()};
@@ -205,13 +201,12 @@ namespace lattice {
         };
 
         struct unitcell {
-            typename Container::value_type const& sublattice (size_t i) const {
-                if (i == 0)
-                    return root[idx];
-                else if (i == 1)
-                    return root[idx / L * L + (idx + 1) % L];
-                else
-                    throw std::runtime_error("invalid sublattice index");
+            auto operator[](size_t block) const {
+                size_t subl = ElementPolicy::sublattice_of_block(block);
+                size_t color = ElementPolicy::color_of_block(block);
+                typename Container::const_reference mat =
+                    root[subl ? (idx / L * L + (idx + 1) % L) : idx];
+                return mat.row(color);
             }
             friend const_iterator;
         private:
@@ -222,7 +217,7 @@ namespace lattice {
             size_t L;
         };
 
-        square (Container const& linear) : linear(linear) {
+        square (ElementPolicy, Container const& linear) : linear(linear) {
             L = static_cast<size_t>(pow(linear.size() + 0.5, 1./DIM));
             if (combinatorics::ipow(L, DIM) != linear.size())
                 throw std::runtime_error("linear configuration size doesn't match DIM");
@@ -277,13 +272,16 @@ namespace lattice {
         };
 
         struct unitcell {
-            typename Container::value_type const& sublattice (size_t i) const {
-                return root[i];
+            auto operator[](size_t block) const {
+                size_t subl = ElementPolicy::sublattice_of_block(block);
+                size_t color = ElementPolicy::color_of_block(block);
+                typename Container::const_reference mat = root[subl];
+                return mat.row(color);
             }
             site_const_iterator root;
         };
 
-        full (Container const& linear) : linear(linear) {}
+        full (ElementPolicy, Container const& linear) : linear(linear) {}
 
         const_iterator begin () const {
             return {linear.begin(), linear.size()};
@@ -305,50 +303,11 @@ namespace lattice {
 
 
 template <typename Config, typename Introspector,
-          typename SymmetryPolicy, typename LatticePolicy>
-struct gauge_config_policy
-    : public monomial_config_policy<Config, Introspector, SymmetryPolicy,
-                                    typename LatticePolicy::ElementPolicy>
-{
-    using ElementPolicy = typename LatticePolicy::ElementPolicy;
-    using BasePolicy = monomial_config_policy<Config, Introspector,
-                                              SymmetryPolicy, ElementPolicy>;
-    using config_array = typename BasePolicy::config_array;
-
-    using BasePolicy::BasePolicy;
-
-    using BasePolicy::size;
-    using BasePolicy::rank;
-
-    virtual std::vector<double> configuration (config_array const& R) const override final
-    {
-        std::vector<double> v(size());
-        indices_t ind(rank());
-        LatticePolicy lattice(R);
-        auto w_it = weights().begin();
-        for (double & elem : v) {
-            for (auto cell : lattice) {
-                double prod = 1;
-                for (size_t a : ind)
-                    prod *= cell.sublattice(sublattice(a))(color(a), component(a));
-                elem += prod;
-            }
-            elem *= *w_it / lattice.size();
-
-            advance_ind(ind);
-            ++w_it;
-        }
-        return v;
-    }
-
-private:
-    using BasePolicy::advance_ind;
-    using BasePolicy::weights;
-    using ElementPolicy::sublattice;
-    using ElementPolicy::color;
-    using ElementPolicy::component;
-};
-
+          typename SymmetryPolicy, typename ClusterPolicy>
+using gauge_config_policy = clustered_config_policy<Config,
+                                                    Introspector,
+                                                    SymmetryPolicy,
+                                                    ClusterPolicy>;
 
 inline void define_gauge_config_policy_parameters(alps::params & parameters) {
     parameters
@@ -368,14 +327,14 @@ auto gauge_config_policy_from_parameters(alps::params const& parameters,
 #define CONFPOL_CREATE()                                                \
     return std::unique_ptr<config_policy<Config, Introspector>>(        \
         new gauge_config_policy<                                        \
-        Config, Introspector, SymmetryPolicy, LatticePolicy>(           \
+        Config, Introspector, SymmetryPolicy, ClusterPolicy>(           \
             rank, std::move(elempol), unsymmetrize));                   \
 
 
-#define CONFPOL_BRANCH_SYMM(LATNAME, CLSIZE)                        \
-    using LatticePolicy = lattice:: LATNAME <BaseElementPolicy,     \
-                                             Config>;               \
-    using ElementPolicy = typename LatticePolicy::ElementPolicy;    \
+#define CONFPOL_BRANCH_SYMM(CLNAME, CLSIZE)                         \
+    using ClusterPolicy =                                           \
+        cluster_policy:: CLNAME <BaseElementPolicy, Config>;        \
+    using ElementPolicy = typename ClusterPolicy::ElementPolicy;    \
     ElementPolicy elempol{ CLSIZE };                                \
     if (parameters["symmetrized"].as<bool>()) {                     \
         using SymmetryPolicy = symmetry_policy::symmetrized;        \
