@@ -47,21 +47,15 @@ namespace classifier {
         virtual std::string name(label_type const& l) const override {
             if (size_t(l) >= 2)
                 return classifier::policy<point_type>::name(l);
-            return names[size_t(l)];
+            return size_t(l) ? "ORDERED" : "DISORDERED";
         }
 
         virtual size_t size() const override {
             return 2;
         }
     private:
-        static constexpr const char * names[] = {
-            "DISORDERED",
-            "ORDERED",
-        };
         double temp_crit;
     };
-
-    constexpr const char * critical_temperature::names[]; // [depr.static_constexpr]
 
 }
 }
