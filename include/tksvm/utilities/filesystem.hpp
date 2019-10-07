@@ -18,30 +18,16 @@
 
 #include <algorithm>
 #include <string>
-#include <experimental/filesystem>
 
 
 namespace tksvm {
-namespace fs = std::experimental::filesystem;
 
-inline std::string replace_extension (std::string const& ini_or_h5, std::string const& new_ext) {
-    fs::path ext;
-    fs::path known_exts[] = {
-        ".ini",
-        ".h5",
-        ".txt",
-        ".ppm",
-        ".out",
-        ".clone",
-        ".test"
-    };
-    fs::path p(ini_or_h5);
-    for (; !(ext = p.extension()).empty(); p = p.stem()) {
-        auto it = std::find(std::begin(known_exts), std::end(known_exts), ext);
-        if (it == std::end(known_exts))
-            break;
-    }
-    return p += new_ext;
+inline std::string replace_extension(std::string const& old_path,
+                                     std::string const& new_ext)
+{
+    auto slash_pos = old_path.find_last_of('.');
+    auto dot_pos = old_path.find_first_of('.', slash_pos == std::string::npos ? 0 : slash_pos);
+    return (dot_pos == std::string::npos ? old_path : old_path.substr(0, dot_pos)) + new_ext;
 }
 
 }

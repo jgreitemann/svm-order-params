@@ -61,5 +61,4 @@ set(TKSVM_SEGREGATE_PHASES_SRC
 
 set(TKSVM_LIBRARIES
   svm
-  stdc++fs
   PARENT_SCOPE)
