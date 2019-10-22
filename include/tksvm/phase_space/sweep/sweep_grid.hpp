@@ -51,8 +51,7 @@ namespace sweep {
         }
 
         sweep_grid(alps::params const& params,
-                   std::string const& prefix,
-                   size_t offset = 0)
+                   std::string const& prefix)
         {
             for (size_t i = 0; i < dim; ++i) {
                 sweeps[i] = sweep::from_parameters<point_type>(params,

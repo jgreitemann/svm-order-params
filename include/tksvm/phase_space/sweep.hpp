@@ -74,7 +74,7 @@ namespace sweep {
                     new nonuniform_grid<Point>(params, prefix, seed_offset));
             if (pol_name == "sweep_grid")
                 return dynamic_cast<policy<Point>*>(
-                    new sweep_grid<Point>(params, prefix, seed_offset));
+                    new sweep_grid<Point>(params, prefix));
             if (pol_name == "uniform")
                 return dynamic_cast<policy<Point>*>(
                     new uniform<Point>(params, prefix));

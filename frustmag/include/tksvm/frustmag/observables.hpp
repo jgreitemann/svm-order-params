@@ -225,7 +225,9 @@ namespace obs {
             meas["TconOctupolarity"] << sqrt(nem);
             meas["TconOctupolarity^2"] << nem;
 
-            for (size_t i = 0; i < std::end(T) - std::begin(T); ++i) {
+            for (size_t i = 0;
+                 i < static_cast<size_t>(std::end(T) - std::begin(T)); ++i)
+            {
                 T[i] += Tmut[i] + Tcon[i];
             }
             nem = std::inner_product(std::begin(T), std::end(T),

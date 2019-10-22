@@ -160,7 +160,7 @@ struct pt_adapter : public alps::mcbase {
         }
     }
 
-    virtual void reset_sweeps(bool skip_therm = false) {
+    virtual void reset_sweeps(bool = false) {
         auto it = slice_measurements.begin();
         while (it != slice_measurements.end()) {
             if (it == slice_it)

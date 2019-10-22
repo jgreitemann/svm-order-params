@@ -191,7 +191,7 @@ namespace argh
 	{
 		int argc = 0;
 		for (auto argvp = argv; *argvp; ++argc, ++argvp);
-			parse(argc, argv, mode);
+		parse(argc, argv, mode);
 	}
 
    //////////////////////////////////////////////////////////////////////////

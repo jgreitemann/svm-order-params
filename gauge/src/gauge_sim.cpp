@@ -242,7 +242,7 @@ gauge_sim::~gauge_sim() = default;
 
 /** Define member functions **/
 
-void gauge_sim::flip_ratio(double current_beta, int count)
+void gauge_sim::flip_ratio(double, int count)
 {
     /*The percentage is considered by the 0.01 factor below.*/
     double trying_R = 0.01 * count * sweep_unit * hits_R * L3;

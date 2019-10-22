@@ -34,8 +34,8 @@ namespace sweep {
 
         virtual size_t size() const = 0;
         virtual bool yield (point_type & point, rng_type & rng) = 0;
-        virtual void save (alps::hdf5::archive & ar) const {}
-        virtual void load (alps::hdf5::archive & ar) {}
+        virtual void save (alps::hdf5::archive &) const {}
+        virtual void load (alps::hdf5::archive &) {}
     };
 
     template <typename Point>

@@ -34,7 +34,6 @@ set(TKSVM_INCLUDE_DIRS
   ${BASEDIR}/include
   ${BASEDIR}/colormap/include
   ${BASEDIR}/svm/include
-  ${EIGEN3_INCLUDE_DIR}
   PARENT_SCOPE)
 
 set(TKSVM_SAMPLE_SRC

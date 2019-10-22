@@ -28,7 +28,7 @@ namespace element_policy {
         constexpr size_t range() const {
             return Lattice::value_type::size;
         }
-        constexpr size_t block(size_t index) const {
+        constexpr size_t block(size_t) const {
             return 0;
         }
         constexpr size_t component(size_t index) const {

@@ -5,6 +5,12 @@ if (NOT CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "")
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "" FORCE)
 endif()
 
+add_compile_options(
+  "-Wall" "-Wextra"
+  "-Wno-unknown-pragmas"
+  "-fdiagnostics-color=always"
+  )
+
 set(HAMILTONIAN "heisenberg" CACHE STRING "The Hamiltonian for the frustmag simulation")
 if(HAMILTONIAN STREQUAL heisenberg)
   add_definitions(-DHEISENBERG_HAMILTONIAN)
@@ -48,6 +54,7 @@ find_package(Threads)
 add_subdirectory(.. tksvm)
 
 include_directories(include ${TKSVM_INCLUDE_DIRS})
+include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
 
 add_compile_definitions(
   ${TKSVM_DEFINITIONS}

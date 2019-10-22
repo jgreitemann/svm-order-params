@@ -84,9 +84,9 @@ public:
 		checkpoint_callback_type const& read_cb,
 		checkpoint_callback_type && write_cb)
 	: checkpoint_file{checkpoint_file}
-	, archive_mutex{archive_mutex}
 	, resumed{resumed}
 	, batches{std::forward<BatchesContainer>(batches)}
+    , archive_mutex{archive_mutex}
 	, stop_cb{std::move(stop_cb)}
 	, write_cb{std::move(write_cb)}
 	{
@@ -142,8 +142,8 @@ public:
 	}
 
 	bool valid() const {
-		return batch_int >= 0 && batch_int < batches.size()
-			&& comm_group.rank() < batches[batch_int].size();
+		return batch_int >= 0 && static_cast<size_t>(batch_int) < batches.size()
+			&& static_cast<size_t>(comm_group.rank()) < batches[batch_int].size();
 	}
 
 	bool point_resumed() const {
