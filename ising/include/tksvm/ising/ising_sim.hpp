@@ -41,7 +41,6 @@ private:
     int thermalization_sweeps;
     int total_sweeps;
     phase_point ppoint;
-    double beta;
     storage_type spins;
     double current_energy;
     double current_magnetization;
@@ -79,14 +78,14 @@ public:
             parameters, unsymmetrize);
     }
 
-    virtual void update();
-    virtual void measure();
-    virtual double fraction_completed() const;
+    virtual void update() override;
+    virtual void measure() override;
+    virtual double fraction_completed() const override;
 
     using Base::save;
     using Base::load;
-    virtual void save(alps::hdf5::archive & ar) const;
-    virtual void load(alps::hdf5::archive & ar);
+    virtual void save(alps::hdf5::archive & ar) const override;
+    virtual void load(alps::hdf5::archive & ar) override;
 };
 
 }

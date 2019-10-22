@@ -44,7 +44,7 @@ public:
 
     static void define_parameters(alps::params & parameters) {
         using expand = int[];
-        expand{(Updates<LatticeH>::define_parameters(parameters), 0)...};
+        (void)expand{(Updates<LatticeH>::define_parameters(parameters), 0)...};
     }
 
     template <typename... Args>

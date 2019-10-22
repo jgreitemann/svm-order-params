@@ -32,6 +32,8 @@ namespace sweep {
         using point_type = Point;
         using rng_type = RNG;
 
+        virtual ~policy() noexcept = default;
+
         virtual size_t size() const = 0;
         virtual bool yield (point_type & point, rng_type & rng) = 0;
         virtual void save (alps::hdf5::archive &) const {}

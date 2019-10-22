@@ -373,8 +373,8 @@ namespace mpi {
 
         mutex(mutex const&) = delete;
         mutex& operator=(mutex const&) = delete;
-        mutex(mutex &&) = default;
-        mutex& operator=(mutex &&) = default;
+        mutex(mutex &&) = delete;
+        mutex& operator=(mutex &&) = delete;
 
         ~mutex() {
             mpi::barrier(comm);

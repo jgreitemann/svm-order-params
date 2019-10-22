@@ -63,7 +63,7 @@ namespace sweep {
             }
         }
 
-        size_t size() const {
+        size_t size() const final override {
             return N;
         }
 

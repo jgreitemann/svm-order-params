@@ -8,6 +8,7 @@ endif()
 add_compile_options(
   "-Wall" "-Wextra"
   "-Wno-unknown-pragmas"
+  "-Wno-c++17-extensions"
   "-fdiagnostics-color=always"
   )
 

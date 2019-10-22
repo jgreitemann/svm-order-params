@@ -30,6 +30,8 @@ namespace classifier {
         using point_type = Point;
         using label_type = label::numeric_label<>;
 
+        virtual ~policy() noexcept = default;
+
         virtual label_type operator()(point_type) = 0;
         virtual std::string name(label_type const& l) const {
             if (size_t(l) == size())

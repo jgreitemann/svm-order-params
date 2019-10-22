@@ -33,6 +33,7 @@ namespace results {
 
     struct index_rule {
         using rule_ptr = std::unique_ptr<index_rule>;
+        virtual ~index_rule() noexcept = default;
         virtual bool operator() (indices_t const&, indices_t const&) const = 0;
         virtual rule_ptr clone () const = 0;
     };

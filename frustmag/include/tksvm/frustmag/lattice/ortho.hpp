@@ -38,7 +38,7 @@ struct ortho : bravais<Site, dim, 1ul> {
 
     static const size_t coordination = 2 * dim;
 
-    using Base::bravais;
+    using Base::Base;
 
     auto nearest_neighbors(iterator const& it)
         -> std::array<iterator, coordination>

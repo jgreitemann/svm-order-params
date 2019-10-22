@@ -35,6 +35,8 @@ struct policy {
 
     using matrix_t = boost::multi_array<double, 2>;
 
+    virtual ~policy() noexcept = default;
+
     virtual size_t size () const = 0;
     virtual size_t range () const = 0;
     virtual size_t n_components () const = 0;

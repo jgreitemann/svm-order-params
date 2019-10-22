@@ -121,7 +121,7 @@ struct monomial_policy
         return out;
     }
 
-    std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const {
+    std::pair<matrix_t, matrix_t> block_structure (matrix_t const& c) const override {
         size_t block_range = combinatorics::ipow(ElementPolicy::n_block(), rank_);
         size_t block_size = combinatorics::ipow(ElementPolicy::range()
                                                 / ElementPolicy::n_block(), rank_);

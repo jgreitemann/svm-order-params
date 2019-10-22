@@ -133,9 +133,9 @@ public:
             parameters, unsymmetrize);
     }
 
-    virtual void update();
-    virtual void measure();
-    virtual double fraction_completed() const;
+    virtual void update() override;
+    virtual void measure() override;
+    virtual double fraction_completed() const override;
 
 
     /** contents of update **/
@@ -172,8 +172,8 @@ public:
 
     using Base::save;
     using Base::load;
-    virtual void save(alps::hdf5::archive & ar) const;
-    virtual void load(alps::hdf5::archive & ar);
+    virtual void save(alps::hdf5::archive & ar) const override;
+    virtual void load(alps::hdf5::archive & ar) override;
 
     // SVM interface functions
     std::vector<std::string> order_param_names() const {

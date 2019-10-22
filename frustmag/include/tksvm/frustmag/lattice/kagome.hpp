@@ -37,7 +37,7 @@ struct kagome : bravais<Site, 2ul, 3ul> {
 
     static const size_t coordination = 4;
 
-    using Base::bravais;
+    using Base::Base;
 
     auto nearest_neighbors(iterator const& it)
         -> std::array<iterator, coordination>

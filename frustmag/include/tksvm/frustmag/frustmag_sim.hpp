@@ -132,13 +132,13 @@ public:
         return hamiltonian_;
     }
 
-    virtual void update() {
+    virtual void update() override {
         auto acc = update_type::update(hamiltonian_, rng);
         std::copy(acc.begin(), acc.end(), acceptance.begin());
         measurements()["Acceptance"] << acceptance;
     }
 
-    virtual void measure() {
+    virtual void measure() override {
         ++sweeps;
         if (!is_thermalized()) return;
 
@@ -147,7 +147,7 @@ public:
         measurements()["Point"] << std::vector<double>{pt.begin(), pt.end()};
     }
 
-    virtual double fraction_completed() const {
+    virtual double fraction_completed() const override {
         if (total_sweeps > 0 && is_thermalized()) {
             return (sweeps - thermalization_sweeps) / double(total_sweeps);
         }
@@ -157,7 +157,7 @@ public:
 
     using Base::save;
     using Base::load;
-    virtual void save(alps::hdf5::archive & ar) const {
+    virtual void save(alps::hdf5::archive & ar) const override {
         Base::save(ar);
 
         {
@@ -169,7 +169,7 @@ public:
         ar["checkpoint/sweeps"] << sweeps;
         ar["checkpoint/hamiltonian"] << hamiltonian_;
     }
-    virtual void load(alps::hdf5::archive & ar) {
+    virtual void load(alps::hdf5::archive & ar) override {
         Base::load(ar);
 
         {
