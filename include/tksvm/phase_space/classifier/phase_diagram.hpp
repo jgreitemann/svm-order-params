@@ -58,7 +58,7 @@ namespace classifier {
         static void define_parameters(alps::params & params,
                                       std::string const& prefix)
         {
-            params.define<std::string>("classifier.phase_diagram.name", "",
+            params.define<std::string>(prefix + "phase_diagram.name", "",
                                        "key of the phase diagram map entry");
         }
 
