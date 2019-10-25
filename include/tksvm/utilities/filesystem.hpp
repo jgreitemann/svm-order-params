@@ -17,6 +17,7 @@
 #pragma once
 
 #include <algorithm>
+#include <regex>
 #include <string>
 
 
@@ -25,9 +26,13 @@ namespace tksvm {
 inline std::string replace_extension(std::string const& old_path,
                                      std::string const& new_ext)
 {
-    auto slash_pos = old_path.find_last_of('.');
-    auto dot_pos = old_path.find_first_of('.', slash_pos == std::string::npos ? 0 : slash_pos);
-    return (dot_pos == std::string::npos ? old_path : old_path.substr(0, dot_pos)) + new_ext;
+	std::regex re{"(.+?)(\\.ini|\\.h5|\\.txt|\\.ppm|\\.out|\\.clone|\\.test)*"};
+	std::smatch match;
+	if (std::regex_match(old_path, match, re)) {
+		return match[1].str() + new_ext;
+	} else {
+		return old_path + new_ext;
+	}
 }
 
 }
