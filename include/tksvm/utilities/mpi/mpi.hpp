@@ -27,11 +27,12 @@
 
 #include <alps/utilities/mpi.hpp>
 
+#include <tksvm/utilities/void_t.hpp>
+
 
 namespace {
 
-    template <typename...>
-    using void_t = void;
+    using tksvm::void_t;
 
     template <class T, class = void>
     struct is_iterator : std::false_type { };

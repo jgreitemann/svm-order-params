@@ -135,7 +135,6 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        // auto & merge_is = cmdl({"--merge", "-m"});
         std::stringstream merge_is{cmdl({"--merge", "-m"}).str()};
         for (std::string name; std::getline(merge_is, name, ':');) {
             alps::hdf5::archive cp(name, "r");

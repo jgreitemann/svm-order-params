@@ -27,9 +27,38 @@
 
 #include <tksvm/phase_space/classifier.hpp>
 #include <tksvm/phase_space/sweep.hpp>
+#include <tksvm/utilities/void_t.hpp>
 
 
 namespace tksvm {
+
+namespace detail {
+
+    template <typename T, typename = void, typename = void>
+    struct empty_checker {
+        T const&& c;
+        bool empty() const&& {
+            return std::distance(std::begin(c), std::end(c)) == 0;
+        }
+    };
+
+    template <typename T, typename U>
+    struct empty_checker<T, void_t<typename std::enable_if<std::is_same<decltype(std::declval<T const&>().size()), size_t>::value>::type>, U> {
+        T const&& c;
+        bool empty() const&& {
+            return c.size() == 0;
+        }
+    };
+
+    template <typename T>
+    struct empty_checker<T, void_t<typename std::enable_if<std::is_same<decltype(std::declval<T const&>().empty()), bool>::value>::type>, void> {
+        T const&& c;
+        bool empty() const&& {
+            return c.empty();
+        }
+    };
+
+}
 
 template <class Simulation>
 class training_adapter : public Simulation {
@@ -79,8 +108,11 @@ public:
         Simulation::measure();
         if (frac == 0.) return;
         if (frac + 1e-3 >= 1. * (i_sample + 1) / N_sample && i_sample < N_sample) {
-            sample_config(Simulation::configuration(),
-                          Simulation::phase_space_point());
+            decltype(auto) config = Simulation::configuration();
+            using detail::empty_checker;
+            if (!empty_checker<decltype(config)>{config}.empty()) {
+                sample_config(config, Simulation::phase_space_point());
+            }
             ++i_sample;
         }
     }
