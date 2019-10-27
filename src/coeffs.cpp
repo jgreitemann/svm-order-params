@@ -78,7 +78,8 @@ int main(int argc, char** argv) {
         };
 
         log_msg("Reading model...");
-        using model_t = svm::model<kernel_t, sim_base::phase_label>;
+        using label_t = typename phase_space::classifier::policy<phase_point>::label_type;
+        using model_t = svm::model<kernel_t, label_t>;
         using classifier_t = typename model_t::classifier_type;
         using introspec_t = svm::tensor_introspector<classifier_t, 2>;
         model_t model;

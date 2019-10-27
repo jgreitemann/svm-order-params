@@ -48,8 +48,8 @@ using sim_type = tksvm::training_adapter<tksvm::sim_base>;
 using namespace tksvm;
 
 using kernel_t = typename sim_type::kernel_t;
-using label_t = typename sim_type::phase_label;
 using phase_point = typename sim_type::phase_point;
+using label_t = typename phase_space::classifier::policy<phase_point>::label_type;
 using model_t = svm::model<kernel_t, label_t>;
 using problem_t = typename model_t::problem_t;
 

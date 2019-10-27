@@ -123,13 +123,13 @@ int main(int argc, char** argv)
         }();
 
         // get the bias parameters
+        using phase_label = typename phase_space::classifier::policy<phase_point>::label_type;
         struct skeleton_classifier {
-            sim_base::phase_label label1, label2;
+            phase_label label1, label2;
             double rho;
         };
         auto classifiers = [&] {
             using kernel_t = svm::kernel::polynomial<2>;
-            using phase_label = sim_base::phase_label;
             using model_t = svm::model<kernel_t, phase_label>;
 
             std::vector<skeleton_classifier> cl;

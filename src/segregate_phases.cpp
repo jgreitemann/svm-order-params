@@ -50,7 +50,7 @@ using namespace tksvm;
 
 using phase_point = typename sim_base::phase_point;
 using kernel_t = svm::kernel::polynomial<2>;
-using label_t = typename sim_base::phase_label;
+    using label_t = typename phase_space::classifier::policy<phase_point>::label_type;
 using model_t = svm::model<kernel_t, label_t>;
 
 int main(int argc, char** argv)

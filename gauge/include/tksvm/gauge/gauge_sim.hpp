@@ -48,8 +48,6 @@ class gauge_sim : public embarrassing_adapter<phase_space::point::J1J3> {
 public:
     using Base = embarrassing_adapter<phase_space::point::J1J3>;
     using phase_point = phase_space::point::J1J3;
-    using phase_label = typename phase_space::classifier::policy<phase_point>::label_type;
-    using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
 private:
     int L;
     int L2;

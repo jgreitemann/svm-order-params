@@ -66,7 +66,7 @@ public:
     typedef alps::mcbase::parameters_type parameters_type;
 
     using phase_point = typename Simulation::phase_point;
-    using label_t = typename Simulation::phase_label;
+    using label_t = typename phase_space::classifier::policy<phase_point>::label_type;
 
     using kernel_t = svm::kernel::polynomial<2>;
     using problem_t = svm::problem<kernel_t, phase_point>;

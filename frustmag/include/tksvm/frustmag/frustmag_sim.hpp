@@ -58,9 +58,6 @@ struct frustmag_sim : public pt_adapter<typename Hamiltonian::phase_point>
     using lattice_type = typename Hamiltonian::lattice_type;
     using update_type = Update<Hamiltonian>;
 
-    using phase_label = typename phase_space::classifier::policy<phase_point>::label_type;
-    using phase_sweep_policy_type = phase_space::sweep::policy<phase_point>;
-
     template <typename Introspector>
     using config_policy_type = config::policy<lattice_type, Introspector>;
 

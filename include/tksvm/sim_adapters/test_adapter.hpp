@@ -40,7 +40,7 @@ public:
 
     using kernel_t = svm::kernel::polynomial<2>;
     using phase_point = typename Simulation::phase_point;
-    using phase_label = typename Simulation::phase_label;
+    using phase_label = typename phase_space::classifier::policy<phase_point>::label_type;
     using model_t = svm::model<kernel_t, phase_label>;
     using problem_t = svm::problem<kernel_t>;
     using introspec_t = svm::tensor_introspector<typename model_t::classifier_type, 2>;
