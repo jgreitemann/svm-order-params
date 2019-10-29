@@ -47,7 +47,7 @@ namespace classifier {
         {
             auto sweep_pol = phase_space::sweep::from_parameters<point_type>(
                 parameters, "sweep.");
-            std::mt19937 rng{parameters["SEED"].as<size_t>()};
+            std::mt19937 rng{parameters["SEED"].as<std::mt19937::result_type>()};
             std::generate_n(std::back_inserter(points), sweep_pol->size(),
                 [&, p=point_type{}]() mutable {
                     sweep_pol->yield(p, rng);

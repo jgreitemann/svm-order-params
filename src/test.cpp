@@ -106,7 +106,7 @@ int main(int argc, char** argv)
             std::vector<phase_point> points;
             auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(
                 parameters, "test.");
-            std::mt19937 rng{parameters["SEED"].as<size_t>() + 1};
+            std::mt19937 rng{parameters["SEED"].as<std::mt19937::result_type>() + 1};
             std::generate_n(std::back_inserter(points), sweep_pol->size(),
                 [&, p=phase_point{}]() mutable {
                     sweep_pol->yield(p, rng);
