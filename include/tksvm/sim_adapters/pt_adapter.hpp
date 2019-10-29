@@ -151,7 +151,7 @@ struct pt_adapter : public alps::mcbase {
             size_t n = std::accumulate(measurements().begin(),
                 measurements().end(), 0ul,
                 [](size_t total, auto const& pair) {
-                    return std::max(total, pair.second->count());
+                    return std::max(total, static_cast<size_t>(pair.second->count()));
                 });
             if (n == 0)
                 slice_measurements.erase(slice_it);
@@ -224,7 +224,7 @@ struct pt_adapter : public alps::mcbase {
             size_t n = std::accumulate(it->second.begin(),
                 it->second.end(), 0ul,
                 [](size_t total, auto const& pair) {
-                    return std::max(total, pair.second->count());
+                    return std::max(total, static_cast<size_t>(pair.second->count()));
                 });
             if (n > 0) {
                 auto path = gen_path(i);
