@@ -36,7 +36,7 @@ namespace detail {
 
     template <typename T, typename = void, typename = void>
     struct empty_checker {
-        T const&& c;
+        T const& c;
         bool empty() const&& {
             return std::distance(std::begin(c), std::end(c)) == 0;
         }
@@ -44,7 +44,7 @@ namespace detail {
 
     template <typename T, typename U>
     struct empty_checker<T, void_t<typename std::enable_if<std::is_same<decltype(std::declval<T const&>().size()), size_t>::value>::type>, U> {
-        T const&& c;
+        T const& c;
         bool empty() const&& {
             return c.size() == 0;
         }
@@ -52,7 +52,7 @@ namespace detail {
 
     template <typename T>
     struct empty_checker<T, void_t<typename std::enable_if<std::is_same<decltype(std::declval<T const&>().empty()), bool>::value>::type>, void> {
-        T const&& c;
+        T const& c;
         bool empty() const&& {
             return c.empty();
         }
