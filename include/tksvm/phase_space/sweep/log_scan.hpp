@@ -78,10 +78,11 @@ namespace sweep {
             for (size_t i = 0; i < point_type::label_dim;
                  ++i, ++it_a, ++it_b, ++it)
             {
+                double x = (N == 1) ? 0 : 1. * n / (N - 1);
                 if (is_log[i])
-                    *it = *it_a * pow(*it_b / *it_a, 1. * n / (N - 1));
+                    *it = *it_a * pow(*it_b / *it_a, x);
                 else
-                    *it = *it_a + (*it_b - *it_a) * n / (N - 1);
+                    *it = *it_a + (*it_b - *it_a) * x;
             }
             n = (n + 1) % size();
             return true;

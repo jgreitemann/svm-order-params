@@ -66,7 +66,7 @@ namespace sweep {
         bool yield (point_type & point) {
             auto it_a = a.begin();
             auto it_b = b.begin();
-            double x = 1. * n / (N - 1);
+            double x = (N == 1) ? 0. : 1. * n / (N - 1);
             for (auto & c : point) {
                 c = *it_b * x + *it_a * (1. - x);
                 ++it_a, ++it_b;
