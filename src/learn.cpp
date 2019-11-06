@@ -123,7 +123,7 @@ int main(int argc, char** argv)
 
         phase_point first_point;
         if (parameters.is_restored()) {
-            std::string checkpoint_file = parameters["checkpoint"].as<std::string>();
+            std::string checkpoint_file = alps::origin_name(parameters);
             alps::hdf5::archive cp(checkpoint_file, "r");
             first_point = process_archive(cp);
         } else {
