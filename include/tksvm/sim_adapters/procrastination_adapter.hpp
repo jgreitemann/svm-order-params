@@ -61,9 +61,9 @@ public:
         if (!config_buffer.empty()) {
             config::serializer<config_array> serializer;
             size_t config_size = [&] {
-                auto config = Simulation::configuration();
                 std::vector<double> dummy;
-                serializer.serialize(config, std::back_inserter(dummy));
+                serializer.serialize(config_buffer[0].first,
+                                     std::back_inserter(dummy));
                 return dummy.size();
             }();
             boost::multi_array<double, 2> buffer_multi_array(
