@@ -50,7 +50,6 @@ public:
     using config_array = typename config_policy_t::config_array;
 
     procrastination_adapter(parameters_type & parms,
-                            double const& global_progress,
                             std::size_t seed_offset = 0)
         : Base(parms, seed_offset)
     {
