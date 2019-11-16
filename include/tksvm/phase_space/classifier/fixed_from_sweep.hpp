@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <limits>
 #include <random>
 #include <sstream>
 #include <string>
@@ -45,14 +46,28 @@ namespace classifier {
         fixed_from_sweep(alps::params const& parameters,
                          std::string const&)
         {
-            auto sweep_pol = phase_space::sweep::from_parameters<point_type>(
-                parameters, "sweep.");
-            std::mt19937 rng{parameters["SEED"].as<std::mt19937::result_type>()};
-            std::generate_n(std::back_inserter(points), sweep_pol->size(),
-                [&, p=point_type{}]() mutable {
+            point::distance<point_type> dist;
+            auto process = [&](alps::params const& parameters) {
+                auto sweep_pol = phase_space::sweep::from_parameters<point_type>(
+                    parameters, "sweep.");
+                std::mt19937 rng{parameters["SEED"].as<std::mt19937::result_type>()};
+                point_type p;
+                for (size_t i = 0; i < sweep_pol->size(); ++i) {
                     sweep_pol->yield(p, rng);
-                    return p;
-                });
+                    double min_dist = std::numeric_limits<double>::max();
+                    for (auto const& pp : points)
+                        min_dist = std::min(min_dist, dist(p, pp));
+                    if (min_dist > 1e-5)
+                        points.push_back(p);
+                }
+            };
+            process(parameters);
+            std::stringstream merge_is{parameters["merge"].as<std::string>()};
+            for (std::string name; std::getline(merge_is, name, ':');) {
+                const char* argv[] = {"", name.c_str()};
+                alps::params merged_params(2, argv);
+                process(merged_params);
+            }
         }
 
         virtual label_type operator()(point_type pp) override {
