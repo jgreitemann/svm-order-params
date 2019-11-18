@@ -70,6 +70,8 @@ int main(int argc, char** argv)
             parameters.define<double>("nu", 0.5, "nu_SVC regularization parameter");
             parameters.define<size_t>("progress_interval", 3,
                                       "time in sec between progress reports");
+            parameters.define<std::string>("merge", "", "file names of *.clone.h5 "
+                "whose samples are to be merged into this one");
         }
 
         if (parameters.help_requested(std::cout) ||
@@ -135,7 +137,7 @@ int main(int argc, char** argv)
             return 1;
         }
 
-        std::stringstream merge_is{cmdl({"--merge", "-m"}).str()};
+        std::stringstream merge_is{parameters["merge"].as<std::string>()};
         for (std::string name; std::getline(merge_is, name, ':');) {
             alps::hdf5::archive cp(name, "r");
             process_archive(cp);

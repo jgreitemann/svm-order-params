@@ -83,14 +83,16 @@ public:
     virtual void load (alps::hdf5::archive & ar) override {
         Base::load(ar);
 
-        boost::multi_array<double, 2> buffer_multi_array;
-        ar["training/config_buffer"] >> buffer_multi_array;
-        config::serializer<config_array> serializer;
-        for (auto const& row : buffer_multi_array) {
-            config_buffer.push_back({Simulation::configuration(),
-                {row.begin()}});
-            auto col_it = row.begin() + phase_point::label_dim;
-            serializer.deserialize(col_it, config_buffer.back().first);
+        if (ar.is_data("training/config_buffer")) {
+            boost::multi_array<double, 2> buffer_multi_array;
+            ar["training/config_buffer"] >> buffer_multi_array;
+            config::serializer<config_array> serializer;
+            for (auto const& row : buffer_multi_array) {
+                config_buffer.push_back({Simulation::random_configuration(),
+                                        {row.begin()}});
+                auto col_it = row.begin() + phase_point::label_dim;
+                serializer.deserialize(col_it, config_buffer.back().first);
+            }
         }
     }
 
