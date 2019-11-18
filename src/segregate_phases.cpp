@@ -164,10 +164,11 @@ int main(int argc, char** argv)
             process_sweep(parameters);
 
             // push points from sweep policies of merged clones
-            std::stringstream merge_is{parameters["merge"].as<std::string>()};
-            for (std::string name; std::getline(merge_is, name, ':');) {
-                const char* argv[] = {"", name.c_str()};
-                alps::params merged_params(2, argv);
+            alps::hdf5::archive ar(alps::origin_name(parameters), "r");
+            std::string path;
+            for (size_t i = 0; ar.is_group(path = "/merged_parameters/" + std::to_string(i)); ++i) {
+                alps::params merged_params;
+                ar[path] >> merged_params;
                 process_sweep(merged_params);
             }
 
