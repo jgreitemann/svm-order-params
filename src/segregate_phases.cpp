@@ -142,10 +142,38 @@ int main(int argc, char** argv)
     std::map<label_t, size_t> index_map;
     std::vector<label_t> labels;
     size_t graph_dim = [&] {
-        auto grid_sweep = phase_space::sweep::from_parameters<phase_point>(
-            parameters, "sweep.");
-        auto classifier = phase_space::classifier::from_parameters<phase_point>(
-            parameters, "classifier.");
+        auto unique_phase_points = [&] {
+            auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(
+                parameters, "sweep.");
+            std::vector<phase_point> points;
+            phase_space::point::distance<phase_point> dist;
+            auto process_sweep = [&](alps::params const& parameters) {
+                auto sweep_pol = phase_space::sweep::from_parameters<phase_point>(
+                    parameters, "sweep.");
+                std::mt19937 rng{parameters["SEED"].as<std::mt19937::result_type>()};
+                phase_point p;
+                for (size_t i = 0; i < sweep_pol->size(); ++i) {
+                    sweep_pol->yield(p, rng);
+                    double min_dist = std::numeric_limits<double>::max();
+                    for (auto const& pp : points)
+                        min_dist = std::min(min_dist, dist(p, pp));
+                    if (min_dist > 1e-5)
+                        points.push_back(p);
+                }
+            };
+            process_sweep(parameters);
+
+            // push points from sweep policies of merged clones
+            alps::hdf5::archive ar(alps::origin_name(parameters), "r");
+            std::string path;
+            for (size_t i = 0; ar.is_group(path = "/merged_parameters/" + std::to_string(i)); ++i) {
+                alps::params merged_params;
+                ar[path] >> merged_params;
+                process_sweep(merged_params);
+            }
+
+            return points;
+        }();
 
         // read mask if specified
         std::vector<int> mask = [&] {
@@ -158,7 +186,7 @@ int main(int argc, char** argv)
                     if (!is) {
                         std::cerr << "unable to open mask file: " << mask_name
                                   << "\tskipping...\n";
-                        return std::vector<int>(grid_sweep->size(), 1);
+                        return std::vector<int>(unique_phase_points.size(), 1);
                     }
                     phase_point p;
                     std::vector<int> mask;
@@ -171,7 +199,7 @@ int main(int argc, char** argv)
                         mask.emplace_back();
                         is >> mask.back();
                     }
-                    if (mask.size() != grid_sweep->size())
+                    if (mask.size() != unique_phase_points.size())
                         throw std::runtime_error("inconsistent mask size");
                     return mask;
                 };
@@ -187,18 +215,17 @@ int main(int argc, char** argv)
                 }
                 return combined_mask;
             }
-            return std::vector<int>(grid_sweep->size(), 1);
+            return std::vector<int>(unique_phase_points.size(), 1);
         }();
 
-        phase_point p;
+        auto classifier = phase_space::classifier::from_parameters<phase_point>(
+            parameters, "classifier.");
         std::ofstream os("vertices.txt");
-        std::mt19937 dummy_rng(42);
-        size_t j = 0;
-        for (size_t i = 0; i < grid_sweep->size(); ++i) {
-            grid_sweep->yield(p, dummy_rng);
+        size_t i = 0, j = 0;
+        for (auto const& p : unique_phase_points) {
             auto l = (*classifier)(p);
             phase_points[l] = p;
-            if (!mask[i])
+            if (!mask[i++])
                 continue;
             labels.push_back(l);
             index_map[l] = j++;

@@ -138,8 +138,11 @@ int main(int argc, char** argv)
         }
 
         std::stringstream merge_is{parameters["merge"].as<std::string>()};
+        std::vector<alps::params> all_merged_params;
         for (std::string name; std::getline(merge_is, name, ':');) {
             alps::hdf5::archive cp(name, "r");
+            all_merged_params.emplace_back();
+            cp["/parameters"] >> all_merged_params.back();
             process_archive(cp);
         }
 
@@ -192,6 +195,10 @@ int main(int argc, char** argv)
             alps::hdf5::archive ar(output_file, "w");
             ar["/parameters"] << parameters;
             ar["/model"] << serial;
+
+            // Save parameters of merged clones
+            for (size_t i = 0; i < all_merged_params.size(); ++i)
+                ar["/merged_parameters/" + std::to_string(i)] << all_merged_params[i];
         }
         return 0;
     } catch (const std::exception& exc) {
