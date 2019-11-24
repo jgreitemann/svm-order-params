@@ -220,12 +220,16 @@ int main(int argc, char** argv)
 
         auto classifier = phase_space::classifier::from_parameters<phase_point>(
             parameters, "classifier.");
+        auto model_labels = model.labels();
         std::ofstream os("vertices.txt");
         size_t i = 0, j = 0;
         for (auto const& p : unique_phase_points) {
             auto l = (*classifier)(p);
             phase_points[l] = p;
             if (!mask[i++])
+                continue;
+            if (std::find(model_labels.begin(), model_labels.end(), l)
+                    == model_labels.end())
                 continue;
             labels.push_back(l);
             index_map[l] = j++;
