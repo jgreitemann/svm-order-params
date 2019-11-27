@@ -61,6 +61,8 @@ Contents
   - [Parallel tempering](#parallel-tempering)
 * [License](#license)
 
+A [Changelog](CHANGELOG.md) is provided separately.
+
 Dependencies
 ------------
 
