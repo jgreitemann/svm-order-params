@@ -14,16 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-// #include "argh.h"
-// #include "config_sim_base.hpp"
-// #include "dispatcher.hpp"
-// #include "embarrassing_adapter.hpp"
-// #include "filesystem.hpp"
-// #include "mpi.hpp"
-// #include "pt_adapter.hpp"
-// #include "svm-wrapper.hpp"
-// #include "test_adapter.hpp"
-
 #include <algorithm>
 #include <cmath>
 #include <exception>
