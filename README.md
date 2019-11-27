@@ -576,12 +576,12 @@ of connected components within the graph. We recommend to choose _ρ<sub>c</sub>
 such that the graph consists of a single connected component, _i.e._ a slightly
 larger value of _ρ<sub>c</sub>_ would lead to a degeneracy of eigenvalue zero.
 For the above example of the _D<sub>2h</sub>_ symmetry, this sweet spot happens
-to be achieved at around _ρ<sub>c</sub>=1.6_, but your mileage may vary:
+to be achieved at around _ρ<sub>c</sub>=0.9_, but your mileage may vary:
 
 ```bash
-$ gauge-segregate-phases D2h-grid.out.h5 --rhoc=1.7
+$ gauge-segregate-phases D2h-grid.out.h5 --rhoc=1.0
 Degeneracy of smallest eval: 2
-$ gauge-segregate-phases D2h-grid.out.h5 --rhoc=1.6
+$ gauge-segregate-phases D2h-grid.out.h5 --rhoc=0.9
 Degeneracy of smallest eval: 1
 ```
 
